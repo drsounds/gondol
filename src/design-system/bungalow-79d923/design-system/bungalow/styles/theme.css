@@ -1,0 +1,226 @@
+@font-face {
+  font-family: "Bungalow Sans";
+  src: url("../assets/fonts/bungalow-sans-extended.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bungalow Sans";
+  src: url("../assets/fonts/bungalow-sans-bold-extended.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Bungalow Icons";
+  src: url("../assets/fonts/bungalow-icons.woff2") format("woff2"),
+    url("../assets/fonts/bungalow-icons.woff") format("woff"),
+    url("../assets/fonts/bungalow-icons.ttf") format("truetype");
+  font-style: normal;
+  font-weight: normal;
+  font-display: block;
+}
+
+:root {
+  --bungalow-font-sans: "Bungalow Sans", Arial, sans-serif;
+
+  --bungalow-color-canvas: #ffffff;
+  --bungalow-color-ink: #111111;
+  --bungalow-color-muted: #686868;
+  --bungalow-color-surface: #f2f2f2;
+  --bungalow-color-surface-strong: #dedede;
+  --bungalow-color-border: transparent; /* #c8c8c8; */
+
+  --bungalow-color-success: #14d82c;
+  --bungalow-color-success-soft: #e7fae9;
+  --bungalow-color-warning: #ff9100;
+  --bungalow-color-warning-soft: #fff2df;
+  --bungalow-color-danger: #f3132b;
+  --bungalow-color-danger-soft: #ffe7e9;
+  --bungalow-color-info: #0797eb;
+  --bungalow-color-info-soft: #e6f5fd;
+  --bungalow-color-primary: #dbbb67;
+  /* Soft/strong tints are derived from the accent instead of hard-coded so a
+     user-picked accent color (see src/lib/accentColor.tsx) automatically gets
+     matching tints without any extra state to keep in sync. */
+  --bungalow-color-primary-soft: color-mix(in srgb, var(--bungalow-color-primary) 22%, var(--bungalow-color-canvas));
+  --bungalow-color-primary-strong: color-mix(in srgb, var(--bungalow-color-primary) 55%, black);
+  /* Text color to put on top of a solid --bungalow-color-primary background.
+     Falls back to --bungalow-color-ink (correct for the default gold accent);
+     browsers that support the CSS contrast-color() function get an accurate
+     black/white pick for whatever accent the user chooses below. */
+  --bungalow-color-primary-contrast: var(--bungalow-color-ink);
+
+  --bungalow-space-1: 0.25rem;
+  --bungalow-space-2: 0.5rem;
+  --bungalow-space-3: 0.75rem;
+  --bungalow-space-4: 1rem;
+  --bungalow-space-5: 1.5rem;
+  --bungalow-space-6: 2rem;
+  --bungalow-space-7: 3rem;
+  --bungalow-space-8: 4rem;
+
+  --bungalow-radius-sm: 0.25rem;
+  --bungalow-radius-pill: 999px;
+  --bungalow-shadow-raised: 0 0.25rem 1rem rgb(17 17 17 / 0.1);
+  --bungalow-focus-ring: 0 0 0 0.125rem var(--bungalow-color-canvas), 0 0 0 0.25rem var(--bungalow-color-ink);
+}
+
+/* Progressive enhancement: pick an accurate black/white contrast color for
+   whatever accent the user has chosen, using the CSS contrast-color() API. */
+@supports (color: contrast-color(#fff)) {
+  :root {
+    --bungalow-color-primary-contrast: contrast-color(var(--bungalow-color-primary));
+  }
+}
+
+.bungalow-root {
+  color: var(--bungalow-color-ink);
+  background: var(--bungalow-color-canvas);
+  font-family: var(--bungalow-font-sans);
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.bungalow-root *,
+.bungalow-root *::before,
+.bungalow-root *::after {
+  box-sizing: border-box;
+}
+
+.bungalow-button {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--bungalow-radius-pill);
+  cursor: pointer;
+  display: inline-flex;
+  font: 700 0.8125rem/1 var(--bungalow-font-sans);
+  justify-content: center;
+  min-width: 5.5rem;
+  transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+}
+.data-table tr td, .data-table tr th {
+  border-bottom: 1px solid rgba(127, 127, 127, .25);
+}
+.bungalow-button:hover:not(:disabled) { border-color: var(--button-color, var(--bungalow-color-ink)); scale: 1.05; }
+.bungalow-button:active:not(:disabled) { scale: 0.95; }
+.bungalow-button:focus-visible { outline: none; box-shadow: var(--bungalow-focus-ring); }
+.bungalow-button:disabled { cursor: not-allowed; opacity: 0.42; }
+.bungalow-button--sm { height: 1.75rem; padding: 0 var(--bungalow-space-3); }
+.bungalow-button--md { height: 2.25rem; padding: 0 var(--bungalow-space-4); }
+.bungalow-button--lg { height: 2.75rem; padding: 0 var(--bungalow-space-5); }
+.bungalow-button--solid { background: var(--button-color, var(--bungalow-color-ink)); color: var(--button-contrast, var(--bungalow-color-canvas)); }
+.bungalow-button--outline { background: var(--bungalow-color-canvas); border-color: #888; color: var(--button-color, var(--bungalow-color-ink)); }
+.bungalow-button--ghost { background: transparent; color: var(--button-color, var(--bungalow-color-ink)); }
+.bungalow-tone-default { --button-color: var(--bungalow-color-surface-strong); --button-contrast: var(--bungalow-color-ink); }
+.bungalow-tone-success { --button-color: var(--bungalow-color-success); --button-contrast: var(--bungalow-color-ink); }
+.bungalow-tone-warning { --button-color: var(--bungalow-color-warning); --button-contrast: var(--bungalow-color-ink); }
+.bungalow-tone-danger { --button-color: var(--bungalow-color-danger); --button-contrast: var(--bungalow-color-canvas); }
+.bungalow-tone-info { --button-color: var(--bungalow-color-info); --button-contrast: var(--bungalow-color-canvas); }
+.bungalow-tone-contrast { --button-color: var(--bungalow-color-ink); --button-contrast: var(--bungalow-color-canvas); }
+.bungalow-tone-primary { --button-color: var(--bungalow-color-primary); --button-contrast: var(--bungalow-color-primary-contrast); }
+
+.bungalow-badge { align-items: center; border-radius: var(--bungalow-radius-pill); display: inline-flex; font: 700 0.6875rem/1 var(--bungalow-font-sans); min-height: 1.5rem; padding: 0 var(--bungalow-space-3); }
+.bungalow-badge--default { background: var(--bungalow-color-surface-strong); color: var(--bungalow-color-ink); }
+.bungalow-badge--success { background: var(--bungalow-color-success); color: var(--bungalow-color-ink); }
+.bungalow-badge--warning { background: var(--bungalow-color-warning); color: var(--bungalow-color-ink); }
+.bungalow-badge--danger { background: var(--bungalow-color-danger); color: var(--bungalow-color-canvas); }
+.bungalow-badge--info { background: var(--bungalow-color-info); color: var(--bungalow-color-canvas); }
+.bungalow-badge--contrast { background: var(--bungalow-color-ink); color: var(--bungalow-color-canvas); }
+.bungalow-badge--primary { background: var(--bungalow-color-primary); color: var(--bungalow-color-primary-contrast); }
+
+.bungalow-alert { align-items: center; background: var(--alert-color); color: var(--alert-contrast); display: flex; font-size: 0.8125rem; gap: var(--bungalow-space-2); min-height: 2.25rem; padding: var(--bungalow-space-2) var(--bungalow-space-3); }
+.bungalow-alert__mark { border: 1px solid currentColor; border-radius: 50%; display: grid; font-size: 0.625rem; height: 1rem; place-items: center; width: 1rem; }
+.bungalow-alert--default { --alert-color: var(--bungalow-color-surface-strong); --alert-contrast: var(--bungalow-color-ink); }
+.bungalow-alert--success { --alert-color: var(--bungalow-color-success); --alert-contrast: var(--bungalow-color-ink); }
+.bungalow-alert--warning { --alert-color: var(--bungalow-color-warning); --alert-contrast: var(--bungalow-color-ink); }
+.bungalow-alert--danger { --alert-color: var(--bungalow-color-danger); --alert-contrast: var(--bungalow-color-canvas); }
+.bungalow-alert--info { --alert-color: var(--bungalow-color-info); --alert-contrast: var(--bungalow-color-canvas); }
+.bungalow-alert--contrast { --alert-color: var(--bungalow-color-ink); --alert-contrast: var(--bungalow-color-canvas); }
+.bungalow-alert--primary { --alert-color: var(--bungalow-color-primary); --alert-contrast: var(--bungalow-color-primary-contrast); }
+
+.bungalow-field { display: grid; gap: var(--bungalow-space-1); }
+.bungalow-label { font-size: 0.75rem; font-weight: 700; }
+.bungalow-input, .bungalow-select { appearance: none; background: var(--bungalow-color-canvas); border: 1px solid var(--bungalow-color-border); border-radius: var(--bungalow-radius-sm); color: var(--bungalow-color-ink); font: 400 0.875rem/1 var(--bungalow-font-sans); height: 2.5rem; padding: 0 var(--bungalow-space-3); width: 100%; }
+.bungalow-select { background-image: linear-gradient(45deg, transparent 50%, var(--bungalow-color-ink) 50%), linear-gradient(135deg, var(--bungalow-color-ink) 50%, transparent 50%); background-position: calc(100% - 1rem) 1rem, calc(100% - 0.75rem) 1rem; background-repeat: no-repeat; background-size: 0.25rem 0.25rem; padding-right: var(--bungalow-space-6); }
+.bungalow-input:focus, .bungalow-select:focus { border-color: var(--bungalow-color-ink); outline: none; box-shadow: var(--bungalow-focus-ring); }
+.bungalow-input[aria-invalid="true"] { border-color: var(--bungalow-color-danger); }
+.bungalow-help { color: var(--bungalow-color-muted); font-size: 0.6875rem; }
+.bungalow-help--error { color: var(--bungalow-color-danger); }
+.bungalow-input:disabled, .bungalow-select:disabled { background: var(--bungalow-color-surface); cursor: not-allowed; opacity: 0.72; }
+
+.bungalow-check { align-items: center; cursor: pointer; display: inline-flex; font-size: 0.8125rem; gap: var(--bungalow-space-2); }
+.bungalow-check input { accent-color: var(--bungalow-color-ink); height: 1rem; width: 1rem; }
+.bungalow-check input:focus-visible { outline: none; box-shadow: var(--bungalow-focus-ring); }
+.bungalow-check--disabled { cursor: not-allowed; opacity: 0.48; }
+
+.bungalow-accordion { border-bottom: 1px solid var(--bungalow-color-border); border-top: 1px solid var(--bungalow-color-border); }
+.bungalow-accordion summary { cursor: pointer; font-size: 0.875rem; font-weight: 700; list-style: none; padding: var(--bungalow-space-3) 0; }
+.bungalow-accordion summary::-webkit-details-marker { display: none; }
+.bungalow-accordion summary::after { content: "+"; float: right; }
+.bungalow-accordion[open] summary::after { content: "−"; }
+.bungalow-accordion summary:focus-visible { outline: none; box-shadow: var(--bungalow-focus-ring); }
+.bungalow-accordion__content { color: var(--bungalow-color-muted); font-size: 0.8125rem; padding: 0 0 var(--bungalow-space-4); }
+
+.bungalow-card { background: var(--bungalow-color-canvas); border: 1px solid var(--bungalow-color-border); border-radius: var(--bungalow-radius-sm); padding: var(--bungalow-space-5); }
+.bungalow-toast { align-items: start; background: var(--bungalow-color-canvas); box-shadow: var(--bungalow-shadow-raised); display: flex; gap: var(--bungalow-space-3); max-width: 22rem; padding: var(--bungalow-space-3); }
+.bungalow-toast__dot { background: var(--toast-color); border-radius: 50%; flex: 0 0 auto; height: 0.625rem; margin-top: 0.25rem; width: 0.625rem; }
+.bungalow-toast__content { flex: 1; }
+.bungalow-toast__title { font-size: 0.8125rem; font-weight: 700; }
+.bungalow-toast__message { color: var(--bungalow-color-muted); font-size: 0.75rem; }
+.bungalow-toast--success { --toast-color: var(--bungalow-color-success); }
+.bungalow-toast--warning { --toast-color: var(--bungalow-color-warning); }
+.bungalow-toast--danger { --toast-color: var(--bungalow-color-danger); }
+.bungalow-toast--info { --toast-color: var(--bungalow-color-info); }
+
+/* bungalow-icons:start (generated by scripts/icon-font/generate.py - do not hand-edit) */
+[class^="bungalow-icon-"]::before,
+[class*=" bungalow-icon-"]::before {
+  font-family: "Bungalow Icons";
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  display: inline-block;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.bungalow-icon-banknote::before { content: "\e91d"; }
+.bungalow-icon-calendar::before { content: "\e915"; }
+.bungalow-icon-calendar-alt::before { content: "\e916"; }
+.bungalow-icon-clock::before { content: "\e914"; }
+.bungalow-icon-coin::before { content: "\e91c"; }
+.bungalow-icon-compass::before { content: "\e901"; }
+.bungalow-icon-credit-card::before { content: "\e91e"; }
+.bungalow-icon-credit-card-alt::before { content: "\e91f"; }
+.bungalow-icon-date::before { content: "\e917"; }
+.bungalow-icon-document::before { content: "\e902"; }
+.bungalow-icon-edit::before { content: "\e907"; }
+.bungalow-icon-folder-open::before { content: "\e906"; }
+.bungalow-icon-forward::before { content: "\e90b"; }
+.bungalow-icon-home::before { content: "\e900"; }
+.bungalow-icon-jump-back-15s::before { content: "\e90f"; }
+.bungalow-icon-jump-forward-15s::before { content: "\e910"; }
+.bungalow-icon-like::before { content: "\e91a"; }
+.bungalow-icon-like-fill::before { content: "\e91b"; }
+.bungalow-icon-minus::before { content: "\e904"; }
+.bungalow-icon-moon::before { content: "\e918"; }
+.bungalow-icon-pause::before { content: "\e909"; }
+.bungalow-icon-play::before { content: "\e908"; }
+.bungalow-icon-plus::before { content: "\e903"; }
+.bungalow-icon-record::before { content: "\e90a"; }
+.bungalow-icon-recycle-bin::before { content: "\e905"; }
+.bungalow-icon-repeat::before { content: "\e919"; }
+.bungalow-icon-rewind::before { content: "\e90e"; }
+.bungalow-icon-settings::before { content: "\e920"; }
+.bungalow-icon-skip-to-next::before { content: "\e90c"; }
+.bungalow-icon-skip-to-prev::before { content: "\e90d"; }
+.bungalow-icon-stop::before { content: "\e911"; }
+.bungalow-icon-three-dots-h::before { content: "\e922"; }
+.bungalow-icon-three-dots-v::before { content: "\e923"; }
+.bungalow-icon-timer::before { content: "\e921"; }
+.bungalow-icon-user::before { content: "\e912"; }
+.bungalow-icon-users::before { content: "\e913"; }
+/* bungalow-icons:end */

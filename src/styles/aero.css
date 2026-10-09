@@ -1,0 +1,342 @@
+/* ── 3D Frutiger Aero theme engine (src/lib/aeroTheme.ts) ────────────────────
+   Ported from drsounds/space-chat's "Bungalow Aero Glass & Glossy Chrome"
+   utilities (glass panels, glossy chrome header/footer, tactile pill buttons
+   split at 48/52%, recessed inputs, WMP11 tabs, glossy scrollbars, ambient
+   glows) and applied to spacify's own shell instead of per-component classes.
+
+   Everything is scoped to :root[data-theme-engine="aero"], which the theme
+   engine sets together with --aero-tint / --aero-accent (the chosen taste).
+   data-color-scheme picks space-chat's deep navy glass (dark) or a bright
+   sky-glass variant (light). data-aero-ambient adds the glows and bubbles,
+   data-aero-glass makes the panels translucent and frosted. */
+
+:root[data-theme-engine="aero"] {
+  --aero-tint: #00a2ed;
+  --aero-accent: #38bdf8;
+  --app-frame-radius: 1rem;
+
+  /* Light: sky glass. */
+  --aero-frame:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--aero-tint) 30%, #ffffff) 0%,
+      color-mix(in srgb, var(--aero-tint) 12%, #ffffff) 45%,
+      color-mix(in srgb, var(--aero-accent) 10%, #ffffff) 100%);
+  --aero-panel-alpha: 72%;
+  --aero-panel-border: rgb(255 255 255 / 0.85);
+  --aero-panel-highlight: rgb(255 255 255 / 0.95);
+  --aero-panel-shadow: 0 8px 32px color-mix(in srgb, var(--aero-tint) 18%, transparent), 0 1px 3px rgb(0 0 0 / 0.08);
+  --aero-chrome:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.95) 0%,
+      color-mix(in srgb, var(--aero-tint) 10%, #ffffff) 50%,
+      color-mix(in srgb, var(--aero-tint) 20%, #ffffff) 51%,
+      color-mix(in srgb, var(--aero-tint) 28%, #ffffff) 100%);
+  --aero-chrome-edge: rgb(0 0 0 / 0.12);
+  --aero-gloss:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.98) 0%,
+      rgb(255 255 255 / 0.7) 48%,
+      color-mix(in srgb, var(--aero-tint) 10%, #ffffff) 52%,
+      color-mix(in srgb, var(--aero-tint) 20%, #ffffff) 100%);
+  --aero-gloss-hover:
+    linear-gradient(180deg,
+      #ffffff 0%,
+      rgb(255 255 255 / 0.85) 48%,
+      color-mix(in srgb, var(--aero-tint) 18%, #ffffff) 52%,
+      color-mix(in srgb, var(--aero-tint) 30%, #ffffff) 100%);
+  --aero-gloss-border: rgb(0 0 0 / 0.14);
+  --aero-recessed: rgb(255 255 255 / 0.85);
+  --aero-recessed-shadow: inset 0 2px 4px rgb(0 0 0 / 0.12), inset 0 0 0 1px rgb(0 0 0 / 0.04);
+  --aero-tab-active:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.95) 0%,
+      rgb(255 255 255 / 0.6) 50%,
+      color-mix(in srgb, var(--aero-tint) 16%, transparent) 100%);
+  --aero-stripe: color-mix(in srgb, var(--aero-tint) 5%, transparent);
+  --aero-bubble: rgb(255 255 255 / 0.55);
+}
+
+:root[data-theme-engine="aero"][data-color-scheme="dark"] {
+  /* Dark: space-chat's deep navy glass. */
+  --aero-frame:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--aero-tint) 8%, #0a0e17) 0%,
+      #0a0e17 60%,
+      color-mix(in srgb, var(--aero-accent) 6%, #070b14) 100%);
+  --aero-panel-alpha: 68%;
+  --aero-panel-border: rgb(255 255 255 / 0.1);
+  --aero-panel-highlight: rgb(255 255 255 / 0.15);
+  --aero-panel-shadow: 0 8px 32px rgb(0 0 0 / 0.45);
+  --aero-chrome:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--aero-tint) 10%, rgb(30 48 80 / 0.92)) 0%,
+      rgb(18 28 48 / 0.95) 50%,
+      rgb(13 20 36 / 0.98) 100%);
+  --aero-chrome-edge: rgb(0 0 0 / 0.6);
+  --aero-gloss:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.16) 0%,
+      rgb(255 255 255 / 0.04) 48%,
+      rgb(0 0 0 / 0.25) 52%,
+      rgb(0 0 0 / 0.38) 100%);
+  --aero-gloss-hover:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.28) 0%,
+      rgb(255 255 255 / 0.1) 48%,
+      rgb(0 0 0 / 0.18) 52%,
+      rgb(0 0 0 / 0.28) 100%);
+  --aero-gloss-border: rgb(255 255 255 / 0.2);
+  --aero-recessed: rgb(8 12 22 / 0.75);
+  --aero-recessed-shadow: inset 0 2px 4px rgb(0 0 0 / 0.6), inset 0 0 0 1px rgb(0 0 0 / 0.3);
+  --aero-tab-active:
+    linear-gradient(180deg,
+      rgb(255 255 255 / 0.22) 0%,
+      rgb(255 255 255 / 0.08) 50%,
+      rgb(14 23 42 / 0.6) 100%);
+  --aero-stripe: rgb(255 255 255 / 0.03);
+  --aero-bubble: rgb(255 255 255 / 0.14);
+  --bungalow-color-border: rgb(255 255 255 / 0.08);
+}
+
+/* ── Frame and ambient light ─────────────────────────────────────────────── */
+
+:root[data-theme-engine="aero"] body,
+:root[data-theme-engine="aero"] .app-frame {
+  background: var(--aero-frame);
+  background-attachment: fixed;
+}
+
+/* Two soft glows in the taste's colors plus a few glossy "3D" bubbles, each a
+   bright specular spot over a faint sphere. */
+:root[data-theme-engine="aero"][data-aero-ambient] body,
+:root[data-theme-engine="aero"][data-aero-ambient] .app-frame {
+  background:
+    radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.8) 0, transparent 0.6rem) 8% 82% / 7rem 7rem no-repeat,
+    radial-gradient(circle at 50% 50%, transparent 2.4rem, var(--aero-bubble) 3.2rem, transparent 3.3rem) 8% 82% / 7rem 7rem no-repeat,
+    radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.7) 0, transparent 0.35rem) 94% 18% / 4rem 4rem no-repeat,
+    radial-gradient(circle at 50% 50%, transparent 1.3rem, var(--aero-bubble) 1.85rem, transparent 1.95rem) 94% 18% / 4rem 4rem no-repeat,
+    radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.6) 0, transparent 0.25rem) 62% 94% / 2.5rem 2.5rem no-repeat,
+    radial-gradient(circle at 50% 50%, transparent 0.8rem, var(--aero-bubble) 1.15rem, transparent 1.2rem) 62% 94% / 2.5rem 2.5rem no-repeat,
+    radial-gradient(ellipse 45rem 35rem at 22% -5%, color-mix(in srgb, var(--aero-tint) 32%, transparent), transparent 70%),
+    radial-gradient(ellipse 40rem 30rem at 82% 105%, color-mix(in srgb, var(--aero-accent) 26%, transparent), transparent 70%),
+    radial-gradient(ellipse 30rem 30rem at -5% 55%, color-mix(in srgb, var(--aero-tint) 14%, transparent), transparent 70%),
+    var(--aero-frame);
+  background-attachment: fixed;
+}
+
+/* ── Glass panels ─────────────────────────────────────────────────────────── */
+
+:root[data-theme-engine="aero"] :is(.bungalow-card, .sheet) {
+  background: var(--bungalow-color-canvas);
+  border: 1px solid var(--aero-panel-border);
+  box-shadow: inset 0 1px 0 var(--aero-panel-highlight), var(--aero-panel-shadow);
+}
+
+@media (min-width: 64rem) {
+  :root[data-theme-engine="aero"] :is(.bottom-nav, .sidebar-library, .app-main) {
+    background: var(--bungalow-color-canvas);
+    border: 1px solid var(--aero-panel-border);
+    box-shadow: inset 0 1px 0 var(--aero-panel-highlight), var(--aero-panel-shadow);
+  }
+}
+
+/* Translucent glass. The backdrop behind the shell is only smooth gradients,
+   so the shell panels need no blur; floating surfaces (sheets, cards over
+   content) get a real frost. */
+:root[data-theme-engine="aero"][data-aero-glass] :is(.bungalow-card, .sheet) {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bungalow-color-canvas) calc(var(--aero-panel-alpha) - 8%), transparent) 0%,
+      color-mix(in srgb, var(--bungalow-color-canvas) calc(var(--aero-panel-alpha) + 8%), transparent) 100%);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+:root[data-theme-engine="aero"][data-aero-glass] .sheet {
+  background: color-mix(in srgb, var(--bungalow-color-canvas) 90%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+@media (min-width: 64rem) {
+  :root[data-theme-engine="aero"][data-aero-glass] :is(.bottom-nav, .sidebar-library, .app-main) {
+    background:
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--bungalow-color-canvas) calc(var(--aero-panel-alpha) - 8%), transparent) 0%,
+        color-mix(in srgb, var(--bungalow-color-canvas) calc(var(--aero-panel-alpha) + 8%), transparent) 100%);
+  }
+}
+
+/* ── Glossy chrome: header bar, player bar, sheet header and footer ─────── */
+
+:root[data-theme-engine="aero"] :is(.chrome-bar, .task-player) {
+  background: var(--aero-chrome);
+}
+:root[data-theme-engine="aero"] .chrome-bar {
+  border-bottom: 1px solid var(--aero-chrome-edge);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 2px 8px rgb(0 0 0 / 0.18);
+  margin-bottom: var(--bungalow-space-3);
+}
+:root[data-theme-engine="aero"] .task-player {
+  border-top: 1px solid var(--aero-panel-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.15), 0 -2px 10px rgb(0 0 0 / 0.2);
+}
+/* Phones: the bottom tab bar is the footer chrome. */
+@media (max-width: 63.99rem) {
+  :root[data-theme-engine="aero"] .bottom-nav {
+    background: var(--aero-chrome);
+    border-top: 1px solid var(--aero-panel-border);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.15), 0 -2px 10px rgb(0 0 0 / 0.2);
+  }
+}
+:root[data-theme-engine="aero"] .sheet__header {
+  background: var(--aero-chrome);
+  border-bottom: 1px solid var(--aero-chrome-edge);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22);
+}
+:root[data-theme-engine="aero"] .sheet__footer {
+  background: color-mix(in srgb, var(--bungalow-color-canvas) 60%, transparent);
+  border-top: 1px solid var(--aero-panel-border);
+}
+
+/* ── Tactile buttons ──────────────────────────────────────────────────────────
+   Guide popovers (.walkthrough__tooltip) keep their own fixed blue look. */
+
+/* Primary Aero button: a glassy capsule in the primary color, bright top half,
+   darker bottom half, hard split at 48/52% like space-chat's bungalow-primary-btn. */
+:root[data-theme-engine="aero"] :is(.bungalow-button--solid, .plus-button, .task-player__play):not(.walkthrough__tooltip *) {
+  --_aero-btn: var(--button-color, var(--bungalow-color-primary));
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--_aero-btn) 55%, #ffffff) 0%,
+      var(--_aero-btn) 48%,
+      color-mix(in srgb, var(--_aero-btn) 85%, #000000) 52%,
+      color-mix(in srgb, var(--_aero-btn) 65%, #000000) 100%);
+  border: 1px solid rgb(255 255 255 / 0.3);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 3px 8px color-mix(in srgb, var(--_aero-btn) 40%, transparent);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+  transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+:root[data-theme-engine="aero"] :is(.bungalow-button--solid, .plus-button, .task-player__play):not(.walkthrough__tooltip *):hover:not(:disabled) {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--_aero-btn) 35%, #ffffff) 0%,
+      color-mix(in srgb, var(--_aero-btn) 85%, #ffffff) 48%,
+      var(--_aero-btn) 52%,
+      color-mix(in srgb, var(--_aero-btn) 80%, #000000) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.65), 0 0 16px color-mix(in srgb, var(--_aero-btn) 55%, transparent);
+  transform: translateY(-0.5px);
+}
+:root[data-theme-engine="aero"] :is(.bungalow-button--solid, .plus-button, .task-player__play):not(.walkthrough__tooltip *):active:not(:disabled) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--_aero-btn) 70%, #000000) 0%, color-mix(in srgb, var(--_aero-btn) 55%, #000000) 100%);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.5);
+  transform: translateY(0.5px);
+}
+
+/* Neutral glossy pill (bungalow-glossy-btn). Ghost buttons only light up on hover. */
+:root[data-theme-engine="aero"] :is(.bungalow-button--outline, .chrome-nav-btn):not(.walkthrough__tooltip *) {
+  background: var(--aero-gloss);
+  border: 1px solid var(--aero-gloss-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 2px 4px rgb(0 0 0 / 0.18);
+  transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+:root[data-theme-engine="aero"] .bungalow-button--ghost:not(.walkthrough__tooltip *):hover:not(:disabled),
+:root[data-theme-engine="aero"] :is(.bungalow-button--outline, .chrome-nav-btn):not(.walkthrough__tooltip *):hover:not(:disabled) {
+  background: var(--aero-gloss-hover);
+  border-color: color-mix(in srgb, var(--aero-accent) 45%, var(--aero-gloss-border));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.5), 0 0 12px color-mix(in srgb, var(--aero-accent) 30%, transparent);
+  transform: translateY(-0.5px);
+}
+:root[data-theme-engine="aero"] :is(.bungalow-button--outline, .bungalow-button--ghost, .chrome-nav-btn):not(.walkthrough__tooltip *):active:not(:disabled) {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.22) 0%, rgb(0 0 0 / 0.1) 100%);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.4);
+  transform: translateY(0.5px);
+}
+/* The glossy capsules replace the design system's grow-on-hover. */
+:root[data-theme-engine="aero"] .bungalow-button:is(:hover, :active):not(:disabled) { scale: 1; }
+
+:root[data-theme-engine="aero"] .bungalow-badge {
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.3) 0%, rgb(255 255 255 / 0.05) 50%, rgb(0 0 0 / 0.08) 51%, rgb(0 0 0 / 0.14) 100%);
+  border: 1px solid var(--aero-gloss-border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), 0 1px 2px rgb(0 0 0 / 0.15);
+}
+
+/* ── Recessed inputs ──────────────────────────────────────────────────────── */
+
+:root[data-theme-engine="aero"] :is(.bungalow-input, .bungalow-select, .chrome-bar__search, textarea) {
+  background-color: var(--aero-recessed);
+  border: 1px solid var(--aero-gloss-border);
+  box-shadow: var(--aero-recessed-shadow);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+:root[data-theme-engine="aero"] :is(.bungalow-input, .bungalow-select, textarea):focus,
+:root[data-theme-engine="aero"] .chrome-bar__search:focus-within {
+  border-color: var(--aero-accent);
+  box-shadow: var(--aero-recessed-shadow), 0 0 10px color-mix(in srgb, var(--aero-accent) 35%, transparent);
+  outline: none;
+}
+
+/* ── Navigation and tabs (WMP11 tab switcher) ────────────────────────────── */
+
+:root[data-theme-engine="aero"] :is(.nav-item, [role="tab"]:not(.bungalow-button)) {
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+:root[data-theme-engine="aero"] :is(.nav-item, [role="tab"]:not(.bungalow-button)):hover {
+  background: color-mix(in srgb, var(--bungalow-color-ink) 6%, transparent);
+}
+:root[data-theme-engine="aero"] :is(.nav-item[aria-current="page"], [role="tab"][aria-selected="true"]:not(.bungalow-button)) {
+  background: var(--aero-tab-active);
+  border-color: var(--aero-panel-border);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    0 0 12px color-mix(in srgb, var(--aero-tint) 25%, transparent);
+  color: var(--bungalow-color-ink);
+}
+:root[data-theme-engine="aero"] [role="tab"][aria-selected="true"]:not(.bungalow-button) {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4), 0 -2px 6px rgb(0 0 0 / 0.12);
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+
+:root[data-theme-engine="aero"] .data-table thead th {
+  background: var(--aero-chrome);
+  border-bottom: 1px solid var(--aero-chrome-edge);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2);
+}
+:root[data-theme-engine="aero"] .data-table tbody tr:nth-child(odd) td {
+  background-color: var(--aero-stripe);
+}
+:root[data-theme-engine="aero"] .data-table tbody tr:hover td {
+  background-color: color-mix(in srgb, var(--aero-accent) 12%, transparent);
+}
+@media (max-width: 39.99rem) {
+  :root[data-theme-engine="aero"] .data-table thead th { background: none; box-shadow: none; }
+  :root[data-theme-engine="aero"] .data-table tbody tr:nth-child(odd) td { background: none; }
+}
+
+/* ── Glossy scrollbars and selection ─────────────────────────────────────── */
+
+:root[data-theme-engine="aero"] *:hover::-webkit-scrollbar-thumb,
+:root[data-theme-engine="aero"] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--aero-tint) 55%, #94a3b8) 0%, color-mix(in srgb, var(--aero-tint) 75%, #334155) 100%);
+  background-clip: padding-box;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.4);
+}
+:root[data-theme-engine="aero"] ::selection {
+  background-color: color-mix(in srgb, var(--aero-tint) 80%, #000000);
+  color: #ffffff;
+}
+
+/* Taste swatch in the engine's settings (src/components/AeroThemeSettings.tsx): a glossy orb. */
+.aero-orb {
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at 35% 28%, rgb(255 255 255 / 0.95) 0, rgb(255 255 255 / 0.25) 22%, transparent 40%),
+    radial-gradient(circle at 50% 120%, var(--orb-accent) 0, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--orb-tint) 60%, #ffffff) 0%, var(--orb-tint) 55%, color-mix(in srgb, var(--orb-tint) 60%, #000000) 100%);
+  border: 1px solid rgb(255 255 255 / 0.4);
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 6px rgb(0 0 0 / 0.25), 0 3px 8px color-mix(in srgb, var(--orb-tint) 45%, transparent);
+  justify-self: center;
+  width: 2.25rem;
+}
