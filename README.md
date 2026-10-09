@@ -5,6 +5,10 @@ A web application framework on TanStack Start, React and Supabase, extracted fro
 engine, navigation, search, the entity system, the apps framework and the Supabase base, and an app
 built on it brings its own bundle of apps.
 
+**Documentation:** [drsounds.github.io/gondol](https://drsounds.github.io/gondol/), built from
+[`docs/`](docs/): getting started, building apps and features, entities, the shell, theming, a
+tutorial and a module reference.
+
 ## Installing
 
 Gondol ships TypeScript sources (no build step). Add it as a git dependency pinned to a commit:
@@ -113,4 +117,11 @@ bun install
 bun run check-exports   # package.json exports match src/
 bun run lint
 bun run typecheck
+```
+
+The docs site is [VitePress](https://vitepress.dev), run without adding it to the package:
+
+```sh
+npx vitepress@1.6.4 dev docs     # http://localhost:5173/gondol/
+npx vitepress@1.6.4 build docs   # what .github/workflows/docs.yml publishes to GitHub Pages
 ```
