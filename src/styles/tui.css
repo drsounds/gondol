@@ -1,0 +1,322 @@
+/* ── TUI theme engine (src/lib/tuiTheme.ts) ───────────────────────────────────
+   The app as a text-mode program in the Unscii terminal font. Scoped to
+   :root[data-theme-engine="tui"], which the theme engine sets together with
+   data-tui-style ("dos" or "mainframe") and the --tui-* variables: every colour
+   (--tui-background, --tui-text, --tui-line, …) and three glow strengths, 0–2:
+   --tui-text-glow, --tui-line-glow and --tui-element-glow.
+
+   dos:       MS-DOS EDIT. Blue screen, grey menu bar and status bar, windows
+              framed with double lines, grey dialogs with a hard black shadow,
+              buttons drawn as < OK >, reverse-video highlights.
+   mainframe: IBM 3270. Green phosphor on black, single-line frames, upper-case
+              headings and labels, underlined input fields, [ PF ] buttons. */
+
+:root[data-theme-engine="tui"] {
+  --app-frame-radius: 0;
+  --tui-tk: var(--tui-text-glow, 0);
+  --tui-lk: var(--tui-line-glow, 0);
+  --tui-ek: var(--tui-element-glow, 0);
+  --tui-frame: 3px double var(--tui-line);
+  --tui-rule: 1px solid var(--tui-line);
+  --tui-drop: 1ch 0.5rem 0 var(--tui-shadow);
+  --bungalow-color-border: var(--tui-line);
+  --bungalow-focus-ring: 0 0 0 1px var(--tui-bright);
+  /* Glows: text in its own colour (currentColor), lines in the line colour. */
+  --tui-text-shadow:
+    0 0 calc(1px * var(--tui-tk)) color-mix(in oklab, currentColor 70%, transparent),
+    0 0 calc(5px * var(--tui-tk)) color-mix(in oklab, currentColor 55%, transparent),
+    0 0 calc(12px * var(--tui-tk)) color-mix(in oklab, currentColor 25%, transparent);
+  --tui-line-shadow:
+    0 0 calc(8px * var(--tui-lk)) color-mix(in oklab, var(--tui-line) calc(60% * var(--tui-lk)), transparent),
+    inset 0 0 calc(8px * var(--tui-lk)) color-mix(in oklab, var(--tui-line) calc(35% * var(--tui-lk)), transparent);
+  --tui-element-shadow: 0 0 calc(10px * var(--tui-ek)) color-mix(in oklab, currentColor calc(45% * var(--tui-ek)), transparent);
+  scrollbar-color: var(--tui-line) color-mix(in srgb, var(--tui-line) 22%, var(--tui-background));
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] {
+  --tui-frame: 1px solid var(--tui-line);
+  --tui-drop: 0 0 0 transparent;
+}
+
+/* ── Screen, text and glow ── */
+:root[data-theme-engine="tui"] body {
+  background: var(--tui-background);
+  color: var(--tui-text);
+  caret-color: var(--tui-bright);
+}
+:root[data-theme-engine="tui"] :is(body, input, textarea, select, button, [contenteditable]) {
+  text-shadow: var(--tui-text-shadow);
+}
+:root[data-theme-engine="tui"] ::selection {
+  background: var(--tui-accent);
+  color: var(--tui-background);
+  text-shadow: none;
+}
+:root[data-theme-engine="tui"] :is(h1, h2, h3, h4, .panel-title, .stat-value, strong, b) {
+  color: var(--tui-bright);
+  font-weight: 400;
+}
+:root[data-theme-engine="tui"] :is(.muted, .stat-label, .stat-note, .data-table th) {
+  color: var(--tui-dim);
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] :is(h1, h2, h3, h4, .panel-title, .stat-label, .bungalow-label, .data-table th, .nav-item__label, .bungalow-button, .sheet__header) {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+:root[data-theme-engine="tui"] a:not(.bungalow-button):not(.nav-item) {
+  color: var(--tui-bright);
+  text-decoration: underline;
+}
+:root[data-theme-engine="tui"] svg {
+  filter: drop-shadow(0 0 calc(3px * var(--tui-ek)) color-mix(in oklab, currentColor calc(80% * var(--tui-ek)), transparent));
+}
+
+/* ── Frame: the screen, the menu bar on top and the status bar at the bottom ── */
+:root[data-theme-engine="tui"] .app-frame {
+  background: var(--tui-background);
+}
+:root[data-theme-engine="tui"] :is(.chrome-bar, .task-player) {
+  background: var(--tui-bar);
+  box-shadow: none;
+  color: var(--tui-bar-text);
+}
+:root[data-theme-engine="tui"] .chrome-bar {
+  padding-block: var(--bungalow-space-1);
+}
+:root[data-theme-engine="tui"] :is(.chrome-bar, .task-player) :is(.chrome-nav-btn, .bungalow-button, button) {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--tui-bar-text);
+}
+:root[data-theme-engine="tui"] :is(.chrome-bar, .task-player) :is(.chrome-nav-btn, .bungalow-button, button):is(:hover, :focus-visible) {
+  background: var(--tui-accent);
+  color: var(--tui-background);
+}
+:root[data-theme-engine="tui"] :is(.chrome-bar, .task-player) :is(.muted, .task-player__sub, span, div) {
+  color: inherit;
+}
+:root[data-theme-engine="tui"] .chrome-bar__search {
+  background: var(--tui-background);
+  border: 0;
+  border-radius: 0;
+  color: var(--tui-text);
+}
+:root[data-theme-engine="tui"] .chrome-bar__search :is(input, svg) {
+  color: var(--tui-text);
+}
+
+/* ── Windows: every panel is framed with box-drawing lines ── */
+:root[data-theme-engine="tui"] :is(.bungalow-card, .sidebar-library) {
+  background: var(--tui-background);
+  border: var(--tui-frame);
+  border-radius: 0;
+  box-shadow: var(--tui-line-shadow);
+}
+/* Panels on the screen use the screen's text colours, not the menu bar's. */
+:root[data-theme-engine="tui"] .sidebar-library {
+  --chrome-fg: var(--tui-text);
+  --chrome-fg-active: var(--tui-bright);
+  color: var(--tui-text);
+}
+@media (min-width: 64rem) {
+  :root[data-theme-engine="tui"] .bottom-nav {
+    --chrome-fg: var(--tui-text);
+    --chrome-fg-active: var(--tui-bright);
+  }
+  :root[data-theme-engine="tui"] :is(.app-main, .bottom-nav) {
+    background: var(--tui-background);
+    border: var(--tui-frame);
+    box-shadow: var(--tui-line-shadow);
+  }
+  :root[data-theme-engine="tui"] .bottom-nav .nav-item {
+    color: var(--tui-text);
+  }
+  :root[data-theme-engine="tui"] .app-frame__body {
+    gap: var(--bungalow-space-2);
+  }
+}
+:root[data-theme-engine="tui"] hr {
+  border: 0;
+  border-top: var(--tui-rule);
+  box-shadow: var(--tui-line-shadow);
+}
+/* Desktop tables only: on phones they are list rows without rules. */
+@media not all and (max-width: 40rem) {
+  :root[data-theme-engine="tui"] .data-table :is(td, th) {
+    border-bottom: 1px dashed color-mix(in srgb, var(--tui-line) 60%, transparent);
+  }
+  :root[data-theme-engine="tui"] .data-table tfoot td {
+    border-top: var(--tui-frame);
+    box-shadow: inset 0 calc(6px * var(--tui-lk)) calc(6px * var(--tui-lk)) calc(-6px * var(--tui-lk)) var(--tui-line);
+  }
+  :root[data-theme-engine="tui"] .data-table tbody tr:hover :is(td, td *) {
+    background: var(--tui-accent);
+    color: var(--tui-background);
+  }
+}
+
+/* ── Menus: reverse video for the current and hovered item ── */
+:root[data-theme-engine="tui"] :is(.nav-item, [role="tab"]:not(.bungalow-button), [role="menuitem"], [role="option"]) {
+  border-radius: 0;
+}
+:root[data-theme-engine="tui"] :is(.nav-item:hover, .nav-item[aria-current="page"], [role="tab"][aria-selected="true"]:not(.bungalow-button), [role="menuitem"]:is(:hover, :focus, [data-highlighted]), [role="option"]:is([aria-selected="true"], [data-highlighted])) {
+  background: var(--tui-accent);
+  box-shadow: var(--tui-element-shadow);
+  color: var(--tui-background);
+  font-weight: 400;
+}
+/* DOS hot keys: the first letter of every menu item in bright white. */
+:root[data-theme-engine="tui"][data-tui-style="dos"] .nav-item__label::first-letter {
+  color: var(--tui-bright);
+}
+:root[data-theme-engine="tui"][data-tui-style="dos"] :is(.nav-item:hover, .nav-item[aria-current="page"]) .nav-item__label::first-letter {
+  color: inherit;
+}
+
+/* ── Buttons: < OK > in DOS, [ OK ] on the mainframe ── */
+:root[data-theme-engine="tui"] :is(.bungalow-button, .plus-button):not(.chrome-bar *):not(.task-player *) {
+  background: var(--tui-button);
+  border: 0;
+  border-radius: 0;
+  box-shadow: var(--tui-drop), var(--tui-element-shadow);
+  color: var(--tui-button-text);
+  font-weight: 400;
+  scale: none;
+}
+:root[data-theme-engine="tui"] :is(.bungalow-button, .plus-button):not(.chrome-bar *):not(.task-player *):is(:hover, :focus-visible):not(:disabled) {
+  background: var(--tui-accent);
+  color: var(--tui-background);
+}
+:root[data-theme-engine="tui"] :is(.bungalow-button, .plus-button):not(.chrome-bar *):not(.task-player *):active:not(:disabled) {
+  box-shadow: none;
+  translate: 1ch 0.5rem;
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] :is(.bungalow-button, .plus-button):not(.chrome-bar *):not(.task-player *):active:not(:disabled) {
+  translate: none;
+}
+:root[data-theme-engine="tui"] .bungalow-button:not(:has(> svg:only-child)):not(.chrome-bar *):not(.task-player *)::before {
+  content: "<\00a0";
+}
+:root[data-theme-engine="tui"] .bungalow-button:not(:has(> svg:only-child)):not(.chrome-bar *):not(.task-player *)::after {
+  content: "\00a0>";
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] .bungalow-button:not(:has(> svg:only-child)):not(.chrome-bar *):not(.task-player *)::before {
+  content: "[\00a0";
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] .bungalow-button:not(:has(> svg:only-child)):not(.chrome-bar *):not(.task-player *)::after {
+  content: "\00a0]";
+}
+/* The default button's brackets light up, like EDIT's. */
+:root[data-theme-engine="tui"] .bungalow-button--solid:not(:hover)::before,
+:root[data-theme-engine="tui"] .bungalow-button--solid:not(:hover)::after {
+  color: var(--tui-bright);
+}
+:root[data-theme-engine="tui"] .bungalow-tone-danger:not(:hover) {
+  color: #ff5555;
+}
+
+/* ── Fields: a blue entry box in DOS, an underlined field on the mainframe ── */
+:root[data-theme-engine="tui"] :is(.bungalow-input, .bungalow-select, textarea, .rich-editor, [contenteditable="true"]) {
+  background-color: var(--tui-background);
+  border: 1px solid var(--tui-line);
+  border-radius: 0;
+  box-shadow: var(--tui-element-shadow);
+  color: var(--tui-bright);
+}
+:root[data-theme-engine="tui"] :is(.bungalow-input, .bungalow-select, textarea):focus {
+  border-color: var(--tui-bright);
+  outline: none;
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] :is(.bungalow-input, .bungalow-select, textarea) {
+  background-color: transparent;
+  border-width: 0 0 1px;
+  border-color: var(--tui-accent);
+  box-shadow: 0 calc(5px * var(--tui-ek)) calc(6px * var(--tui-ek)) calc(-5px * var(--tui-ek)) var(--tui-accent);
+  color: var(--tui-accent);
+}
+:root[data-theme-engine="tui"] :is(input[type="checkbox"], input[type="radio"], input[type="range"]) {
+  accent-color: var(--tui-accent);
+}
+:root[data-theme-engine="tui"] :is(input, textarea)::placeholder {
+  color: var(--tui-dim);
+  text-shadow: none;
+}
+:root[data-theme-engine="tui"] .bungalow-badge {
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 0;
+  box-shadow: var(--tui-element-shadow);
+}
+
+/* ── Dialogs (sheets): grey boxes with a hard shadow in DOS ── */
+:root[data-theme-engine="tui"] .sheet-backdrop {
+  background: color-mix(in srgb, var(--tui-shadow) 35%, transparent);
+}
+:root[data-theme-engine="tui"] .sheet {
+  --bungalow-color-canvas: var(--tui-dialog);
+  --bungalow-color-ink: var(--tui-dialog-text);
+  --bungalow-color-muted: color-mix(in srgb, var(--tui-dialog-text) 70%, var(--tui-dialog));
+  --bungalow-color-surface: color-mix(in srgb, var(--tui-dialog-text) 8%, var(--tui-dialog));
+  --bungalow-color-surface-strong: color-mix(in srgb, var(--tui-dialog-text) 16%, var(--tui-dialog));
+  --bungalow-color-border: var(--tui-dialog-text);
+  background: var(--tui-dialog);
+  border: 3px double var(--tui-dialog-text);
+  border-radius: 0;
+  box-shadow: 2ch 1rem 0 var(--tui-shadow), var(--tui-line-shadow);
+  color: var(--tui-dialog-text);
+}
+:root[data-theme-engine="tui"][data-tui-style="mainframe"] .sheet {
+  border: var(--tui-frame);
+  box-shadow: var(--tui-line-shadow);
+}
+:root[data-theme-engine="tui"] .sheet :is(h1, h2, h3, h4, .panel-title, .bungalow-label, .stat-value) {
+  color: var(--tui-dialog-text);
+}
+:root[data-theme-engine="tui"] .sheet :is(.muted, .stat-label, .stat-note) {
+  color: var(--bungalow-color-muted);
+}
+:root[data-theme-engine="tui"] :is(.sheet__header, .sheet__footer) {
+  border-color: var(--tui-dialog-text);
+}
+:root[data-theme-engine="tui"][data-tui-style="dos"] .sheet__header {
+  justify-content: center;
+}
+/* The preview pane is the screen behind the dialog rather than a fixed-dark panel. */
+:root[data-theme-engine="tui"] .sheet__preview {
+  --bungalow-color-canvas: var(--tui-background);
+  --bungalow-color-ink: var(--tui-text);
+  --bungalow-color-muted: var(--tui-dim);
+  --bungalow-color-surface: color-mix(in srgb, var(--tui-text) 8%, var(--tui-background));
+  --bungalow-color-surface-strong: color-mix(in srgb, var(--tui-text) 16%, var(--tui-background));
+  --bungalow-color-border: var(--tui-line);
+  border-left: var(--tui-frame);
+}
+:root[data-theme-engine="tui"] .sheet__preview :is(h1, h2, h3, h4, .panel-title, .stat-value) {
+  color: var(--tui-bright);
+}
+
+/* ── Settings swatches (TuiThemeSettings) ── */
+.tui-swatch {
+  background: var(--sw-bg);
+  border: 3px double var(--sw-line);
+  color: var(--sw-fg);
+  display: grid;
+  font-family: "Unscii", ui-monospace, monospace;
+  font-size: 0.75rem;
+  text-align: left;
+}
+.tui-swatch--mainframe { border-style: solid; border-width: 1px; }
+.tui-swatch__bar { background: var(--sw-bar); color: var(--sw-bar-fg); padding: 0 0.25rem; white-space: pre; }
+.tui-swatch__body { min-height: 2rem; padding: 0.25rem; }
+.tui-color-grid {
+  display: grid;
+  gap: var(--bungalow-space-2);
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+.tui-color-grid__item input { outline: 1px solid currentColor; outline-offset: 1px; }
+.tui-color-grid__item {
+  align-items: center;
+  display: flex;
+  font-size: 0.8125rem;
+  gap: var(--bungalow-space-2);
+}

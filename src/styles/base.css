@@ -1,0 +1,323 @@
+/* gondol's base styles: the page, native menu and selection, scrollbars, the user theme engine's
+   hooks, panel heads and empty states. Imported by gondol.css. */
+
+:root {
+  /* The bottom tab bar (left sidebar on wide screens) stays black in both
+     themes, so it's fixed here instead of following --bungalow-color-ink,
+     which flips to a light color in dark mode. */
+  --chrome-bg: #f8f7fa;
+  --chrome-fg: #111;
+  --chrome-fg-active: #ffffff;
+  /* Desktop-only: rounds the floating sidebar/content panels and the chrome bar's pill controls. */
+  --app-frame-radius: 0.75rem;
+}
+
+body {
+  margin: 0;
+  background: var(--bungalow-color-canvas);
+  color: var(--bungalow-color-ink);
+  font-family: var(--bungalow-font-sans);
+}
+
+/* Native menu and text selection (src/lib/developerMode.ts): outside developer mode the app
+   behaves like a native app, so text is only selectable in fields and code blocks. */
+html:not([data-developer-mode]) body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+html:not([data-developer-mode]) :is(input, textarea, [contenteditable]:not([contenteditable="false"]), pre, code),
+html:not([data-developer-mode]) [contenteditable]:not([contenteditable="false"]) * {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Spotify-style scrollbars: invisible by default, a thin translucent thumb
+   fades in only while the pointer is over the scrolling area itself (CSS
+   :hover already covers hovering any of its descendants). Applies globally
+   so every scroll container (the sidebar, the main panel, sheets, dropdown
+   panels, …) gets this without per-component markup changes. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+*:hover {
+  scrollbar-color: color-mix(in srgb, var(--bungalow-color-ink) 35%, transparent) transparent;
+}
+::-webkit-scrollbar {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: var(--bungalow-radius-pill);
+}
+*:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--bungalow-color-ink) 35%, transparent);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--bungalow-color-ink) 55%, transparent);
+  background-clip: padding-box;
+}
+
+/* User theme engine (src/lib/userTheme.tsx) — hooks for the preferences that
+   can't be expressed as a design-token override alone. */
+body {
+  font-weight: var(--font-weight, 400);
+}
+
+.bungalow-button {
+  font-weight: var(--button-font-weight, 700);
+  text-transform: var(--button-text-transform, none);
+  transition: opacity 0.5s, width 0.5s, height 0.5s, padding 0.5s, margin 0.5s;
+}
+
+:root[data-hide-borders] * {
+  border-color: transparent !important;
+}
+
+/* WinUI Classic Mode (font "WinUI Classic Mode"): no bold text anywhere. */
+:root[data-winui-classic] * {
+  font-weight: 400 !important;
+}
+
+@keyframes staggered-entry {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+:root[data-staggered-entries] .stack > *,
+:root[data-staggered-entries] .data-table tbody tr {
+  animation: staggered-entry 320ms ease both;
+}
+:root[data-staggered-entries] .stack > :nth-child(2),
+:root[data-staggered-entries] .data-table tbody tr:nth-child(2) { animation-delay: 40ms; }
+:root[data-staggered-entries] .stack > :nth-child(3),
+:root[data-staggered-entries] .data-table tbody tr:nth-child(3) { animation-delay: 80ms; }
+:root[data-staggered-entries] .stack > :nth-child(4),
+:root[data-staggered-entries] .data-table tbody tr:nth-child(4) { animation-delay: 120ms; }
+:root[data-staggered-entries] .stack > :nth-child(n + 5),
+:root[data-staggered-entries] .data-table tbody tr:nth-child(n + 5) { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-staggered-entries] .stack > *,
+  :root[data-staggered-entries] .data-table tbody tr {
+    animation: none;
+  }
+}
+
+/* theme.css defaults checkboxes to --bungalow-color-ink; follow the chosen
+   accent/primary color instead so they match the rest of the accented UI. */
+.bungalow-check input {
+  accent-color: var(--bungalow-color-primary);
+}
+
+/*
+ * Dark mode: follows the OS preference by default. A user can override it
+ * explicitly via the theme picker, which sets data-theme="light"/"dark" on
+ * <html> (see src/lib/theme.tsx); that attribute always wins over the OS
+ * setting, in either direction.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bungalow-color-canvas: #111111;
+    --bungalow-color-ink: #fafafa;
+    --bungalow-color-muted: #888888;
+    --bungalow-color-surface: #1b1b1b;
+    --bungalow-color-surface-strong: #2b2b2b;
+    --bungalow-color-border: transparent;
+
+    --bungalow-color-success-soft: #10331a;
+    --bungalow-color-warning-soft: #3a2a0d;
+    --bungalow-color-danger-soft: #3a1216;
+    --bungalow-color-info-soft: #0d2836;
+    --bungalow-color-primary-soft: color-mix(in srgb, var(--bungalow-color-primary) 16%, var(--bungalow-color-canvas));
+
+    --bungalow-shadow-raised: 0 0.25rem 1rem rgb(0 0 0 / 0.5);
+  }
+
+  :root:not([data-theme="light"]) body { color: var(--bungalow-color-muted); }
+  :root:not([data-theme="light"]) a { color: var(--bungalow-color-ink); }
+  :root:not([data-theme="light"]) a:hover { color: #ffffff; }
+}
+
+:root[data-theme="dark"] {
+  --chrome-bg: #000;
+  --chrome-fg: #f8f8f8;
+  --bungalow-color-canvas: #111111;
+  --bungalow-color-ink: #fafafa;
+  --bungalow-color-muted: #888888;
+  --bungalow-color-surface: #1b1b1b;
+  --bungalow-color-surface-strong: #2b2b2b;
+  --bungalow-color-border: transparent;
+
+  --bungalow-color-success-soft: #10331a;
+  --bungalow-color-warning-soft: #3a2a0d;
+  --bungalow-color-danger-soft: #3a1216;
+  --bungalow-color-info-soft: #0d2836;
+  --bungalow-color-primary-soft: color-mix(in srgb, var(--bungalow-color-primary) 16%, var(--bungalow-color-canvas));
+
+  --bungalow-shadow-raised: 0 0.25rem 1rem rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="dark"] body { color: var(--bungalow-color-muted); }
+:root[data-theme="dark"] a { color: var(--bungalow-color-ink); }
+:root[data-theme="dark"] a:hover { color: #ffffff; }
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-6);
+  margin: 0 auto;
+  max-width: 78rem;
+  padding: var(--bungalow-space-6) var(--bungalow-space-5) var(--bungalow-space-8);
+  width: 100%;
+}
+
+.app-bar {
+  align-items: center;
+  border-bottom: 1px solid var(--bungalow-color-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-4);
+  justify-content: space-between;
+  padding-bottom: var(--bungalow-space-4);
+}
+
+.app-bar__title {
+  align-items: center;
+  display: flex;
+  font-size: 1.5rem;
+  font-weight: 700;
+  gap: var(--bungalow-space-2);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.app-bar__title-icon {
+  flex-shrink: 0;
+  font-size: 1.375rem;
+}
+
+.app-bar__sub {
+  color: var(--bungalow-color-muted);
+  font-size: 0.8125rem;
+  margin: 0;
+  margin-top: var(--bungalow-space-1);
+}
+
+.app-bar__account {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-3);
+}
+
+.stat-grid {
+  display: grid;
+  gap: var(--bungalow-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+}
+
+.stat-label {
+  color: var(--bungalow-color-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  /*text-transform: uppercase;*/
+}
+
+.stat-value {
+  font-size: 1.625rem;
+  font-weight: 700;
+  margin-top: var(--bungalow-space-2);
+}
+
+.stat-note {
+  color: var(--bungalow-color-muted);
+  font-size: 0.75rem;
+  margin-top: var(--bungalow-space-1);
+}
+
+.panel-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-3);
+  justify-content: space-between;
+  margin-bottom: var(--bungalow-space-4);
+}
+
+/* The title block (always the first child) takes the free space, so the add button and other
+   actions stay on the heading's row, right-aligned, instead of wrapping under a long intro. */
+.panel-head > :first-child {
+  flex: 1 1 0;
+  min-width: min(12rem, 100%);
+}
+
+.panel-head > :not(:first-child) {
+  flex-shrink: 0;
+}
+
+/* Empty list placeholder (EmptyState), after Spotify's "We couldn't find any …". */
+.empty-state {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+  padding: var(--bungalow-space-7) var(--bungalow-space-4);
+  text-align: center;
+}
+
+.empty-state__icon {
+  align-items: center;
+  background: var(--bungalow-color-muted);
+  border-radius: 50%;
+  color: var(--bungalow-color-canvas);
+  display: flex;
+  height: 7.5rem;
+  justify-content: center;
+  margin-bottom: var(--bungalow-space-3);
+  width: 7.5rem;
+}
+
+.empty-state__icon > svg,
+.empty-state__icon > [class^="bungalow-icon-"] {
+  font-size: 3.75rem;
+  height: 3.75rem;
+  width: 3.75rem;
+}
+
+.empty-state__title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.empty-state__text {
+  color: var(--bungalow-color-muted);
+  margin: 0 0 var(--bungalow-space-3);
+  max-width: 32rem;
+}
+
+.panel-title {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.range-controls {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-2);
+}
+
