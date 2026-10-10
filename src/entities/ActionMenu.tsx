@@ -111,6 +111,8 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   const [scheduleAt, setScheduleAt] = useState("");
   const [savingSchedule, setSavingSchedule] = useState(false);
   const lifecycleState = lifecycle.stateFor(uri);
+  // A restricted entity (e.g. quarantined) can't be shared: its copies stay in the menu, disabled.
+  const noSharing = !!lifecycle.restrictionFor(uri)?.noSharing;
   const hasScheduledDeletion = !!lifecycleState?.soft_deleted_at;
   const deletionHasPassed = hasScheduledDeletion && Date.parse(lifecycleState.soft_deleted_at!) <= Date.now();
   const lifecycleActions: MenuAction[] = uri
@@ -146,9 +148,10 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         {
           key: "copy-uri",
           label: t("actions.copyUri"),
+          disabled: noSharing,
           onSelect: () => copyText(shareKey ? shareUri(uri, shareKey) : uri, t("actions.uriCopied"), t("actions.copyFailed")),
         },
-        ...(url ? [{ key: "copy-url", label: t("actions.copyUrl"), onSelect: () => copyText(url, t("actions.urlCopied"), t("actions.copyFailed")) }] : []),
+        ...(url ? [{ key: "copy-url", label: t("actions.copyUrl"), disabled: noSharing, onSelect: () => copyText(url, t("actions.urlCopied"), t("actions.copyFailed")) }] : []),
       ]
     : actions;
 

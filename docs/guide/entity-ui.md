@@ -278,6 +278,8 @@ them as hooks through `configureGondol({ entities: { extensions } })`:
 | `useCoverImage(uri)` | `EntityArt` shows the returned image instead of the generated tile. |
 | `useTags()` | Tag conditions in the global filter and in sites offer the user's tags. |
 | `useTagNamesByUri(enabled)` | Tag conditions read each entity's tag names (only fetched while `enabled`). |
+| `useLike(uri)` | Liked rows show the filled saved glyph next to the "⋯", which unlikes them. |
+| `useRestrictions()` | A lookup by URI of restricted entities (a quarantine, say): `dimmed` ones are faded to 0.2 wherever `ActionMenu` and `EntityPicker` show them (like soft-deleted ones), and `noSharing` disables their "Copy URI" and "Copy URL". `useEntityLifecycle().restrictionFor(uri)` reads it. |
 
 They are called as React hooks, so register them once and never swap them. Without them, entities
 have no covers and tag conditions have no tags to offer.

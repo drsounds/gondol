@@ -21,7 +21,25 @@ export interface EntityExtensions {
    * a filled heart for liked entities. Null when there's nothing to like.
    */
   useLike(uri: string | undefined): { liked: boolean; setLiked: (liked: boolean) => void } | null;
+  /**
+   * Restrictions the app puts on entities (e.g. a quarantine), as a lookup by URI: restricted
+   * entities are faded like soft-deleted ones (`dimmed`) and their "Copy URI"/"Copy URL" are
+   * disabled (`noSharing`). Called once per component, so it should read from a shared cache.
+   */
+  useRestrictions(): (uri: string | undefined) => EntityRestriction | null;
 }
+
+/** What the app restricts about one entity (see `EntityExtensions.useRestrictions`). */
+export interface EntityRestriction {
+  /** Fade the entity wherever it's listed (opacity 0.2, like a soft-deleted one). */
+  dimmed: boolean;
+  /** Disable the ways to share it ("Copy URI", "Copy URL", and the app's own sharing actions). */
+  noSharing: boolean;
+  /** Why, for a tooltip or a note (e.g. the quarantine's name). */
+  reason?: string;
+}
+
+const NO_RESTRICTION = () => null;
 
 const EMPTY_TAG_NAMES = new Map<string, string[]>();
 
@@ -30,6 +48,7 @@ let extensions: EntityExtensions = {
   useTags: () => ({ data: [] }),
   useTagNamesByUri: () => EMPTY_TAG_NAMES,
   useLike: () => null,
+  useRestrictions: () => NO_RESTRICTION,
 };
 
 export function registerEntityExtensions(next: Partial<EntityExtensions>): void {
