@@ -10,6 +10,7 @@ import { ChevronIcon, HamburgerIcon } from "./icons";
 import { FeatureDotContext, NavItem, type FeatureDot } from "./NavItem";
 import { MobileNavDrawer } from "./MobileNavDrawer";
 import { useSiteOffers } from "../sites/capabilities";
+import { useOptionalUserTheme } from "../theme/userTheme";
 
 const NAV_COLLAPSED_STORAGE_KEY = "cashflow-nav-collapsed";
 
@@ -122,6 +123,8 @@ export function AppShell({
   const navSections = useAppNavigation(intlLocale);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
   const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets } = useActiveAppWidgets();
+  // The bottom player: always, only while something plays (the widget decides), or never.
+  const player = useOptionalUserTheme()?.preferences.player ?? "always";
   // Mobile hamburger drawer; any navigation (drawer item, back button, deep link) closes it.
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -270,10 +273,10 @@ export function AppShell({
         />
       ) : null}
 
-      {/* Dynamic bottom widgets (e.g. TaskPlayer) */}
-      {bottomWidgets.map((Widget, idx) => (
-        <Widget key={idx} alwaysShow={true} />
-      ))}
+      {/* Dynamic bottom widgets (e.g. TaskPlayer), unless the player is hidden (ShellSettings.player). */}
+      {player === "hidden"
+        ? null
+        : bottomWidgets.map((Widget, idx) => <Widget key={idx} alwaysShow={player === "always"} />)}
 
       {overlays}
 

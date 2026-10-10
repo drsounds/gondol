@@ -130,6 +130,7 @@ export interface AppSidebarWidgetProps {
 
 export interface AppBottomWidgetProps {
   className?: string;
+  /** False: show only while something plays or is queued (the player setting "auto"). */
   alwaysShow?: boolean;
   [key: string]: unknown;
 }

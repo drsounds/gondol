@@ -18,7 +18,7 @@ const QUERY_KEY = ["entity-lifecycle-states"];
 
 export function useEntityLifecycle() {
   const queryClient = useQueryClient();
-  const { userTheme } = useUserTheme();
+  const { preferences } = useUserTheme();
   // The app's own restrictions (a quarantine) fade an entity too.
   const restrictionFor = entityExtensions().useRestrictions();
   const states = useQuery({
@@ -59,7 +59,7 @@ export function useEntityLifecycle() {
     const state = stateFor(uri);
     if (!state) return false;
     const deleted = !!state.soft_deleted_at && Date.parse(state.soft_deleted_at) <= Date.now();
-    return (deleted && !!userTheme.hideSoftDeletedEntities) || (state.future_start && !!userTheme.hideFutureEntities);
+    return (deleted && !!preferences.hideSoftDeletedEntities) || (state.future_start && !!preferences.hideFutureEntities);
   }
 
   async function schedule(uri: string, at: string | null) {

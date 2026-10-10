@@ -12,12 +12,12 @@ import {
   type TuiSettings,
   type TuiStyle,
 } from "./tuiTheme";
-import { useUserTheme } from "./userTheme";
+import { useThemeEditor } from "./userTheme";
 
 /** Style (DOS / mainframe), colour, glow and scanline controls of the TUI engine. */
 export function TuiThemeSettings() {
   const { t } = useI18n();
-  const { userTheme, updateUserTheme } = useUserTheme();
+  const { userTheme, updateUserTheme } = useThemeEditor();
   const tui = userTheme.tui ?? {};
   const style = tuiStyleOf(tui);
   const colors = resolveTuiColors(tui);

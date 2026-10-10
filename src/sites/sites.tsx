@@ -8,7 +8,9 @@ import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type Entit
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
-import type { DesktopLayout, LayoutStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { DesktopLayout, LayoutStyle, PlayerVisibility, ThemeEngine, UserTheme } from "../theme/userTheme";
+import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from "./preferences";
+import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
 import { isSiteAspect, isSiteRole, siteOffers, type SiteAspect, type SiteRole } from "./capabilities";
 
@@ -25,13 +27,30 @@ const appDependencies = (id: string) => getInternalApp(id)?.dependencies ?? [];
  * goes back to the host's own site).
  */
 
-/** The page's base layout. Each field overrides the visitor's own shell preference when set. */
+/**
+ * The page's base layout and the visitor preferences the site sets (./preferences.ts): each one a
+ * default for visitors who haven't picked their own, or, when listed in `locked`, what everyone
+ * gets on this site.
+ */
 export interface SiteLayout {
   desktopLayout?: DesktopLayout;
+  /** Goes with the site's desktopLayout (the classic layout's frame). */
   classicFrame?: boolean;
   layoutStyle?: LayoutStyle;
-  /** The "saved to library" glyph for visitors who haven't picked their own (savedIcon.tsx). */
+  /** The "saved to library" glyph (savedIcon.tsx). */
   savedIcon?: SavedIconStyle;
+  /** The interface language (a locale of the app's catalogue). */
+  locale?: string;
+  /** Whether the bottom player shows (PlayerVisibility). */
+  player?: PlayerVisibility;
+  darkTabBar?: boolean;
+  darkFrame?: boolean;
+  hideSoftDeletedEntities?: boolean;
+  hideFutureEntities?: boolean;
+  /** The browser's native menu and text selection (shell/developerMode.ts). */
+  developerMode?: boolean;
+  /** The preferences visitors can't change here. Unset: see isSitePreferenceLocked(). */
+  locked?: SitePreference[];
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */
   homePath?: string;
 }
@@ -277,6 +296,12 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     if (createOff) document.documentElement.setAttribute("data-site-create", "off");
     else document.documentElement.removeAttribute("data-site-create");
   }, [createOff]);
+  // The site's developer mode default or lock (browser only; the desktop app keeps its own).
+  const siteDeveloperMode = sitePreferenceValue(site?.layout, "developerMode");
+  const developerModeLocked = isSitePreferenceLocked(site?.layout, "developerMode");
+  useEffect(() => {
+    setSiteDeveloperMode(siteDeveloperMode, developerModeLocked);
+  }, [siteDeveloperMode, developerModeLocked]);
 
   const value = useMemo<SiteValue>(
     () => ({

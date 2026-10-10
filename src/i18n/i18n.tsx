@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { MessageKey } from "../register";
 import { GONDOL_MESSAGES } from "./messages";
+import { useSite } from "../sites/sites";
+import { isSitePreferenceLocked, sitePreferenceValue } from "../sites/preferences";
 
 export type { MessageKey };
 
@@ -31,11 +33,18 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
   return template.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? ""));
 }
 
-/** Pick the stored preference, else the best match from the browser's language list. */
-function detectLocale(locales: readonly Locale[], storageKey: string): Locale | null {
-  const stored = window.localStorage.getItem(storageKey);
-  if (stored && locales.includes(stored)) return stored;
+/** The user's stored pick, if it is one of the locales. */
+function storedLocale(locales: readonly Locale[], storageKey: string): Locale | null {
+  try {
+    const stored = window.localStorage.getItem(storageKey);
+    return stored && locales.includes(stored) ? stored : null;
+  } catch {
+    return null;
+  }
+}
 
+/** The best match from the browser's language list. */
+function browserLocale(locales: readonly Locale[]): Locale | null {
   const candidates: readonly string[] =
     navigator.languages?.length
       ? navigator.languages
@@ -64,8 +73,10 @@ interface I18nProviderProps {
 
 export function I18nProvider({ messages, locales, intlLocales = DEFAULT_INTL_LOCALES, storageKey = DEFAULT_STORAGE_KEY, children }: I18nProviderProps) {
   // Start on "en" so server and client markup match, then adopt the stored or
-  // browser language after hydration.
-  const [locale, setLocaleState] = useState<Locale>("en");
+  // browser language after hydration. The site served here (sites/preferences.ts) may set a
+  // language: a default where the user has picked none, or, locked, the only one.
+  const [picked, setPicked] = useState<Locale | null>(null);
+  const [browser, setBrowser] = useState<Locale | null>(null);
   const available = useMemo(() => locales ?? Object.keys(messages), [locales, messages]);
 
   const merged = useMemo(() => {
@@ -77,9 +88,15 @@ export function I18nProvider({ messages, locales, intlLocales = DEFAULT_INTL_LOC
   }, [messages]);
 
   useEffect(() => {
-    const detected = detectLocale(available, storageKey);
-    if (detected) setLocaleState(detected);
+    setPicked(storedLocale(available, storageKey));
+    setBrowser(browserLocale(available));
   }, [available, storageKey]);
+
+  const { site } = useSite();
+  const siteLocale = sitePreferenceValue(site?.layout, "locale");
+  const siteChoice = siteLocale && available.includes(siteLocale) ? siteLocale : null;
+  const siteLocked = !!siteChoice && isSitePreferenceLocked(site?.layout, "locale");
+  const locale: Locale = (siteLocked ? siteChoice : null) ?? picked ?? siteChoice ?? browser ?? "en";
 
   useEffect(() => {
     document.documentElement.lang = locale;
@@ -90,8 +107,12 @@ export function I18nProvider({ messages, locales, intlLocales = DEFAULT_INTL_LOC
       locale,
       intlLocale: intlLocales[locale] ?? locale,
       setLocale: (next) => {
-        window.localStorage.setItem(storageKey, next);
-        setLocaleState(next);
+        try {
+          window.localStorage.setItem(storageKey, next);
+        } catch {
+          /* still switches for this visit */
+        }
+        setPicked(next);
       },
       t: (key, vars) => interpolate(merged[locale]?.[key] ?? merged.en[key] ?? key, vars),
     }),

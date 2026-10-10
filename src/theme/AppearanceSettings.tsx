@@ -9,7 +9,7 @@ import {
   hexToHslTriplet,
   hslTripletToHex,
   paletteFromId,
-  useUserTheme,
+  useThemeEditor,
   type BackgroundTint,
   type CornerStyle,
   STYLE_FLAVORS,
@@ -36,7 +36,7 @@ const TINTS: BackgroundTint[] = ["none", "brown", "green", "blue", "red"];
 export function AppearanceSettings() {
   const { t } = useI18n();
   const { userTheme, updateUserTheme, replaceUserTheme, resetUserTheme, savedThemes, saveCurrentTheme, deleteSavedTheme } =
-    useUserTheme();
+    useThemeEditor();
   const [saveName, setSaveName] = useState("");
   const [importText, setImportText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -371,8 +371,10 @@ export function AppearanceSettings() {
         <span>{t("appearance.staggeredEntries")}</span>
       </label>
 
+      {saveCurrentTheme || savedThemes.length > 0 ? (
       <div className="bungalow-field">
         <span className="bungalow-label">{t("appearance.saved")}</span>
+        {saveCurrentTheme ? (
         <div className="accent-color-picker">
           <Input
             aria-label={t("appearance.saveName")}
@@ -391,14 +393,18 @@ export function AppearanceSettings() {
             {t("appearance.save")}
           </Button>
         </div>
+        ) : null}
         {savedThemes.map((saved) => (
           <div key={saved.id} className="accent-color-picker">
             <span>{saved.name}</span>
             <Button variant="ghost" onClick={() => replaceUserTheme(saved.theme)}>{t("appearance.apply")}</Button>
-            <Button variant="ghost" onClick={() => deleteSavedTheme(saved.id)}>{t("appearance.delete")}</Button>
+            {deleteSavedTheme ? (
+              <Button variant="ghost" onClick={() => deleteSavedTheme(saved.id)}>{t("appearance.delete")}</Button>
+            ) : null}
           </div>
         ))}
       </div>
+      ) : null}
 
       <div className="bungalow-field">
         <span className="bungalow-label">{t("appearance.share")}</span>
