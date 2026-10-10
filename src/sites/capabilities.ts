@@ -74,7 +74,7 @@ const overlaps = (served: readonly string[] | null | undefined, tagged: readonly
   !served || !tagged?.length || tagged.some((value) => served.includes(value));
 
 /** Whether a site offers something tagged with `capability` (see the top of this file). */
-export function siteOffers(site: SiteConfig | null | undefined, capability: Capability | undefined): boolean {
+export function siteOffers(site: Pick<SiteConfig, "roles" | "aspects"> | null | undefined, capability: Capability | undefined): boolean {
   if (!site || !capability) return true;
   return overlaps(site.roles, capability.roles) && overlaps(site.aspects, capability.aspects);
 }
