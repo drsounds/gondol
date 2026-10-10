@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Button } from "../design-system/bungalow-79d923";
+import { Button, Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import { copyText } from "../shell/clipboard";
-import { useCollectionActions } from "./extensions";
+import { entityExtensions, useCollectionActions } from "./extensions";
 import { useDragEntity, writeEntityDrag } from "./dragEntity";
 import { EntityArt } from "./EntityArt";
 import { entityTypeLabel } from "./lookup";
@@ -47,13 +47,9 @@ interface ActionMenuProps {
 type OpenState = { x: number; y: number; align: "pointer" | "trigger" | "sheet"; subtitle?: string } | null;
 
 /** Press and hold a row this long on a touch screen to open its menu. */
-const HOLD_MS = 2000;
-/** The progress bar and countdown only show for the last part of the hold, so a plain tap or a slow scroll start shows nothing. */
-const HOLD_HINT_MS = 1000;
+const HOLD_MS = 1000;
 /** A finger that moves further than this is scrolling, not holding. */
 const HOLD_SLOP_PX = 10;
-
-type HoldState = { x: number; y: number; remaining: number } | null;
 
 /** Text of the row's next two cells (a phone-width .data-table's second line), for the copy of the row on top of the sheet. */
 function rowSubtitle(host: HTMLElement): string | undefined {
@@ -92,19 +88,19 @@ let closeOpenMenu: (() => void) | null = null;
  * surrounding `.action-row`. See CLAUDE.md ("Row and entity actions").
  */
 export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) {
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<OpenState>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
-  const [hold, setHold] = useState<HoldState>(null);
   // How the trigger was last pressed: a tap on a touch screen opens the sheet instead of the dropdown.
   const triggerPointerRef = useRef<string | null>(null);
   // True while a finger is held on the row, so Android's long-press contextmenu doesn't open the dropdown.
   const holdingRef = useRef(false);
 
   const collectionActions = useCollectionActions(uri, name);
+  const like = entityExtensions().useLike(row ? uri : undefined);
   const lifecycle = useEntityLifecycle();
   const { setDragData } = useDragEntity();
   // The slug is looked up once the menu opens; until then the copies use the identifier.
@@ -200,24 +196,20 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   }, [row, show]);
 
   // Touch screens have no "⋯" on rows: pressing and holding the row for HOLD_MS opens the menu
-  // as a sheet. After HOLD_HINT_MS a progress bar with a countdown shows how long is left.
+  // as a sheet.
   useEffect(() => {
     if (!row) return;
     const host = triggerRef.current?.closest<HTMLElement>(".action-row");
     if (!host) return;
     let pointerId: number | null = null;
     let origin = { x: 0, y: 0 };
-    let startedAt = 0;
-    let timers: ReturnType<typeof setTimeout>[] = [];
-    let ticker: ReturnType<typeof setInterval> | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     let wasDraggable = false;
     let releaseClick: (() => void) | null = null;
 
     const stop = () => {
-      timers.forEach(clearTimeout);
-      timers = [];
-      if (ticker) clearInterval(ticker);
-      ticker = undefined;
+      if (timer) clearTimeout(timer);
+      timer = undefined;
       if (pointerId !== null) {
         host.classList.remove("action-row--holding");
         // Native drag-and-drop would otherwise take over the long press.
@@ -225,7 +217,6 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
       }
       pointerId = null;
       holdingRef.current = false;
-      setHold(null);
     };
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType !== "touch" || !event.isPrimary) return;
@@ -236,26 +227,18 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
       stop();
       pointerId = event.pointerId;
       origin = { x: event.clientX, y: event.clientY };
-      startedAt = Date.now();
       holdingRef.current = true;
       wasDraggable = host.draggable;
       host.draggable = false;
       host.classList.add("action-row--holding");
-      const remaining = () => Math.max(0, HOLD_MS - (Date.now() - startedAt));
-      timers.push(
-        setTimeout(() => {
-          setHold({ ...origin, remaining: remaining() });
-          ticker = setInterval(() => setHold((h) => (h ? { ...h, remaining: remaining() } : h)), 100);
-        }, HOLD_HINT_MS),
-        setTimeout(() => {
-          const subtitle = rowSubtitle(host);
-          const at = origin;
-          stop();
-          releaseClick = swallowNextClick();
-          navigator.vibrate?.(15);
-          show({ ...at, align: "sheet", subtitle });
-        }, HOLD_MS),
-      );
+      timer = setTimeout(() => {
+        const subtitle = rowSubtitle(host);
+        const at = origin;
+        stop();
+        releaseClick = swallowNextClick();
+        navigator.vibrate?.(15);
+        show({ ...at, align: "sheet", subtitle });
+      }, HOLD_MS);
     };
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
@@ -426,23 +409,6 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
     </button>
   ));
 
-  let holdHint: ReactNode = null;
-  if (hold && typeof window !== "undefined") {
-    const width = Math.min(256, window.innerWidth - 32);
-    const left = Math.min(Math.max(16, hold.x - width / 2), window.innerWidth - 16 - width);
-    // Above the finger, so it isn't hidden under it; below when the row is at the very top.
-    const top = hold.y - 104 < 16 ? hold.y + 48 : hold.y - 104;
-    const seconds = (hold.remaining / 1000).toLocaleString(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    holdHint = createPortal(
-      <div className="action-hold" role="status" style={{ left, top, width }}>
-        <span className="action-hold__text">{t("actions.holdToOpen", { seconds })}</span>
-        <span className="action-hold__track" aria-hidden="true">
-          <span className="action-hold__bar" style={{ animationDuration: `${HOLD_MS - HOLD_HINT_MS}ms` }} />
-        </span>
-      </div>,
-      document.body,
-    );
-  }
 
   return (
     <>
@@ -455,6 +421,22 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
           </span>
           <span className="action-row__type">{entityTypeLabel(t, uri!)}</span>
         </>
+      ) : null}
+      {like?.liked ? (
+        // Liked rows show a filled heart in the actions column; pressing it unlikes.
+        <button
+          type="button"
+          className="action-row__like"
+          aria-pressed="true"
+          aria-label={t("actions.unlike", { name })}
+          title={t("actions.unlike", { name })}
+          onClick={(event) => {
+            event.stopPropagation();
+            like.setLiked(false);
+          }}
+        >
+          <Icon name="like-fill" />
+        </button>
       ) : null}
       <button
         ref={triggerRef}
@@ -479,7 +461,6 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
           <circle cx="13" cy="8" r="1.4" fill="currentColor" />
         </svg>
       </button>
-      {holdHint}
       {open?.align === "sheet"
         ? createPortal(
             <div
