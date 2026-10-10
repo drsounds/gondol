@@ -16,6 +16,11 @@ export interface EntityExtensions {
   useTags(): { data?: { id: string; name: string }[] };
   /** The lower-cased tag names of every tagged entity, by URI; only fetched while `enabled`. */
   useTagNamesByUri(enabled: boolean): Map<string, string[]>;
+  /**
+   * Whether the user likes (has saved) the entity behind `uri`, and a way to change it; rows show
+   * a filled heart for liked entities. Null when there's nothing to like.
+   */
+  useLike(uri: string | undefined): { liked: boolean; setLiked: (liked: boolean) => void } | null;
 }
 
 const EMPTY_TAG_NAMES = new Map<string, string[]>();
@@ -24,6 +29,7 @@ let extensions: EntityExtensions = {
   useCoverImage: () => undefined,
   useTags: () => ({ data: [] }),
   useTagNamesByUri: () => EMPTY_TAG_NAMES,
+  useLike: () => null,
 };
 
 export function registerEntityExtensions(next: Partial<EntityExtensions>): void {
