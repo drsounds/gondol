@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Button, Icon } from "../design-system/bungalow-79d923";
+import { Button } from "../design-system/bungalow-79d923";
+import { SavedIcon } from "../theme/savedIcon";
 import { useI18n } from "../i18n/i18n";
 import { copyText } from "../shell/clipboard";
 import { entityExtensions, useCollectionActions } from "./extensions";
@@ -423,7 +424,7 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         </>
       ) : null}
       {like?.liked ? (
-        // Liked rows show a filled heart in the actions column; pressing it unlikes.
+        // Liked rows show the filled saved glyph (a heart by default) in the actions column; pressing it unlikes.
         <button
           type="button"
           className="action-row__like"
@@ -435,7 +436,7 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
             like.setLiked(false);
           }}
         >
-          <Icon name="like-fill" />
+          <SavedIcon saved />
         </button>
       ) : null}
       <button
