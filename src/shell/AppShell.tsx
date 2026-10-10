@@ -9,6 +9,7 @@ import { ChromeSearchForm, type ChromeSearchState } from "./ChromeSearch";
 import { ChevronIcon, HamburgerIcon } from "./icons";
 import { FeatureDotContext, NavItem, type FeatureDot } from "./NavItem";
 import { MobileNavDrawer } from "./MobileNavDrawer";
+import { useSiteOffers } from "../sites/capabilities";
 
 const NAV_COLLAPSED_STORAGE_KEY = "cashflow-nav-collapsed";
 
@@ -119,6 +120,7 @@ export function AppShell({
   const { t, intlLocale } = useI18n();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navSections = useAppNavigation(intlLocale);
+  const canCreate = useSiteOffers()({ aspects: ["create"] });
   const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets } = useActiveAppWidgets();
   // Mobile hamburger drawer; any navigation (drawer item, back button, deep link) closes it.
   const [menuOpen, setMenuOpen] = useState(false);
@@ -226,6 +228,8 @@ export function AppShell({
             ))}
           </div>
         ))}
+        {/* A site that doesn't offer creating (its aspects, sites/capabilities.ts) has no plus button. */}
+        {canCreate ? (
         <div className="bottom-nav__add">
           <button
             type="button"
@@ -244,6 +248,7 @@ export function AppShell({
             <span className="plus-button__text">{t("nav.add")}</span>
           </button>
         </div>
+        ) : null}
       </nav>
       {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
       {sidebarPanelWidgets.map((Widget, idx) => (
