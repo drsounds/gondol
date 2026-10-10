@@ -40,7 +40,48 @@ interface ActionMenuProps {
   row?: boolean;
 }
 
-type OpenState = { x: number; y: number; align: "pointer" | "trigger" } | null;
+/**
+ * "sheet" is the touch version: a bottom sheet with a copy of the row on top, opened by pressing
+ * and holding the row (or tapping a standalone trigger).
+ */
+type OpenState = { x: number; y: number; align: "pointer" | "trigger" | "sheet"; subtitle?: string } | null;
+
+/** Press and hold a row this long on a touch screen to open its menu. */
+const HOLD_MS = 2000;
+/** The progress bar and countdown only show for the last part of the hold, so a plain tap or a slow scroll start shows nothing. */
+const HOLD_HINT_MS = 1000;
+/** A finger that moves further than this is scrolling, not holding. */
+const HOLD_SLOP_PX = 10;
+
+type HoldState = { x: number; y: number; remaining: number } | null;
+
+/** Text of the row's next two cells (a phone-width .data-table's second line), for the copy of the row on top of the sheet. */
+function rowSubtitle(host: HTMLElement): string | undefined {
+  const cells = Array.from(host.querySelectorAll<HTMLElement>(':scope > td[data-cell="1"], :scope > td[data-cell="2"]'))
+    // Amounts carry their column header, as on the phone-width row (dataTableLabels.ts).
+    .map((cell) => [cell.classList.contains("num") ? cell.dataset.label : null, cell.textContent?.trim()].filter(Boolean).join(" "))
+    .filter(Boolean);
+  return cells.length ? cells.join(" · ") : undefined;
+}
+
+/** Keep the click that ends a long press from also activating whatever ends up under the finger. */
+function swallowNextClick(): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const swallow = (event: MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    done();
+  };
+  const done = () => {
+    window.removeEventListener("click", swallow, true);
+    if (timer) clearTimeout(timer);
+  };
+  window.addEventListener("click", swallow, true);
+  // Called once the finger lifts: a click, if the browser sends one, follows right away.
+  return () => {
+    timer = setTimeout(done, 400);
+  };
+}
 
 // Only one action menu is open at a time across the whole app.
 let closeOpenMenu: (() => void) | null = null;
@@ -51,12 +92,17 @@ let closeOpenMenu: (() => void) | null = null;
  * surrounding `.action-row`. See CLAUDE.md ("Row and entity actions").
  */
 export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) {
-  const { t } = useI18n();
+  const { t, intlLocale } = useI18n();
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState<OpenState>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [hold, setHold] = useState<HoldState>(null);
+  // How the trigger was last pressed: a tap on a touch screen opens the sheet instead of the dropdown.
+  const triggerPointerRef = useRef<string | null>(null);
+  // True while a finger is held on the row, so Android's long-press contextmenu doesn't open the dropdown.
+  const holdingRef = useRef(false);
 
   const collectionActions = useCollectionActions(uri, name);
   const lifecycle = useEntityLifecycle();
@@ -144,10 +190,96 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
       // Keep the native menu for text fields so copy/paste still works there.
       if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable='true']")) return;
       event.preventDefault();
+      // On touch screens the menu opens by holding the row (below); Android also sends a
+      // contextmenu half-way through that hold, which must not open the dropdown.
+      if (holdingRef.current || (event as PointerEvent).pointerType === "touch") return;
       show({ x: event.clientX, y: event.clientY, align: "pointer" });
     };
     host.addEventListener("contextmenu", onContextMenu);
     return () => host.removeEventListener("contextmenu", onContextMenu);
+  }, [row, show]);
+
+  // Touch screens have no "⋯" on rows: pressing and holding the row for HOLD_MS opens the menu
+  // as a sheet. After HOLD_HINT_MS a progress bar with a countdown shows how long is left.
+  useEffect(() => {
+    if (!row) return;
+    const host = triggerRef.current?.closest<HTMLElement>(".action-row");
+    if (!host) return;
+    let pointerId: number | null = null;
+    let origin = { x: 0, y: 0 };
+    let startedAt = 0;
+    let timers: ReturnType<typeof setTimeout>[] = [];
+    let ticker: ReturnType<typeof setInterval> | undefined;
+    let wasDraggable = false;
+    let releaseClick: (() => void) | null = null;
+
+    const stop = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      if (ticker) clearInterval(ticker);
+      ticker = undefined;
+      if (pointerId !== null) {
+        host.classList.remove("action-row--holding");
+        // Native drag-and-drop would otherwise take over the long press.
+        host.draggable = wasDraggable;
+      }
+      pointerId = null;
+      holdingRef.current = false;
+      setHold(null);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== "touch" || !event.isPrimary) return;
+      const target = event.target as HTMLElement;
+      // A nested row (e.g. a loan inside an education) handles its own hold.
+      if (target.closest(".action-row") !== host) return;
+      if (target.closest("input, textarea, select, [contenteditable='true']")) return;
+      stop();
+      pointerId = event.pointerId;
+      origin = { x: event.clientX, y: event.clientY };
+      startedAt = Date.now();
+      holdingRef.current = true;
+      wasDraggable = host.draggable;
+      host.draggable = false;
+      host.classList.add("action-row--holding");
+      const remaining = () => Math.max(0, HOLD_MS - (Date.now() - startedAt));
+      timers.push(
+        setTimeout(() => {
+          setHold({ ...origin, remaining: remaining() });
+          ticker = setInterval(() => setHold((h) => (h ? { ...h, remaining: remaining() } : h)), 100);
+        }, HOLD_HINT_MS),
+        setTimeout(() => {
+          const subtitle = rowSubtitle(host);
+          const at = origin;
+          stop();
+          releaseClick = swallowNextClick();
+          navigator.vibrate?.(15);
+          show({ ...at, align: "sheet", subtitle });
+        }, HOLD_MS),
+      );
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) > HOLD_SLOP_PX) stop();
+    };
+    const onPointerEnd = (event: PointerEvent) => {
+      if (releaseClick && event.pointerType === "touch") {
+        releaseClick();
+        releaseClick = null;
+      }
+      if (event.pointerId === pointerId) stop();
+    };
+    host.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+    window.addEventListener("pointerup", onPointerEnd);
+    window.addEventListener("pointercancel", onPointerEnd);
+    return () => {
+      stop();
+      releaseClick?.();
+      host.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerEnd);
+      window.removeEventListener("pointercancel", onPointerEnd);
+    };
   }, [row, show]);
 
   // Rows with a URI can be dragged onto any entity drop target.
@@ -194,6 +326,11 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   // Measure once rendered so the menu can be clamped inside the viewport.
   useLayoutEffect(() => {
     if (!open || !menuRef.current) return;
+    if (open.align === "sheet") {
+      // The sheet is laid out by CSS (docked to the bottom of the screen).
+      setPosition({ left: 0, top: 0 });
+      return;
+    }
     const menu = menuRef.current.getBoundingClientRect();
     const margin = 8;
     let left = open.align === "trigger" ? open.x - menu.width : open.x;
@@ -213,16 +350,19 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
 
   useEffect(() => {
     if (!open) return;
+    const onDismiss = () => close();
+    window.addEventListener("blur", onDismiss);
+    // The sheet closes from its backdrop (a click, so the tap doesn't fall through to the row
+    // under it) and scrolls its own items; phones resize as the address bar slides away.
+    if (open.align === "sheet") return () => window.removeEventListener("blur", onDismiss);
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
       close();
     };
-    const onDismiss = () => close();
     document.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("scroll", onDismiss, true);
     window.addEventListener("resize", onDismiss);
-    window.addEventListener("blur", onDismiss);
     return () => {
       document.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("scroll", onDismiss, true);
@@ -234,6 +374,11 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   function toggleFromTrigger() {
     if (open) {
       close();
+      return;
+    }
+    if (triggerPointerRef.current === "touch") {
+      const host = row ? triggerRef.current?.closest<HTMLElement>(".action-row") : null;
+      show({ x: 0, y: 0, align: "sheet", subtitle: host ? rowSubtitle(host) : undefined });
       return;
     }
     const r = triggerRef.current!.getBoundingClientRect();
@@ -262,6 +407,42 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   if (items.length === 0) return null;
 
   const parsedUri = row && uri ? parseEntityUri(uri) : null;
+  const sheetUri = uri ? parseEntityUri(uri) : null;
+
+  const menuItems = items.map((item) => (
+    <button
+      key={item.key}
+      type="button"
+      role="menuitem"
+      className={item.tone === "danger" ? "action-menu__item action-menu__item--danger" : "action-menu__item"}
+      disabled={item.disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        close(true);
+        item.onSelect();
+      }}
+    >
+      {item.label}
+    </button>
+  ));
+
+  let holdHint: ReactNode = null;
+  if (hold && typeof window !== "undefined") {
+    const width = Math.min(256, window.innerWidth - 32);
+    const left = Math.min(Math.max(16, hold.x - width / 2), window.innerWidth - 16 - width);
+    // Above the finger, so it isn't hidden under it; below when the row is at the very top.
+    const top = hold.y - 104 < 16 ? hold.y + 48 : hold.y - 104;
+    const seconds = (hold.remaining / 1000).toLocaleString(intlLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    holdHint = createPortal(
+      <div className="action-hold" role="status" style={{ left, top, width }}>
+        <span className="action-hold__text">{t("actions.holdToOpen", { seconds })}</span>
+        <span className="action-hold__track" aria-hidden="true">
+          <span className="action-hold__bar" style={{ animationDuration: `${HOLD_MS - HOLD_HINT_MS}ms` }} />
+        </span>
+      </div>,
+      document.body,
+    );
+  }
 
   return (
     <>
@@ -284,6 +465,9 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         aria-controls={open ? menuId : undefined}
         aria-label={t("actions.more", { name })}
         title={t("actions.more", { name })}
+        onPointerDown={(event) => {
+          triggerPointerRef.current = event.pointerType;
+        }}
         onClick={(event) => {
           event.stopPropagation();
           toggleFromTrigger();
@@ -295,7 +479,44 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
           <circle cx="13" cy="8" r="1.4" fill="currentColor" />
         </svg>
       </button>
-      {open
+      {holdHint}
+      {open?.align === "sheet"
+        ? createPortal(
+            <div
+              className="action-sheet-backdrop"
+              onClick={(event) => {
+                event.stopPropagation();
+                close();
+              }}
+              onContextMenu={(event) => event.preventDefault()}
+            >
+              <div
+                ref={menuRef}
+                id={menuId}
+                className="action-sheet"
+                role="menu"
+                aria-label={t("actions.for", { name })}
+                onKeyDown={onMenuKeyDown}
+                onClick={(event) => event.stopPropagation()}
+              >
+                {/* A copy of the row the menu is for, like the phone-width list rows. */}
+                <div className="action-sheet__entity" aria-hidden="true">
+                  {sheetUri ? <EntityArt type={sheetUri.entityType} title={name} size="sm" uri={uri} /> : null}
+                  <span className="action-sheet__entity-text">
+                    <span className="action-sheet__name">{name}</span>
+                    {sheetUri || open.subtitle ? (
+                      <span className="action-sheet__meta">
+                        {[sheetUri ? entityTypeLabel(t, uri!) : null, open.subtitle].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
+                  </span>
+                </div>
+                <div className="action-sheet__items">{menuItems}</div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : open
         ? createPortal(
             <div
               ref={menuRef}
@@ -307,22 +528,7 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
               onKeyDown={onMenuKeyDown}
               onContextMenu={(event) => event.preventDefault()}
             >
-              {items.map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  role="menuitem"
-                  className={item.tone === "danger" ? "action-menu__item action-menu__item--danger" : "action-menu__item"}
-                  disabled={item.disabled}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    close(true);
-                    item.onSelect();
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
+              {menuItems}
             </div>,
             document.body,
           )
