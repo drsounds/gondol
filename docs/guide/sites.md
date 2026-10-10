@@ -27,7 +27,7 @@ restricted).
 | Field | Meaning |
 | --- | --- |
 | `enabled_apps` | App ids that are on (plus their dependencies), or null for all. |
-| `layout` | `SiteLayout`: `desktopLayout`, `classicFrame`, `layoutStyle`, and `homePath` (where `/` goes). |
+| `layout` | `SiteLayout`: `homePath` (where `/` goes) and the [visitor preferences](#visitor-preferences) the site sets (`desktopLayout` + `classicFrame`, `layoutStyle`, `locale`, `player`, `darkTabBar`, `darkFrame`, `savedIcon`, `hideSoftDeletedEntities`, `hideFutureEntities`, `developerMode`), with `locked` listing the ones visitors can't change. |
 | `theme` | `SiteTheme`: an engine and user theme, a colour scheme (`mode`), an `accentColor`, and `allowPersonal` (visitors may use their own theme there). Each part is optional. |
 | `master_domain` | The domain of the owner's master site, which OAuth flows on all of their sites go through (`oauthReturnUrl`), or null. |
 | `roles`, `aspects` | The [roles and aspects](#roles-and-aspects) of the apps the site offers, or null for all. |
@@ -46,6 +46,7 @@ restricted).
   `allowPersonal`, `SiteThemeNotice` (`gondol/theme/SiteThemeNotice`, put it above your appearance
   settings) lets the visitor switch to their own theme there, remembered per site and device
   (`useUserTheme().usingPersonalTheme`); otherwise it says the site's theme applies.
+- **Preferences.** See [Visitor preferences](#visitor-preferences).
 - **Features and actions.** Features, palette actions and `ActionMenu` items the site's roles and
   aspects don't cover are left out; see below.
 - **Entities.** An entity type shows on a site when it's among the site's entity types, the app it
@@ -101,3 +102,24 @@ the interface only: data stays under each table's own access rules.
 Domains are compared lower-case without scheme, port, path or a leading `www.`
 (`normalizeSiteDomain`); `SITE_DOMAIN_PATTERN` validates one, and `toSiteConfig(row)` turns a raw
 `site_for_domain()` row into a `SiteConfig`.
+
+## Visitor preferences
+
+Every Account option besides the theme can be set per site in `SiteLayout` (`gondol/sites/preferences`,
+`SITE_PREFERENCES`). A value the site sets is a default for visitors who haven't picked their own;
+listed in `layout.locked` it is what everyone gets there. A layout saved before `locked` existed
+locks `desktopLayout` and `layoutStyle` (they used to always win) and nothing else.
+
+- `resolveSitePreference(layout, key, own)` gives the value in effect, `isSitePreferenceLocked()`
+  whether the visitor's own is ignored, and `useSitePreferenceLock(key)` the same for the site
+  served here. Put `<SiteLockHint preference=…/>` under a setting and disable it while locked.
+- `useUserTheme().preferences` holds the shell preferences in effect (desktop layout, dark tab bar
+  and frame, saved icon, player, hidden entities); the theme engine, `useSavedIconStyle()`,
+  `useEntityLifecycle()` and `AppShell` read it. `I18nProvider` applies `locale`, and SiteProvider
+  passes `developerMode` to the browser's developer mode.
+- `player` is `always`, `auto` (only while something plays or is queued: the bottom widgets get
+  `alwaysShow={false}`) or `hidden` (`AppShell` renders no bottom widgets).
+- To edit a theme that isn't the visitor's own (a site's), wrap `AppearanceSettings`,
+  `AeroThemeSettings` or `TuiThemeSettings` in `<ThemeEditorProvider value={…}>`
+  (`gondol/theme/userTheme`); without `saveCurrentTheme`/`deleteSavedTheme` the visitor's saved
+  themes can only be applied.

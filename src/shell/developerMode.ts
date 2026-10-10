@@ -17,12 +17,23 @@ const changeEvent = () => namespaced("developer-mode");
 /** Where the native menu and selection stay available outside developer mode. */
 const EDITABLE = "input, textarea, select, [contenteditable]:not([contenteditable='false']), pre, code";
 
-function readStored(): boolean {
+/** The browser's own pick: true, false, or null when it has none (the site's default applies). */
+function readStoredPick(): boolean | null {
   try {
-    return window.localStorage.getItem(STORAGE_KEY) === "1";
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return stored === "1" ? true : stored === "0" ? false : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** What the site served here sets (SiteProvider): a default, or with `locked` the only choice. */
+let site: { value: boolean | undefined; locked: boolean } = { value: undefined, locked: false };
+
+/** In a browser: a locked site value, else this device's pick, else the site's default, else off. */
+function readEffective(): boolean {
+  if (site.locked && site.value !== undefined) return site.value;
+  return readStoredPick() ?? site.value ?? false;
 }
 
 function apply(enabled: boolean) {
@@ -36,19 +47,28 @@ export function isDeveloperMode(): boolean {
 /** The browser's switch (the desktop app saves its own through setDeveloperMode). */
 export function setBrowserDeveloperMode(enabled: boolean) {
   try {
-    if (enabled) window.localStorage.setItem(STORAGE_KEY, "1");
-    else window.localStorage.removeItem(STORAGE_KEY);
+    // Off is stored too, so it wins over a site that turns developer mode on by default.
+    window.localStorage.setItem(STORAGE_KEY, enabled ? "1" : "0");
   } catch {
     // Storage blocked: still applies to this page.
   }
-  apply(enabled);
+  apply(readEffective());
   window.dispatchEvent(new Event(changeEvent()));
 }
 
+/** Called by SiteProvider with the site's developerMode preference (sites/preferences.ts). */
+export function setSiteDeveloperMode(value: boolean | undefined, locked: boolean) {
+  site = { value, locked };
+  if (typeof document === "undefined" || isDesktopApp()) return;
+  apply(readEffective());
+  window.dispatchEvent(new Event(changeEvent()));
+}
+
+/** The browser's developer mode in effect (with the site's default or lock) and its setter. */
 export function useBrowserDeveloperMode(): [boolean, (enabled: boolean) => void] {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => {
-    const sync = () => setEnabled(readStored());
+    const sync = () => setEnabled(readEffective());
     sync();
     window.addEventListener(changeEvent(), sync);
     window.addEventListener("storage", sync);
@@ -69,11 +89,11 @@ export function installDeveloperMode(): () => void {
       .then((info) => apply(info.developerMode))
       .catch((error) => console.error("Could not read developer mode", error));
   } else {
-    apply(readStored());
+    apply(readEffective());
   }
 
   const onStorage = (event: StorageEvent) => {
-    if (!desktop && event.key === STORAGE_KEY) apply(readStored());
+    if (!desktop && event.key === STORAGE_KEY) apply(readEffective());
   };
   // Bubble phase on window: the app's own menus (ActionMenu) have already handled the event.
   const onContextMenu = (event: MouseEvent) => {

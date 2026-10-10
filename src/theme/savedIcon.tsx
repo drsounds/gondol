@@ -1,5 +1,4 @@
 import { Icon } from "../design-system/bungalow-79d923";
-import { useSite } from "../sites/sites";
 import { useUserTheme } from "./userTheme";
 
 /**
@@ -15,14 +14,10 @@ export function isSavedIconStyle(value: unknown): value is SavedIconStyle {
   return typeof value === "string" && (SAVED_ICON_STYLES as string[]).includes(value);
 }
 
-/** The style in effect: the user's own choice, else the site's default, else the heart. */
+/** The style in effect: the site's locked choice, else the user's own, else the site's default, else the heart. */
 export function useSavedIconStyle(): SavedIconStyle {
-  const { userTheme } = useUserTheme();
-  const { site } = useSite();
-  const own = userTheme.shell?.savedIcon;
-  if (isSavedIconStyle(own)) return own;
-  const siteDefault = site?.layout.savedIcon;
-  return isSavedIconStyle(siteDefault) ? siteDefault : "heart";
+  const { preferences } = useUserTheme();
+  return isSavedIconStyle(preferences.savedIcon) ? preferences.savedIcon : "heart";
 }
 
 /** The saved/unsaved glyph in the style in effect (or `style`), sized 1em like the icon font. */

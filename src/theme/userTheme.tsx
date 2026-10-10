@@ -7,6 +7,7 @@ import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
 import { useSite, type SiteTheme } from "../sites/sites";
+import { resolveSitePreference, isSitePreferenceLocked, sitePreferenceValue } from "../sites/preferences";
 import { namespaced } from "../shell/storage";
 import type { SavedIconStyle } from "./savedIcon";
 
@@ -120,6 +121,13 @@ export interface UserTheme {
 export type DesktopLayout = "modern" | "classic";
 export const DESKTOP_LAYOUTS: DesktopLayout[] = ["modern", "classic"];
 
+/**
+ * The bottom player (the apps' bottom widgets, e.g. the task player): always there, only while
+ * something plays or is queued, or never.
+ */
+export type PlayerVisibility = "always" | "auto" | "hidden";
+export const PLAYER_VISIBILITIES: PlayerVisibility[] = ["always", "auto", "hidden"];
+
 export interface ShellSettings {
   /** Simple engine, light mode: dark bottom tab bar on phones. */
   darkTabBar?: boolean;
@@ -130,6 +138,17 @@ export interface ShellSettings {
   classicFrame?: boolean;
   /** The "saved to library" glyph (savedIcon.tsx); unset follows the site's default, else the heart. */
   savedIcon?: SavedIconStyle;
+  /** Unset follows the site's default, else "always". */
+  player?: PlayerVisibility;
+}
+
+/**
+ * The shell preferences and entity visibility in effect: the visitor's own (UserTheme.shell and
+ * the hide* flags) combined with what the site served here sets (sites/preferences.ts).
+ */
+export interface EffectivePreferences extends ShellSettings {
+  hideSoftDeletedEntities?: boolean;
+  hideFutureEntities?: boolean;
 }
 
 export interface PaletteDefinition extends CustomPalette {
@@ -607,6 +626,8 @@ interface UserThemeValue {
   usingPersonalTheme: boolean;
   /** Switches between the site's theme and the visitor's own, remembered per site on this device. */
   setUsingPersonalTheme: (on: boolean) => void;
+  /** The shell preferences in effect here, the site's defaults and locks applied. */
+  preferences: EffectivePreferences;
 }
 
 const personalThemeKey = (siteId: string) => namespaced(`site-theme:personal:${siteId}`);
@@ -717,8 +738,10 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           : appliedEngine === "tui"
             ? tuiUserTheme(appliedTheme.tui)
             : {};
-    return siteLayout?.layoutStyle ? { ...base, layoutStyle: siteLayout.layoutStyle } : base;
-  }, [appliedEngine, appliedTheme, siteLayout?.layoutStyle]);
+    // The site's layout style: locked, or a default where the theme sets none.
+    const layoutStyle = resolveSitePreference(siteLayout, "layoutStyle", base.layoutStyle);
+    return layoutStyle ? { ...base, layoutStyle } : base;
+  }, [appliedEngine, appliedTheme, siteLayout]);
   const viewTransitions = !!activeTheme.viewTransitions;
 
   // TanStack Router wraps navigations in document.startViewTransition() when
@@ -730,10 +753,24 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
 
   const effectiveMode = siteMode ?? mode;
   const isDark = effectiveMode === "dark" || (effectiveMode === "system" && systemDark);
-  const shell = useMemo<ShellSettings | null | undefined>(() => {
-    if (!siteLayout?.desktopLayout) return userTheme.shell;
-    return { ...userTheme.shell, desktopLayout: siteLayout.desktopLayout, classicFrame: !!siteLayout.classicFrame };
-  }, [userTheme.shell, siteLayout?.desktopLayout, siteLayout?.classicFrame]);
+  const preferences = useMemo<EffectivePreferences>(() => {
+    const own = userTheme.shell ?? {};
+    // The classic layout's frame goes with whichever desktop layout is in effect.
+    const siteDesktop = sitePreferenceValue(siteLayout, "desktopLayout");
+    const desktopFromSite = siteDesktop !== undefined && (isSitePreferenceLocked(siteLayout, "desktopLayout") || own.desktopLayout === undefined);
+    return {
+      ...own,
+      desktopLayout: desktopFromSite ? siteDesktop : own.desktopLayout,
+      classicFrame: desktopFromSite ? !!siteLayout?.classicFrame : own.classicFrame,
+      darkTabBar: resolveSitePreference(siteLayout, "darkTabBar", own.darkTabBar),
+      darkFrame: resolveSitePreference(siteLayout, "darkFrame", own.darkFrame),
+      savedIcon: resolveSitePreference(siteLayout, "savedIcon", own.savedIcon),
+      player: resolveSitePreference(siteLayout, "player", own.player),
+      hideSoftDeletedEntities: resolveSitePreference(siteLayout, "hideSoftDeletedEntities", userTheme.hideSoftDeletedEntities),
+      hideFutureEntities: resolveSitePreference(siteLayout, "hideFutureEntities", userTheme.hideFutureEntities),
+    };
+  }, [userTheme.shell, userTheme.hideSoftDeletedEntities, userTheme.hideFutureEntities, siteLayout]);
+  const shell = preferences;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -823,8 +860,9 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
         }
         setPersonalOnSite(on);
       },
+      preferences,
     };
-  }, [engine, userTheme, savedThemes, declaredSiteTheme, usingPersonalTheme, siteId]);
+  }, [engine, userTheme, savedThemes, declaredSiteTheme, usingPersonalTheme, siteId, preferences]);
 
   return <UserThemeContext.Provider value={value}>{children}</UserThemeContext.Provider>;
 }
@@ -833,4 +871,38 @@ export function useUserTheme(): UserThemeValue {
   const ctx = useContext(UserThemeContext);
   if (!ctx) throw new Error("useUserTheme must be used inside UserThemeProvider");
   return ctx;
+}
+
+/** useUserTheme() outside a UserThemeProvider is null rather than an error. */
+export function useOptionalUserTheme(): UserThemeValue | null {
+  return useContext(UserThemeContext);
+}
+
+// ── Theme editor ───────────────────────────────────────────────────────────
+
+/**
+ * What the theme settings (AppearanceSettings, AeroThemeSettings, TuiThemeSettings) edit: the
+ * visitor's own theme by default, or, inside a ThemeEditorProvider, another one such as a site's.
+ * Without `saveCurrentTheme`/`deleteSavedTheme` the saved themes can only be applied.
+ */
+export interface ThemeEditor {
+  userTheme: UserTheme;
+  updateUserTheme: (partial: Partial<UserTheme>) => void;
+  replaceUserTheme: (theme: UserTheme) => void;
+  resetUserTheme: () => void;
+  savedThemes: SavedTheme[];
+  saveCurrentTheme?: (name: string) => void;
+  deleteSavedTheme?: (id: string) => void;
+}
+
+const ThemeEditorContext = createContext<ThemeEditor | null>(null);
+
+/** Points the theme settings inside it at `value` instead of the visitor's own theme. */
+export function ThemeEditorProvider({ value, children }: { value: ThemeEditor; children: ReactNode }) {
+  return <ThemeEditorContext.Provider value={value}>{children}</ThemeEditorContext.Provider>;
+}
+
+export function useThemeEditor(): ThemeEditor {
+  const own = useUserTheme();
+  return useContext(ThemeEditorContext) ?? own;
 }

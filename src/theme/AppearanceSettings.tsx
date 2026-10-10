@@ -9,7 +9,7 @@ import {
   hexToHslTriplet,
   hslTripletToHex,
   paletteFromId,
-  useUserTheme,
+  useThemeEditor,
   type BackgroundTint,
   type CornerStyle,
   STYLE_FLAVORS,
@@ -36,7 +36,7 @@ const TINTS: BackgroundTint[] = ["none", "brown", "green", "blue", "red"];
 export function AppearanceSettings() {
   const { t } = useI18n();
   const { userTheme, updateUserTheme, replaceUserTheme, resetUserTheme, savedThemes, saveCurrentTheme, deleteSavedTheme } =
-    useUserTheme();
+    useThemeEditor();
   const [saveName, setSaveName] = useState("");
   const [importText, setImportText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export function AppearanceSettings() {
             onChange={(event) => setPaletteColor("tertiaryAccent", event.target.value)}
           />
           {userTheme.palette ? (
-            <Button variant="ghost" onClick={() => updateUserTheme({ palette: null, paletteId: null })}>
+            <Button type="button" variant="ghost" onClick={() => updateUserTheme({ palette: null, paletteId: null })}>
               {t("appearance.paletteClear")}
             </Button>
           ) : null}
@@ -155,7 +155,7 @@ export function AppearanceSettings() {
           />
           {userTheme.paletteAdjust ? (
             <div className="accent-color-picker">
-              <Button variant="ghost" onClick={() => updateUserTheme({ paletteAdjust: null })}>
+              <Button type="button" variant="ghost" onClick={() => updateUserTheme({ paletteAdjust: null })}>
                 {t("appearance.paletteAdjustReset")}
               </Button>
             </div>
@@ -371,8 +371,10 @@ export function AppearanceSettings() {
         <span>{t("appearance.staggeredEntries")}</span>
       </label>
 
+      {saveCurrentTheme || savedThemes.length > 0 ? (
       <div className="bungalow-field">
         <span className="bungalow-label">{t("appearance.saved")}</span>
+        {saveCurrentTheme ? (
         <div className="accent-color-picker">
           <Input
             aria-label={t("appearance.saveName")}
@@ -381,6 +383,7 @@ export function AppearanceSettings() {
             onChange={(e) => setSaveName(e.target.value)}
           />
           <Button
+            type="button"
             variant="outline"
             disabled={!saveName.trim()}
             onClick={() => {
@@ -391,31 +394,35 @@ export function AppearanceSettings() {
             {t("appearance.save")}
           </Button>
         </div>
+        ) : null}
         {savedThemes.map((saved) => (
           <div key={saved.id} className="accent-color-picker">
             <span>{saved.name}</span>
-            <Button variant="ghost" onClick={() => replaceUserTheme(saved.theme)}>{t("appearance.apply")}</Button>
-            <Button variant="ghost" onClick={() => deleteSavedTheme(saved.id)}>{t("appearance.delete")}</Button>
+            <Button type="button" variant="ghost" onClick={() => replaceUserTheme(saved.theme)}>{t("appearance.apply")}</Button>
+            {deleteSavedTheme ? (
+              <Button type="button" variant="ghost" onClick={() => deleteSavedTheme(saved.id)}>{t("appearance.delete")}</Button>
+            ) : null}
           </div>
         ))}
       </div>
+      ) : null}
 
       <div className="bungalow-field">
         <span className="bungalow-label">{t("appearance.share")}</span>
         <div className="accent-color-picker">
-          <Button variant="outline" onClick={share}>{t("appearance.copy")}</Button>
+          <Button type="button" variant="outline" onClick={share}>{t("appearance.copy")}</Button>
           <Input
             aria-label={t("appearance.importPlaceholder")}
             placeholder={t("appearance.importPlaceholder")}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
           />
-          <Button variant="outline" disabled={!importText.trim()} onClick={importTheme}>{t("appearance.import")}</Button>
+          <Button type="button" variant="outline" disabled={!importText.trim()} onClick={importTheme}>{t("appearance.import")}</Button>
         </div>
       </div>
 
       <div className="accent-color-picker">
-        <Button variant="ghost" onClick={resetUserTheme}>{t("appearance.reset")}</Button>
+        <Button type="button" variant="ghost" onClick={resetUserTheme}>{t("appearance.reset")}</Button>
         {status ? <span role="status">{status}</span> : null}
       </div>
     </div>

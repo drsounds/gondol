@@ -1,12 +1,12 @@
 import type { CSSProperties } from "react";
 import { useI18n } from "../i18n/i18n";
 import { AERO_TASTES, resolveAeroColors, type AeroSettings } from "./aeroTheme";
-import { useUserTheme } from "./userTheme";
+import { useThemeEditor } from "./userTheme";
 
 /** Taste (tint) and ambience controls of the 3D Frutiger Aero engine. */
 export function AeroThemeSettings() {
   const { t } = useI18n();
-  const { userTheme, updateUserTheme } = useUserTheme();
+  const { userTheme, updateUserTheme } = useThemeEditor();
   const aero = userTheme.aero ?? {};
   const colors = resolveAeroColors(aero);
   const update = (partial: Partial<AeroSettings>) => updateUserTheme({ aero: { ...aero, ...partial } });
