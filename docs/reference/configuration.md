@@ -36,7 +36,7 @@ interface GondolConfig {
 | `entities.sources` | `{}` | Each type's table and label. | [Entities](../guide/entities.md#sources-where-rows-live) |
 | `entities.art` | `{}` | Each type's tile glyph and hue. | [Entities](../guide/entities.md#art) |
 | `entities.shellSheetTypes` | `[]` | Types that open in a sheet owned by the shell instead of a route. | [The application shell](../guide/app-shell.md#opening-entities) |
-| `entities.extensions` | no covers, no tags | Hooks your apps provide: `useCoverImage`, `useTags`, `useTagNamesByUri`. | [Entity UI](../guide/entity-ui.md#entity-extensions) |
+| `entities.extensions` | no covers, no tags | Hooks your apps provide: `useCoverImage`, `useTags`, `useTagNamesByUri`, `useLike`, `useRestrictions`. | [Entity UI](../guide/entity-ui.md#entity-extensions) |
 
 Each part can also be registered on its own, which is what `configureGondol()` does:
 `configureEntityUris`, `registerEntityRoutes` and `registerShellSheetTypes` (`gondol/entities/uri`),

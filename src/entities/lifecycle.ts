@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase/client";
 import { useUserTheme } from "../theme/userTheme";
+import { entityExtensions } from "./extensions";
 import { parseEntityUri } from "./uri";
 
 export interface EntityLifecycleState {
@@ -18,6 +19,8 @@ const QUERY_KEY = ["entity-lifecycle-states"];
 export function useEntityLifecycle() {
   const queryClient = useQueryClient();
   const { userTheme } = useUserTheme();
+  // The app's own restrictions (a quarantine) fade an entity too.
+  const restrictionFor = entityExtensions().useRestrictions();
   const states = useQuery({
     queryKey: QUERY_KEY,
     staleTime: 30_000,
@@ -45,6 +48,7 @@ export function useEntityLifecycle() {
   }
 
   function isDimmed(uri: string | undefined): boolean {
+    if (restrictionFor(uri)?.dimmed) return true;
     const state = stateFor(uri);
     if (!state) return false;
     const deleted = !!state.soft_deleted_at && Date.parse(state.soft_deleted_at) <= Date.now();
@@ -70,5 +74,5 @@ export function useEntityLifecycle() {
     await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
   }
 
-  return { loading: states.isPending, stateFor, isDimmed, isHidden, schedule };
+  return { loading: states.isPending, stateFor, restrictionFor, isDimmed, isHidden, schedule };
 }
