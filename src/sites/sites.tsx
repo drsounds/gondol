@@ -4,11 +4,15 @@ import { supabase } from "../supabase/client";
 import { useSession } from "../supabase/useSession";
 import { entityExtensions } from "../entities/extensions";
 import { namespaced } from "../shell/storage";
-import { toEntityUri, type EntityType } from "../entities/uri";
+import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type EntityType } from "../entities/uri";
+import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
+import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
 import type { DesktopLayout, LayoutStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import type { Theme } from "../theme/theme";
 import { isSiteAspect, isSiteRole, siteOffers, type SiteAspect, type SiteRole } from "./capabilities";
+
+const appDependencies = (id: string) => getInternalApp(id)?.dependencies ?? [];
 
 /**
  * Sites: one Spacify per domain (the `sites` table, managed in the Sites app, src/apps/sites). The
@@ -326,9 +330,80 @@ export function siteAllowsApp(site: SiteConfig | null, appId: string, dependenci
   return allowed.has(appId);
 }
 
-/** Whether the site shows rows of an entity type. */
+/** Whether the site's entity types include `type` (only that setting; siteShowsType checks the rest). */
 export function siteAllowsType(site: SiteConfig | null, type: string): boolean {
   return !site?.entity_types || site.entity_types.includes(type);
+}
+
+const featureRoots = (feature: AppFeature) =>
+  [feature.path, ...(feature.aliases ?? [])].map((path) => `/${path.replace(/^\/+|\/+$/g, "")}`);
+
+/**
+ * The app and feature an entity type belongs to: the feature whose manifest entry lists the type in
+ * `entityTypes`, else the one whose path (or alias) is the longest prefix of the type's edit sheet
+ * (else its own page). Null for types no app feature holds (they follow only the site's entity types).
+ */
+export function entityTypeFeature(type: string): { app: InternalAppBundle; feature: AppFeature } | null {
+  const apps = getInternalApps();
+  for (const app of apps) {
+    const declared = app.manifest.features.find((f) => f.entityTypes?.includes(type));
+    const feature = declared && app.features.find((f) => f.id === declared.id);
+    if (feature) return { app, feature };
+  }
+  const key = "\u0000";
+  const path = entityEditPath(type as EntityType, key) ?? entityViewPath(type as EntityType, key);
+  return featureForPath(path.split(key)[0]);
+}
+
+/** The app feature whose path (or alias) is the longest prefix of an in-app path, or null. */
+export function featureForPath(path: string): { app: InternalAppBundle; feature: AppFeature } | null {
+  const clean = path.replace(/\/+$/, "");
+  let best: { app: InternalAppBundle; feature: AppFeature; length: number } | null = null;
+  for (const app of getInternalApps()) {
+    for (const feature of app.features) {
+      for (const root of featureRoots(feature)) {
+        if (root === "/" || (clean !== root && !clean.startsWith(`${root}/`))) continue;
+        if (!best || root.length > best.length) best = { app, feature, length: root.length };
+      }
+    }
+  }
+  return best && { app: best.app, feature: best.feature };
+}
+
+// Per registered app list (registerApps replaces it), since every list row asks.
+const typeFeatures = new WeakMap<InternalAppBundle[], Map<string, ReturnType<typeof entityTypeFeature>>>();
+function cachedTypeFeature(type: string) {
+  const apps = getInternalApps();
+  let byType = typeFeatures.get(apps);
+  if (!byType) typeFeatures.set(apps, (byType = new Map()));
+  if (!byType.has(type)) byType.set(type, entityTypeFeature(type));
+  return byType.get(type)!;
+}
+
+/**
+ * Whether the site shows rows of an entity type anywhere: it's among the site's entity types, the
+ * app it belongs to is enabled there (or a dependency of an enabled one), and the site offers that
+ * app feature's roles and aspects (./capabilities.ts). Mixed lists (search, @ mentions, pickers,
+ * the library, playlists, shelves) leave out the rest entirely.
+ */
+export function siteShowsType(site: SiteConfig | null, type: string): boolean {
+  if (!site) return true;
+  if (!siteAllowsType(site, type)) return false;
+  const owner = cachedTypeFeature(type);
+  if (!owner) return true;
+  return siteAllowsApp(site, owner.app.id, appDependencies) && siteOffers(site, featureCapability(owner.app, owner.feature));
+}
+
+/** Whether the site shows the entity a spacify: URI points at; other URIs (web links) always show. */
+export function siteShowsUri(site: SiteConfig | null, uri: string): boolean {
+  const parsed = parseEntityUri(uri);
+  return !parsed || siteShowsType(site, parsed.entityType);
+}
+
+/** The current site's siteShowsType / siteShowsUri. */
+export function useSiteShows(): { type: (type: string) => boolean; uri: (uri: string) => boolean } {
+  const { site } = useSite();
+  return useMemo(() => ({ type: (type: string) => siteShowsType(site, type), uri: (uri: string) => siteShowsUri(site, uri) }), [site]);
 }
 
 /** What the conditions look at: a row as search_entities() returns it. */
@@ -376,7 +451,7 @@ export function siteConditionHolds(condition: SiteCondition, row: SiteFilterable
 /** Whether a row passes a site's entity types and conditions. */
 export function siteShowsEntity(site: SiteConfig | null, row: SiteFilterable, tagNames: readonly string[] = []): boolean {
   if (!site) return true;
-  if (!siteAllowsType(site, row.entity_type)) return false;
+  if (!siteShowsType(site, row.entity_type)) return false;
   const conditions = site.conditions.filter((c) => c.field === "updated" || c.field === "ownership" || c.value.trim());
   if (conditions.length === 0) return true;
   const holds = (c: SiteCondition) => siteConditionHolds(c, row, tagNames);

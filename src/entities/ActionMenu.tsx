@@ -11,6 +11,7 @@ import { entityTypeLabel } from "./lookup";
 import { parseEntityUri } from "./uri";
 import { shareUri, shareUrl, useShareKey } from "./shareUri";
 import { useGlobalFilterHides } from "../search/globalFilterState";
+import { useSiteShows } from "../sites/sites";
 import { useEntityLifecycle } from "./lifecycle";
 import { showToast } from "../shell/clipboard";
 import { actionCapability, useSiteOffers, type Capability } from "../sites/capabilities";
@@ -307,18 +308,21 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   // The global filter (src/lib/globalFilter.tsx) hides rows whose entity doesn't pass it, in
   // every view at once.
   const filteredOut = useGlobalFilterHides(row ? uri : undefined);
+  // So do sites, for rows of entity types (or their apps, roles and aspects) the site leaves out.
+  const siteShows = useSiteShows();
+  const siteHides = !!row && !!uri && !siteShows.uri(uri);
   const lifecycleHidden = lifecycle.isHidden(uri);
   const lifecycleDimmed = lifecycle.isDimmed(uri);
   useLayoutEffect(() => {
     const host = triggerRef.current?.closest<HTMLElement>(".action-row");
     if (!host) return;
-    const hidden = filteredOut || lifecycleHidden;
+    const hidden = filteredOut || siteHides || lifecycleHidden;
     host.classList.toggle("action-row--filtered", hidden);
     host.classList.toggle("action-row--lifecycle-dimmed", lifecycleDimmed && !hidden);
     return () => {
       host.classList.remove("action-row--filtered", "action-row--lifecycle-dimmed");
     };
-  }, [filteredOut, lifecycleHidden, lifecycleDimmed]);
+  }, [filteredOut, siteHides, lifecycleHidden, lifecycleDimmed]);
 
   // Measure once rendered so the menu can be clamped inside the viewport.
   useLayoutEffect(() => {

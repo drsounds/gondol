@@ -3,6 +3,7 @@ import { EntityArt } from "./EntityArt";
 import { useEntityDropTarget } from "./dragEntity";
 import { isKnownEntityType, labelFor, lookupEntity, useEntityLabels } from "./lookup";
 import { useEntitySearch } from "../search/entitySearch";
+import { useSiteShows } from "../sites/sites";
 import { useEntityLifecycle } from "./lifecycle";
 import { useI18n, type MessageKey } from "../i18n/i18n";
 import { isUuid } from "./slugs";
@@ -123,11 +124,13 @@ export function EntityPicker(props: EntityPickerProps) {
     return optionByUri.get(uri) ?? picked.get(uri) ?? { ...ref, title: labelFor(labels, uri) ?? "…" };
   };
 
+  const siteShows = useSiteShows();
   const search = useEntitySearch(query, { types, limit: limit + selectedUris.size + excluded.size, enabled: open && !options, browse: true });
   const needle = query.trim().toLowerCase();
   const suggestions = useMemo((): EntityOption[] => {
     const pickable = (o: EntityOption) =>
       (!allowed || allowed.has(o.type)) &&
+      siteShows.type(o.type) &&
       !excluded.has(optionUri(o)) &&
       !selectedUris.has(optionUri(o)) &&
       !lifecycle.isHidden(optionUri(o));
@@ -151,7 +154,7 @@ export function EntityPicker(props: EntityPickerProps) {
       .filter((o) => pickable(o) && !seen.has(optionUri(o)) && !!seen.add(optionUri(o)))
       .slice(0, limit + (needle ? 0 : suggestedHere.length));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the sets are rebuilt every render from these
-  }, [options, suggested, search.results, query, limit, allowed, values.join("\n"), [...excluded].join("\n"), lifecycle]);
+  }, [options, suggested, search.results, query, limit, allowed, siteShows, values.join("\n"), [...excluded].join("\n"), lifecycle]);
 
   const loading = !options && search.loading && suggestions.length === 0;
   // The "Create …" item comes after the suggestions in keyboard order.

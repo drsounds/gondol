@@ -8,7 +8,9 @@ of it sits a global filter that narrows every view at once.
 
 `SearchPanel` (`gondol/search/SearchPanel`) is a Spotify-style search page over every entity the
 user can see. The query is `?q=` and the selected type chip `?type=`, so results survive reloads and
-back/forward. Before anything is typed it shows recent searches and a "Browse all" grid.
+back/forward. Before anything is typed it shows a "Browse all" grid (tiles of apps that are off, or features
+the site doesn't offer, are left out); while a search field is active (focused, until Escape or a
+click elsewhere; spread `searchFieldProps` on your own field) it shows the recent searches instead.
 
 ```tsx
 import { SearchPanel, type SearchBrowseTile } from "gondol/search/SearchPanel";

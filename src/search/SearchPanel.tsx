@@ -8,7 +8,11 @@ import { Alert, Icon, type IconName } from "../design-system/bungalow-79d923";
 import { supabase } from "../supabase/client";
 import type { SearchRouteSearch } from "../navigation/dateRangeSearch";
 import { useI18n, type MessageKey } from "../i18n/i18n";
-import { useSiteEntityFilter } from "../sites/sites";
+import { featureForPath, useSiteEntityFilter, useSiteShows } from "../sites/sites";
+import { useSiteOffers } from "../sites/capabilities";
+import { useActiveBundles } from "../apps/hooks";
+import { featureCapability } from "../apps/registry";
+import { deactivateSearchField, searchFieldProps, useSearchFieldActive } from "./searchFieldActive";
 import { toEntityUri, type EntityType } from "../entities/uri";
 
 interface Props {
@@ -67,7 +71,8 @@ function useDebounced<T>(value: T, ms: number) {
  * Spotify-style search over every entity the user can see (their own, plus other users' public
  * playlists/apps), backed by the `search_entities` full-text Postgres function. `/search?q=` holds
  * the query and `&type=` the selected filter chip, so results survive reloads and back/forward.
- * Before anything is typed it shows recent searches and a "Browse all" grid of sections.
+ * Before anything is typed it shows a "Browse all" grid of sections, or, while a search field is
+ * active (searchFieldActive.ts), the recent searches.
  */
 export function SearchPanel({ onOpenUri, browse = [] }: Props) {
   const { t } = useI18n();
@@ -78,7 +83,20 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
   const debouncedQ = useDebounced(q.trim(), 200);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const siteFilter = useSiteEntityFilter();
+  const siteShows = useSiteShows();
   useEffect(() => setRecent(readRecent()), []);
+  // Recents of types the site leaves out stay stored (other sites may show them) but aren't listed.
+  const shownRecent = recent.filter((r) => siteShows.type(r.entity_type));
+  // Recent searches only while a search field is active and empty; the browse grid otherwise.
+  const fieldActive = useSearchFieldActive();
+  const showRecent = fieldActive && shownRecent.length > 0;
+  // Browse tiles of apps that are off (here or by the user) or features the site doesn't offer go.
+  const activeBundles = useActiveBundles();
+  const offers = useSiteOffers();
+  const shownBrowse = browse.filter((tile) => {
+    const owner = featureForPath(tile.path);
+    return !owner || (activeBundles.some((b) => b.id === owner.app.id) && offers(featureCapability(owner.app, owner.feature)));
+  });
 
   function setSearch(next: Partial<SearchRouteSearch>) {
     navigate({ to: "/search", search: (prev: SearchRouteSearch) => ({ ...prev, ...next }), replace: true } as Parameters<
@@ -106,6 +124,7 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
     const next = [result, ...readRecent().filter((r) => !(r.entity_type === result.entity_type && r.entity_id === result.entity_id))];
     writeRecent(next);
     setRecent(next.slice(0, RECENT_LIMIT));
+    deactivateSearchField();
     onOpenUri(toEntityUri(result.entity_type, result.entity_id));
   }
   function forget(result: RecentItem) {
@@ -125,6 +144,7 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
             className="search-page__input"
             placeholder={t("search.placeholder")}
             aria-label={t("search.placeholder")}
+            {...searchFieldProps}
             value={q}
             onChange={(e) => setSearch({ q: e.target.value || undefined, type: undefined })}
           />
@@ -133,8 +153,8 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
 
       {!q.trim() ? (
         <>
-          {recent.length > 0 ? (
-            <section className="search-section">
+          {showRecent ? (
+            <section className="search-section" data-search-recent="">
               <div className="search-section__head">
                 <h2 className="search-section__title">{t("search.recent")}</h2>
                 <button
@@ -149,7 +169,7 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
                 </button>
               </div>
               <ul className="search-list">
-                {recent.map((r) => (
+                {shownRecent.map((r) => (
                   <ResultRow
                     key={`${r.entity_type}:${r.entity_id}`}
                     result={r}
@@ -159,24 +179,25 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
                 ))}
               </ul>
             </section>
-          ) : null}
-          <section className="search-section">
-            <h2 className="search-section__title">{t("search.browseAll")}</h2>
-            <div className="browse-grid">
-              {browse.map((b) => (
-                <button
-                  key={b.path}
-                  type="button"
-                  className="browse-tile"
-                  style={{ "--tile-hue": b.hue } as CSSProperties}
-                  onClick={() => navigate({ to: b.path, search: (prev: SearchRouteSearch) => prev } as Parameters<typeof navigate>[0])}
-                >
-                  <span className="browse-tile__label">{t(b.label)}</span>
-                  <Icon name={b.icon} className="browse-tile__art" />
-                </button>
-              ))}
-            </div>
-          </section>
+          ) : (
+            <section className="search-section">
+              <h2 className="search-section__title">{t("search.browseAll")}</h2>
+              <div className="browse-grid">
+                {shownBrowse.map((b) => (
+                  <button
+                    key={b.path}
+                    type="button"
+                    className="browse-tile"
+                    style={{ "--tile-hue": b.hue } as CSSProperties}
+                    onClick={() => navigate({ to: b.path, search: (prev: SearchRouteSearch) => prev } as Parameters<typeof navigate>[0])}
+                  >
+                    <span className="browse-tile__label">{t(b.label)}</span>
+                    <Icon name={b.icon} className="browse-tile__art" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       ) : (
         <>
