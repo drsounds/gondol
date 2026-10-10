@@ -1,4 +1,5 @@
-import type { InternalAppBundle, AppFeature } from "./types";
+import type { InternalAppBundle, AppFeature, ManifestCapability } from "./types";
+import { isSiteAspect, isSiteRole, mergeCapability, type Capability } from "../sites/capabilities";
 
 /**
  * The app's internal app bundles, preregistered in its source code (registerApps). They can't be
@@ -32,4 +33,17 @@ export function isInternalApp(id: string): boolean {
 export function findFeature(appId: string, featureId: string): AppFeature | undefined {
   const app = getInternalApp(appId);
   return app?.features.find((f) => f.id === featureId);
+}
+
+const fromManifest = (declared: ManifestCapability | undefined): Capability => ({
+  roles: declared?.roles?.filter(isSiteRole),
+  aspects: declared?.aspects?.filter(isSiteAspect),
+});
+
+/**
+ * A feature's roles and aspects (sites/capabilities.ts): the AppFeature's own, else its entry in
+ * the manifest, else the manifest's app-wide ones, per dimension.
+ */
+export function featureCapability(app: InternalAppBundle, feature: AppFeature): Capability {
+  return mergeCapability(feature, fromManifest(app.manifest.features.find((f) => f.id === feature.id)), fromManifest(app.manifest));
 }

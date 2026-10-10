@@ -7,12 +7,14 @@ import { namespaced } from "../shell/storage";
 import { toEntityUri, type EntityType } from "../entities/uri";
 import type { SavedIconStyle } from "../theme/savedIcon";
 import type { DesktopLayout, LayoutStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { Theme } from "../theme/theme";
+import { isSiteAspect, isSiteRole, type SiteAspect, type SiteRole } from "./capabilities";
 
 /**
  * Sites: one Spacify per domain (the `sites` table, managed in the Sites app, src/apps/sites). The
  * site served on the current host decides which internal apps are on, who may use it, the page's
  * base layout, a theme that replaces the visitor's own, and which entities show up (entity types
- * plus conditions). `SiteProvider` resolves it through `site_for_domain()`, which also works
+ * plus conditions), and which roles and aspects of the apps it offers (./capabilities.ts). `SiteProvider` resolves it through `site_for_domain()`, which also works
  * before sign-in, so the sign-in page already wears the site's theme.
  *
  * `?site=<domain>` previews a site on any host (remembered for the tab; `?site=` with no value
@@ -30,10 +32,41 @@ export interface SiteLayout {
   homePath?: string;
 }
 
-/** A site's theme: the engine and the advanced/aero settings it uses, applied instead of the visitor's. */
+/**
+ * A site's theme, applied instead of the visitor's: the engine and the advanced/aero/TUI settings it
+ * uses, its colour scheme (light, dark or the device's) and accent colour. Each part is optional,
+ * so a site can set only a colour scheme and leave the rest to the visitor.
+ */
 export interface SiteTheme {
-  engine: ThemeEngine;
-  theme: UserTheme;
+  engine?: ThemeEngine;
+  theme?: UserTheme;
+  /** Light/dark colour scheme; unset leaves the visitor's own. */
+  mode?: Theme;
+  /** Accent colour (#rrggbb) for the simple and advanced engines; unset keeps the theme's own. */
+  accentColor?: string;
+  /**
+   * Whether visitors may switch to their own theme on this site (Account › Appearance). When
+   * false the site's theme is all they get here.
+   */
+  allowPersonal?: boolean;
+}
+
+const SITE_THEME_MODES: readonly Theme[] = ["system", "light", "dark"];
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** A stored site theme, dropping anything malformed; null when it sets nothing. */
+export function toSiteTheme(value: unknown): SiteTheme | null {
+  const raw = asObject<Record<string, unknown> | null>(value, null);
+  if (!raw) return null;
+  const theme: SiteTheme = {};
+  if (typeof raw.engine === "string" && ["simple", "advanced", "aero", "tui"].includes(raw.engine)) {
+    theme.engine = raw.engine as ThemeEngine;
+    theme.theme = asObject<UserTheme>(raw.theme, {});
+  }
+  if (SITE_THEME_MODES.includes(raw.mode as Theme)) theme.mode = raw.mode as Theme;
+  if (typeof raw.accentColor === "string" && HEX_COLOR.test(raw.accentColor)) theme.accentColor = raw.accentColor.toLowerCase();
+  if (raw.allowPersonal === true) theme.allowPersonal = true;
+  return theme.engine || theme.mode || theme.accentColor ? theme : null;
 }
 
 export const SITE_CONDITION_FIELDS = ["title", "tag", "ownership", "updated"] as const;
@@ -69,6 +102,9 @@ export interface SiteConfig {
   entity_types: string[] | null;
   conditions: SiteCondition[];
   condition_match: SiteConditionMatch;
+  /** The roles and aspects of the apps the site offers (./capabilities.ts); null offers all. */
+  roles: SiteRole[] | null;
+  aspects: SiteAspect[] | null;
   restricted: boolean;
   /** Visitors without an account may browse the owner's public entities (rendered on the server for SEO). */
   allow_anonymous: boolean;
@@ -138,7 +174,6 @@ export function toSiteConfig(row: Record<string, unknown>): SiteConfig {
         (c) => c && SITE_CONDITION_FIELDS.includes(c.field) && SITE_CONDITION_OPS[c.field].includes(c.op) && typeof c.value === "string",
       )
     : [];
-  const theme = asObject<SiteTheme | null>(row.theme, null);
   return {
     id: String(row.id),
     name: String(row.name ?? ""),
@@ -146,10 +181,12 @@ export function toSiteConfig(row: Record<string, unknown>): SiteConfig {
     description: (row.description as string | null) ?? null,
     enabled_apps: (row.enabled_apps as string[] | null) ?? null,
     layout: asObject<SiteLayout>(row.layout, {}),
-    theme: theme && theme.engine ? { engine: theme.engine, theme: asObject<UserTheme>(theme.theme, {}) } : null,
+    theme: toSiteTheme(row.theme),
     entity_types: (row.entity_types as string[] | null) ?? null,
     conditions,
     condition_match: row.condition_match === "any" ? "any" : "all",
+    roles: Array.isArray(row.roles) ? row.roles.filter(isSiteRole) : null,
+    aspects: Array.isArray(row.aspects) ? row.aspects.filter(isSiteAspect) : null,
     restricted: row.restricted !== false,
     allow_anonymous: row.allow_anonymous === true,
     is_owner: row.is_owner === true,
