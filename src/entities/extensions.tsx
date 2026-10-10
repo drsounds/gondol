@@ -18,15 +18,27 @@ export interface EntityExtensions {
   useTagNamesByUri(enabled: boolean): Map<string, string[]>;
   /**
    * Whether the user likes (has saved) the entity behind `uri`, and a way to change it; rows show
-   * a filled heart for liked entities. Null when there's nothing to like.
+   * a filled heart for liked entities. Null when there's nothing to like. With `open` (and its
+   * `openLabel`), pressing a liked row's glyph calls it instead of unliking, e.g. to open the app's
+   * "Add to playlist" sheet where "Saved" can be unticked along with the playlists.
    */
-  useLike(uri: string | undefined): { liked: boolean; setLiked: (liked: boolean) => void } | null;
+  useLike(uri: string | undefined, name?: string): EntityLike | null;
   /**
    * Restrictions the app puts on entities (e.g. a quarantine), as a lookup by URI: restricted
    * entities are faded like soft-deleted ones (`dimmed`) and their "Copy URI"/"Copy URL" are
    * disabled (`noSharing`). Called once per component, so it should read from a shared cache.
    */
   useRestrictions(): (uri: string | undefined) => EntityRestriction | null;
+}
+
+/** Whether an entity is liked (see `EntityExtensions.useLike`). */
+export interface EntityLike {
+  liked: boolean;
+  setLiked: (liked: boolean) => void;
+  /** What pressing a liked row's glyph does instead of unliking. */
+  open?: () => void;
+  /** The glyph's accessible name when `open` is set. */
+  openLabel?: string;
 }
 
 /** What the app restricts about one entity (see `EntityExtensions.useRestrictions`). */

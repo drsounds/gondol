@@ -101,7 +101,7 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   const holdingRef = useRef(false);
 
   const collectionActions = useCollectionActions(uri, name);
-  const like = entityExtensions().useLike(row ? uri : undefined);
+  const like = entityExtensions().useLike(row ? uri : undefined, name);
   const lifecycle = useEntityLifecycle();
   const { setDragData } = useDragEntity();
   // The slug is looked up once the menu opens; until then the copies use the identifier.
@@ -427,16 +427,19 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         </>
       ) : null}
       {like?.liked ? (
-        // Liked rows show the filled saved glyph (a heart by default) in the actions column; pressing it unlikes.
+        // Liked rows show the filled saved glyph (a heart by default) in the actions column; pressing
+        // it opens the app's collections sheet when it has one (`like.open`), else unlikes.
         <button
           type="button"
           className="action-row__like"
-          aria-pressed="true"
-          aria-label={t("actions.unlike", { name })}
-          title={t("actions.unlike", { name })}
+          aria-pressed={like.open ? undefined : "true"}
+          aria-haspopup={like.open ? "dialog" : undefined}
+          aria-label={like.open ? (like.openLabel ?? name) : t("actions.unlike", { name })}
+          title={like.open ? (like.openLabel ?? name) : t("actions.unlike", { name })}
           onClick={(event) => {
             event.stopPropagation();
-            like.setLiked(false);
+            if (like.open) like.open();
+            else like.setLiked(false);
           }}
         >
           <SavedIcon saved />
