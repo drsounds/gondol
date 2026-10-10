@@ -105,6 +105,7 @@
     "./search/SearchPanel": "./src/search/SearchPanel.tsx",
     "./search/entitySearch": "./src/search/entitySearch.ts",
     "./search/globalFilterState": "./src/search/globalFilterState.tsx",
+    "./search/searchFieldActive": "./src/search/searchFieldActive.ts",
     "./shell/AppShell": "./src/shell/AppShell.tsx",
     "./shell/ChromeSearch": "./src/shell/ChromeSearch.tsx",
     "./shell/DeveloperModeToggle": "./src/shell/DeveloperModeToggle.tsx",

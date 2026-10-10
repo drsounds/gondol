@@ -352,12 +352,17 @@ export function entityTypeFeature(type: string): { app: InternalAppBundle; featu
   }
   const key = "\u0000";
   const path = entityEditPath(type as EntityType, key) ?? entityViewPath(type as EntityType, key);
-  const prefix = path.split(key)[0].replace(/\/+$/, "");
+  return featureForPath(path.split(key)[0]);
+}
+
+/** The app feature whose path (or alias) is the longest prefix of an in-app path, or null. */
+export function featureForPath(path: string): { app: InternalAppBundle; feature: AppFeature } | null {
+  const clean = path.replace(/\/+$/, "");
   let best: { app: InternalAppBundle; feature: AppFeature; length: number } | null = null;
-  for (const app of apps) {
+  for (const app of getInternalApps()) {
     for (const feature of app.features) {
       for (const root of featureRoots(feature)) {
-        if (root === "/" || (prefix !== root && !prefix.startsWith(`${root}/`))) continue;
+        if (root === "/" || (clean !== root && !clean.startsWith(`${root}/`))) continue;
         if (!best || root.length > best.length) best = { app, feature, length: root.length };
       }
     }

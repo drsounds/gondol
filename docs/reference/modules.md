@@ -92,6 +92,7 @@ Guides: [The application shell](../guide/app-shell.md), [Platform](../guide/plat
 | Module | Main exports |
 | --- | --- |
 | `search/SearchPanel` | `SearchPanel`, `SearchBrowseTile`, `SearchResult` |
+| `search/searchFieldActive` | `searchFieldProps`, `useSearchFieldActive`, `deactivateSearchField` |
 | `search/entitySearch` | `useEntitySearch`, `useDebounced`, `EntitySearchResult` |
 | `search/globalFilterState` | `GlobalFilterProvider`, `useGlobalFilter`, `useGlobalFilterHides`, `readGlobalFilter`, `encodeConditions`, `decodeConditions` |
 | `search/GlobalFilter` | `GlobalFilterButtons`, `GlobalFilterBar`, `GlobalFilterDrawer`, `DatePeriodDrawer` |
@@ -116,7 +117,7 @@ Guide: [Theming](../guide/theming.md).
 
 | Module | Main exports |
 | --- | --- |
-| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteAllowsApp`, `siteAllowsType`, `siteShowsType`, `siteShowsUri`, `useSiteShows`, `entityTypeFeature`, `siteShowsEntity`, `useSiteEntityFilter` |
+| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteAllowsApp`, `siteAllowsType`, `siteShowsType`, `siteShowsUri`, `useSiteShows`, `entityTypeFeature`, `featureForPath`, `siteShowsEntity`, `useSiteEntityFilter` |
 | `i18n/i18n` | `I18nProvider`, `useI18n`, `Translate`, `MessageCatalogue` |
 | `i18n/messages` | `GONDOL_MESSAGES`, `GondolMessageKey` |
 | `supabase/client` | `getSupabaseClient`, `setSupabaseClient`, `supabase` |

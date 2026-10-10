@@ -4,6 +4,7 @@ import { useI18n } from "../i18n/i18n";
 import { isEntityUri, resolveEntityUri, type EntityUriTarget } from "../entities/uri";
 import type { SearchRouteSearch } from "../navigation/dateRangeSearch";
 import { SearchIcon } from "./icons";
+import { searchFieldProps } from "../search/searchFieldActive";
 
 /**
  * The chrome search field, the desktop entry point to /search (like Spotify's top bar): typing
@@ -89,6 +90,7 @@ export function ChromeSearchForm({ search }: { search: ChromeSearchState }) {
           placeholder={t("chrome.searchPlaceholder")}
           aria-label={t("chrome.searchPlaceholder")}
           title={t("chrome.searchHint")}
+          {...searchFieldProps}
           value={search.value}
           onChange={(e) => {
             e.target.setCustomValidity("");
