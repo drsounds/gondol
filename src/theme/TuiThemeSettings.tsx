@@ -72,7 +72,7 @@ export function TuiThemeSettings() {
         </div>
         {tui.colors && Object.keys(tui.colors).length > 0 ? (
           <div>
-            <Button size="sm" variant="outline" onClick={() => update({ colors: undefined })}>
+            <Button type="button" size="sm" variant="outline" onClick={() => update({ colors: undefined })}>
               {t("appearance.tui.resetColors")}
             </Button>
           </div>
