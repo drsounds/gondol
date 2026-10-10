@@ -158,6 +158,25 @@ body {
   accent-color: var(--bungalow-color-primary);
 }
 
+/* The "saved in library" glyph (savedIcon.tsx): an SVG sized and aligned like the icon font. */
+.saved-icon { display: inline-block; flex: none; vertical-align: -0.125em; }
+
+/* Its picker in the shell preferences: one tile per style, with the unsaved and saved glyph. */
+.saved-icon-choice { display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
+.saved-icon-choice__option {
+  align-items: center;
+  border: 1px solid var(--bungalow-color-surface-strong);
+  border-radius: var(--bungalow-radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  gap: var(--bungalow-space-2);
+  min-height: 2.75rem;
+  padding: var(--bungalow-space-2) var(--bungalow-space-3);
+}
+.saved-icon-choice__option:has(input:checked) { border-color: var(--bungalow-color-primary); }
+.saved-icon-choice__option input { accent-color: var(--bungalow-color-primary); margin: 0; }
+.saved-icon-choice__glyphs { color: var(--bungalow-color-primary); display: inline-flex; font-size: 1.25rem; gap: var(--bungalow-space-1); }
+
 /*
  * Dark mode: follows the OS preference by default. A user can override it
  * explicitly via the theme picker, which sets data-theme="light"/"dark" on

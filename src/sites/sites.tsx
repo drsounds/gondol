@@ -5,6 +5,7 @@ import { useSession } from "../supabase/useSession";
 import { entityExtensions } from "../entities/extensions";
 import { namespaced } from "../shell/storage";
 import { toEntityUri, type EntityType } from "../entities/uri";
+import type { SavedIconStyle } from "../theme/savedIcon";
 import type { DesktopLayout, LayoutStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 
 /**
@@ -23,6 +24,8 @@ export interface SiteLayout {
   desktopLayout?: DesktopLayout;
   classicFrame?: boolean;
   layoutStyle?: LayoutStyle;
+  /** The "saved to library" glyph for visitors who haven't picked their own (savedIcon.tsx). */
+  savedIcon?: SavedIconStyle;
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */
   homePath?: string;
 }

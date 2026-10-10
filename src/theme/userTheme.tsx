@@ -7,6 +7,7 @@ import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
 import { useSite } from "../sites/sites";
+import type { SavedIconStyle } from "./savedIcon";
 
 /**
  * User theming engine, ported from gantt-resume-pro (useCustomTheme /
@@ -126,6 +127,8 @@ export interface ShellSettings {
   desktopLayout?: DesktopLayout;
   /** Classic layout: floating panels inside a frame (true) or flush, edge to edge (default). */
   classicFrame?: boolean;
+  /** The "saved to library" glyph (savedIcon.tsx); unset follows the site's default, else the heart. */
+  savedIcon?: SavedIconStyle;
 }
 
 export interface PaletteDefinition extends CustomPalette {

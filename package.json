@@ -136,6 +136,7 @@
     "./theme/TuiThemeSettings": "./src/theme/TuiThemeSettings.tsx",
     "./theme/accentColor": "./src/theme/accentColor.tsx",
     "./theme/aeroTheme": "./src/theme/aeroTheme.ts",
+    "./theme/savedIcon": "./src/theme/savedIcon.tsx",
     "./theme/theme": "./src/theme/theme.tsx",
     "./theme/tuiTheme": "./src/theme/tuiTheme.ts",
     "./theme/useUserThemeSync": "./src/theme/useUserThemeSync.ts",
