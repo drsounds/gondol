@@ -27,8 +27,8 @@ restricted).
 | Field | Meaning |
 | --- | --- |
 | `enabled_apps` | App ids that are on (plus their dependencies), or null for all. |
-| `layout` | `SiteLayout`: `homePath` (where `/` goes) and the [visitor preferences](#visitor-preferences) the site sets (`desktopLayout` + `classicFrame`, `layoutStyle`, `locale`, `player`, `darkTabBar`, `darkFrame`, `savedIcon`, `hideSoftDeletedEntities`, `hideFutureEntities`, `developerMode`), with `locked` listing the ones visitors can't change. |
-| `theme` | `SiteTheme`: an engine and user theme, a colour scheme (`mode`), an `accentColor`, and `allowPersonal` (visitors may use their own theme there). Each part is optional. |
+| `layout` | `SiteLayout`: `homePath` (where `/` goes) and the [visitor preferences](#visitor-preferences) the site sets (`desktopLayout` + `classicFrame`, `layoutStyle`, `locale`, `player`, `darkTabBar`, `darkFrame`, `savedIcon`, `sheetStyle`, `tableLines`, `highContrast`, `hideSoftDeletedEntities`, `hideFutureEntities`, `developerMode`), with `locked` listing the ones visitors can't change. |
+| `theme` | `SiteTheme`: an engine and user theme, a colour scheme (`mode`) and an `accentColor` (a colour, `"foreground"` or `"theme"`), with `locked` listing the parts visitors can't change. Each part is optional. |
 | `master_domain` | The domain of the owner's master site, which OAuth flows on all of their sites go through (`oauthReturnUrl`), or null. |
 | `roles`, `aspects` | The [roles and aspects](#roles-and-aspects) of the apps the site offers, or null for all. |
 | `entity_types`, `conditions`, `condition_match` | Which entities show up, with the same conditions as the [global filter](./search-and-filters.md#conditions). |
@@ -41,11 +41,13 @@ restricted).
   leaves out as off (`siteDisabled`), whatever the user's own switch says, so they vanish from the
   navigation, palette and widgets. Check `siteAllowsApp(site, appId, dependencies)` before rendering
   a feature to show a "not on this site" message instead.
-- **Theme and layout.** `UserThemeProvider` applies the site's engine, theme, colour scheme, accent
-  and layout while the visitor is on it; their own settings stay stored. When the site sets
-  `allowPersonal`, `SiteThemeNotice` (`gondol/theme/SiteThemeNotice`, put it above your appearance
-  settings) lets the visitor switch to their own theme there, remembered per site and device
-  (`useUserTheme().usingPersonalTheme`); otherwise it says the site's theme applies.
+- **Theme and layout.** Each part of the site's theme (`SITE_THEME_PARTS`: `engine` with its
+  theme, `mode`, `accentColor`) works like a visitor preference: a default for visitors who haven't
+  picked their own, or, listed in `theme.locked`, what everyone gets there
+  (`isSiteThemeLocked()`, `useSiteThemeLock(part)`, `<SiteLockHint themePart=…/>`). A theme saved
+  before `locked` locks every part it sets unless it has the old `allowPersonal`.
+  `useUserTheme().fromSite` says which parts come from the site right now and `applied` holds the
+  engine, colour scheme and accent in effect; the visitor's own settings stay stored.
 - **Preferences.** See [Visitor preferences](#visitor-preferences).
 - **Features and actions.** Features, palette actions and `ActionMenu` items the site's roles and
   aspects don't cover are left out; see below.
@@ -117,6 +119,10 @@ locks `desktopLayout` and `layoutStyle` (they used to always win) and nothing el
   and frame, saved icon, player, hidden entities); the theme engine, `useSavedIconStyle()`,
   `useEntityLifecycle()` and `AppShell` read it. `I18nProvider` applies `locale`, and SiteProvider
   passes `developerMode` to the browser's developer mode.
+- `sheetStyle` is `modal` (the default) or `page`: edit sheets cover everything, edge to edge
+  (`data-sheet-style="page"` on `<html>`). `tableLines` draws lines between data table rows
+  (`data-table-lines`), and `highContrast` limits every colour token to the foreground and the
+  background (`data-high-contrast`, `styles/base.css`).
 - `player` is `always`, `auto` (only while something plays or is queued: the bottom widgets get
   `alwaysShow={false}`) or `hidden` (`AppShell` renders no bottom widgets).
 - To edit a theme that isn't the visitor's own (a site's), wrap `AppearanceSettings`,

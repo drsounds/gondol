@@ -383,3 +383,55 @@ body {
 :root[data-site-create="off"] .panel-head > .row-actions > .bungalow-button.bungalow-tone-primary {
   display: none;
 }
+
+/* Accent and contrast (theme/userTheme.tsx, AccentColorField). Both re-declare the tokens on every
+ * element, not just :root, so they resolve against the nearest canvas and ink: a pane that sets
+ * its own (the always-dark sheet preview) still gets its own foreground and background. They are
+ * !important to win over the theme engine's inline properties on <html>. */
+
+/* The foreground (text) colour as the accent: accented things read as ink on the background. */
+:root[data-accent="foreground"],
+:root[data-accent="foreground"] * {
+  --bungalow-color-primary: var(--bungalow-color-ink) !important;
+  --bungalow-color-primary-contrast: var(--bungalow-color-canvas) !important;
+  --bungalow-color-primary-soft: color-mix(in srgb, var(--bungalow-color-ink) 12%, var(--bungalow-color-canvas)) !important;
+  --bungalow-color-primary-strong: var(--bungalow-color-ink) !important;
+}
+
+/* High contrast: every shade is the foreground or the background colour. Surfaces become the
+ * background and get a foreground outline instead, and the status colours are the foreground. */
+:root[data-high-contrast],
+:root[data-high-contrast] * {
+  --bungalow-color-muted: var(--bungalow-color-ink) !important;
+  --bungalow-color-surface: var(--bungalow-color-canvas) !important;
+  --bungalow-color-surface-strong: var(--bungalow-color-canvas) !important;
+  --bungalow-color-border: var(--bungalow-color-ink) !important;
+  --bungalow-color-primary: var(--bungalow-color-ink) !important;
+  --bungalow-color-primary-contrast: var(--bungalow-color-canvas) !important;
+  --bungalow-color-primary-soft: var(--bungalow-color-canvas) !important;
+  --bungalow-color-primary-strong: var(--bungalow-color-ink) !important;
+  --bungalow-color-secondary: var(--bungalow-color-ink) !important;
+  --bungalow-color-secondary-contrast: var(--bungalow-color-canvas) !important;
+  --bungalow-color-tertiary: var(--bungalow-color-ink) !important;
+  --bungalow-color-tertiary-contrast: var(--bungalow-color-canvas) !important;
+  --bungalow-color-success: var(--bungalow-color-ink) !important;
+  --bungalow-color-warning: var(--bungalow-color-ink) !important;
+  --bungalow-color-danger: var(--bungalow-color-ink) !important;
+  --bungalow-color-info: var(--bungalow-color-ink) !important;
+  --bungalow-color-success-soft: var(--bungalow-color-canvas) !important;
+  --bungalow-color-warning-soft: var(--bungalow-color-canvas) !important;
+  --bungalow-color-danger-soft: var(--bungalow-color-canvas) !important;
+  --bungalow-color-info-soft: var(--bungalow-color-canvas) !important;
+  --chrome-bg: var(--bungalow-color-canvas) !important;
+  --chrome-fg: var(--bungalow-color-ink) !important;
+  --chrome-fg-active: var(--bungalow-color-ink) !important;
+  --bungalow-shadow-raised: none !important;
+}
+:root[data-high-contrast] ::selection {
+  background: var(--bungalow-color-ink);
+  color: var(--bungalow-color-canvas);
+}
+:root[data-high-contrast] [class*="bungalow-tone-"] {
+  --button-color: var(--bungalow-color-ink) !important;
+  --button-contrast: var(--bungalow-color-canvas) !important;
+}
