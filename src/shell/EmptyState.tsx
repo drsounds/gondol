@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
+import { useSiteOffers } from "../sites/capabilities";
 
 interface EmptyStateProps {
   /** What the list holds, plural and lower case ("projects"), for the default title and text. */
@@ -20,12 +21,14 @@ interface EmptyStateProps {
 /** Spotify-style "nothing here" placeholder for an empty list: a round glyph, a title, a line of text and a create button. */
 export function EmptyState({ items, title, description, actionLabel, onAction, actionDisabled, icon }: EmptyStateProps) {
   const { t } = useI18n();
+  // The create action goes when the site doesn't offer creating (its aspects, sites/capabilities.ts).
+  const canCreate = useSiteOffers()({ aspects: ["create"] });
   return (
     <div className="empty-state">
       <div className="empty-state__icon">{icon ?? <MagnifyingGlass />}</div>
       <p className="empty-state__title">{title ?? t("empty.title", { items })}</p>
       <p className="empty-state__text">{description ?? t("empty.description", { items })}</p>
-      {actionLabel && onAction ? (
+      {actionLabel && onAction && canCreate ? (
         <Button variant="outline" onClick={onAction} disabled={actionDisabled}>
           {actionLabel}
         </Button>

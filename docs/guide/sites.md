@@ -75,7 +75,9 @@ Where to tag:
 
 `useAppNavigation` drops features the site doesn't offer (and apps left with none), the actions
 palette drops their actions, `ActionMenu` drops the items, `FormActions` hides Delete without the
-`delete` aspect, and `useDynamicRoute` sets `offeredBySite` so the shell can show "not on this
+`delete` aspect, and without the `create` aspect the plus button, each list header's add button
+(the primary button in a `.panel-head`, hidden through `data-site-create="off"` on `<html>`), the
+`EmptyState` action and `useEntityModal`'s create sheet all go; and `useDynamicRoute` sets `offeredBySite` so the shell can show "not on this
 site". Use `useSiteOffers()` (or `siteOffers(site, capability)`) to gate anything else. This is
 the interface only: data stays under each table's own access rules.
 

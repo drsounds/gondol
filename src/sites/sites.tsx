@@ -8,7 +8,7 @@ import { toEntityUri, type EntityType } from "../entities/uri";
 import type { SavedIconStyle } from "../theme/savedIcon";
 import type { DesktopLayout, LayoutStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import type { Theme } from "../theme/theme";
-import { isSiteAspect, isSiteRole, type SiteAspect, type SiteRole } from "./capabilities";
+import { isSiteAspect, isSiteRole, siteOffers, type SiteAspect, type SiteRole } from "./capabilities";
 
 /**
  * Sites: one Spacify per domain (the `sites` table, managed in the Sites app, src/apps/sites). The
@@ -253,6 +253,15 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     setPreviewing(false);
     setDomain(normalizeSiteDomain(window.location.hostname));
   }, []);
+
+  // `data-site-create="off"` on <html> while the site doesn't offer creating, so the add button of
+  // every list header (styles/base.css) goes with the plus button and the create picker.
+  const site = query.data ?? null;
+  const createOff = !siteOffers(site, { aspects: ["create"] });
+  useEffect(() => {
+    if (createOff) document.documentElement.setAttribute("data-site-create", "off");
+    else document.documentElement.removeAttribute("data-site-create");
+  }, [createOff]);
 
   const value = useMemo<SiteValue>(
     () => ({
