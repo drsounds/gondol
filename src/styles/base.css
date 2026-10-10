@@ -376,3 +376,10 @@ body {
   gap: var(--bungalow-space-2);
 }
 
+
+/* A site that doesn't offer creating (sites/capabilities.ts, SiteProvider) hides each list header's
+ * add button: the primary button in a .panel-head, per the list header convention. */
+:root[data-site-create="off"] .panel-head > .bungalow-button.bungalow-tone-primary,
+:root[data-site-create="off"] .panel-head > .row-actions > .bungalow-button.bungalow-tone-primary {
+  display: none;
+}

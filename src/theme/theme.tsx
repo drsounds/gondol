@@ -33,7 +33,23 @@ function applyThemeColor(theme: Theme) {
   meta?.setAttribute("content", effectiveThemeColor(theme));
 }
 
-function applyTheme(theme: Theme) {
+/** A colour scheme the site served here sets (sites.tsx, SiteTheme.mode), which wins over the visitor's. */
+let forcedTheme: Theme | null = null;
+let lastTheme: Theme = "system";
+
+/**
+ * Sets (or with null, lifts) the site's colour scheme. While one is set the visitor's own choice
+ * stays stored, but isn't applied.
+ */
+export function setForcedTheme(theme: Theme | null) {
+  if (theme === forcedTheme) return;
+  forcedTheme = theme;
+  applyTheme(lastTheme);
+}
+
+function applyTheme(chosen: Theme) {
+  lastTheme = chosen;
+  const theme = forcedTheme ?? chosen;
   if (theme === "system") {
     document.documentElement.removeAttribute("data-theme");
   } else {
@@ -58,7 +74,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const skipNextApply = useRef(true);
 
   useEffect(() => {
-    setThemeState(detectTheme());
+    const detected = detectTheme();
+    lastTheme = detected;
+    setThemeState(detected);
   }, []);
 
   useEffect(() => {
@@ -75,7 +93,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (theme !== "system") return;
     const query = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => applyThemeColor(theme);
+    const onChange = () => applyThemeColor(forcedTheme ?? theme);
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
   }, [theme]);

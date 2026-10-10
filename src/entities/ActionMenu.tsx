@@ -13,8 +13,13 @@ import { shareUri, shareUrl, useShareKey } from "./shareUri";
 import { useGlobalFilterHides } from "../search/globalFilterState";
 import { useEntityLifecycle } from "./lifecycle";
 import { showToast } from "../shell/clipboard";
+import { actionCapability, useSiteOffers, type Capability } from "../sites/capabilities";
 
-export interface MenuAction {
+/**
+ * One menu item. `roles`/`aspects` say which sites offer it (sites/capabilities.ts); untagged items
+ * keyed `edit`, `delete`, `open`, … get their aspect from the key.
+ */
+export interface MenuAction extends Capability {
   /** Stable key; also used as the React key for the menu item. */
   key: string;
   label: ReactNode;
@@ -119,6 +124,7 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
     ? [
         {
           key: "soft-delete",
+          aspects: ["delete"],
           label: deletionHasPassed
             ? t("actions.restore")
             : hasScheduledDeletion
@@ -138,8 +144,9 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         },
       ]
     : [];
+  const offers = useSiteOffers();
   // Destructive items stay last, just before the automatic "Copy URI" / "Copy URL".
-  const items: MenuAction[] = uri
+  const allItems: MenuAction[] = uri
     ? [
         ...actions.filter((a) => a.tone !== "danger"),
         ...collectionActions,
@@ -147,13 +154,16 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
         ...actions.filter((a) => a.tone === "danger"),
         {
           key: "copy-uri",
+          aspects: ["share"],
           label: t("actions.copyUri"),
           disabled: noSharing,
           onSelect: () => copyText(shareKey ? shareUri(uri, shareKey) : uri, t("actions.uriCopied"), t("actions.copyFailed")),
         },
-        ...(url ? [{ key: "copy-url", label: t("actions.copyUrl"), disabled: noSharing, onSelect: () => copyText(url, t("actions.urlCopied"), t("actions.copyFailed")) }] : []),
+        ...(url ? [{ key: "copy-url", aspects: ["share"] as const, label: t("actions.copyUrl"), disabled: noSharing, onSelect: () => copyText(url, t("actions.urlCopied"), t("actions.copyFailed")) }] : []),
       ]
     : actions;
+  // What the site served here doesn't offer (its roles and aspects) is left out.
+  const items = allItems.filter((item) => offers(actionCapability(item)));
 
   const closerRef = useRef<(() => void) | null>(null);
 

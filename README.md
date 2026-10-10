@@ -92,7 +92,7 @@ and `useNavCollapsed`.
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |
 | `navigation/` | Navigation progress, shortcuts, date-range search params, `useEntityModal` |
 | `search/` | `SearchPanel`, entity search, the global filter |
-| `sites/` | Serving the app on a user's own domains (`SiteProvider`) |
+| `sites/` | Serving the app on a user's own domains (`SiteProvider`), roles and aspects (`capabilities`) |
 | `i18n/` | `I18nProvider`, `useI18n` and gondol's English and Swedish strings |
 | `design-system/` | The bungalow design system |
 | `styles/` | `gondol.css` and the theme engines' CSS |

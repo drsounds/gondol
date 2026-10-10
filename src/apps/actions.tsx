@@ -9,6 +9,8 @@ import {
 } from "react";
 import type { AppAction, AppActionContext } from "./types";
 import { useActiveBundles } from "./hooks";
+import { featureCapability } from "./registry";
+import { mergeCapability, useSiteOffers } from "../sites/capabilities";
 import { matchesShortcut, isEditableElement } from "../navigation/shortcuts";
 
 interface ActionsContextValue {
@@ -187,6 +189,7 @@ export function ActionsProvider({
         title: "Create New...",
         description: "Open create entity picker",
         category: "Create",
+        aspects: ["create"],
         iconName: "plus",
         shortcut: "Mod+Shift+A",
         keywords: ["new", "create", "add", "picker"],
@@ -198,6 +201,7 @@ export function ActionsProvider({
       list.push({
         id: "finances.newEntryQuick",
         title: "New Transaction",
+        aspects: ["create"],
         description: "Add an income, expense or bill",
         category: "Finances",
         iconName: "document",
@@ -284,18 +288,22 @@ export function ActionsProvider({
   // 1. globalActions
   // 2. Active app bundles and their features
   // 3. Dynamic actions registered by mounted views
+  // Each is left out when the site served here doesn't offer it (its roles and aspects,
+  // sites/capabilities.ts); a feature's actions take the feature's tags unless they set their own.
+  const offers = useSiteOffers();
   const allActions = useMemo(() => {
-    const list: AppAction[] = [...globalActions];
+    const list: AppAction[] = globalActions.filter((action) => offers(action));
 
     // Collect actions declared by apps and features
     for (const bundle of activeBundles) {
       if (bundle.actions) {
-        list.push(...bundle.actions);
+        list.push(...bundle.actions.filter((action) => offers(action)));
       }
       for (const feature of bundle.features) {
+        const capability = featureCapability(bundle, feature);
         if (feature.actions) {
-          list.push(...feature.actions);
-        } else {
+          list.push(...feature.actions.filter((action) => offers(mergeCapability(action, capability))));
+        } else if (offers(capability)) {
           // Provide default navigation action for features that have not defined custom actions
           const featurePath = feature.path.startsWith("/") ? feature.path : `/${feature.path}`;
           list.push({
@@ -314,7 +322,7 @@ export function ActionsProvider({
 
     // Collect dynamic actions from mounted views
     for (const actions of dynamicActionGroups.values()) {
-      list.push(...actions);
+      list.push(...actions.filter((action) => offers(action)));
     }
 
     // Deduplicate actions by ID
@@ -324,7 +332,7 @@ export function ActionsProvider({
       seen.add(act.id);
       return true;
     });
-  }, [globalActions, activeBundles, dynamicActionGroups, navigate]);
+  }, [globalActions, activeBundles, dynamicActionGroups, navigate, offers]);
 
   // Global Keyboard Shortcuts Listener
   useEffect(() => {

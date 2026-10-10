@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useUserThemeSync } from "./useUserThemeSync";
-import { useTheme } from "./theme";
+import { setForcedTheme, useTheme } from "./theme";
 import { accentColorVars, useAccentColor } from "./accentColor";
 import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
-import { useSite } from "../sites/sites";
+import { useSite, type SiteTheme } from "../sites/sites";
+import { namespaced } from "../shell/storage";
 import type { SavedIconStyle } from "./savedIcon";
 
 /**
@@ -542,6 +543,8 @@ export const USER_THEME_INIT_SCRIPT = `(function(){try{
   if(!raw)return;
   var s=JSON.parse(raw);
   var root=document.documentElement;
+  if(s.mode==="light"||s.mode==="dark")root.setAttribute("data-theme",s.mode);
+  else if(s.mode==="system")root.removeAttribute("data-theme");
   var t=root.getAttribute("data-theme");
   var dark=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);
   var vars=dark?s.dark:s.light;
@@ -598,7 +601,15 @@ interface UserThemeValue {
   savedThemes: SavedTheme[];
   saveCurrentTheme: (name: string) => void;
   deleteSavedTheme: (id: string) => void;
+  /** The theme the site served here sets (sites.tsx), whether or not it is applied right now. */
+  siteTheme: SiteTheme | null;
+  /** True while the visitor uses their own theme on a site that lets them (SiteTheme.allowPersonal). */
+  usingPersonalTheme: boolean;
+  /** Switches between the site's theme and the visitor's own, remembered per site on this device. */
+  setUsingPersonalTheme: (on: boolean) => void;
 }
+
+const personalThemeKey = (siteId: string) => namespaced(`site-theme:personal:${siteId}`);
 
 const UserThemeContext = createContext<UserThemeValue | null>(null);
 
@@ -664,18 +675,37 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
   });
 
   const router = useRouter();
-  // A site served on this domain (src/lib/sites.tsx) can bring its own theme and base layout,
-  // which replace the visitor's while they're on it; their own settings stay stored as they are.
+  // A site served on this domain (src/lib/sites.tsx) can bring its own theme, colour scheme, accent
+  // and base layout, which replace the visitor's while they're on it; their own settings stay
+  // stored as they are. A site that allows it lets the visitor switch back to their own theme.
   const { site } = useSite();
-  const siteTheme = site?.theme ?? null;
+  const siteId = site?.id ?? null;
+  const declaredSiteTheme = site?.theme ?? null;
+  const [personalOnSite, setPersonalOnSite] = useState(false);
+  useEffect(() => {
+    try {
+      setPersonalOnSite(!!siteId && window.localStorage.getItem(personalThemeKey(siteId)) === "true");
+    } catch {
+      setPersonalOnSite(false);
+    }
+  }, [siteId]);
+  const usingPersonalTheme = !!declaredSiteTheme?.allowPersonal && personalOnSite;
+  const siteTheme = usingPersonalTheme ? null : declaredSiteTheme;
   const siteLayout = site?.layout;
   const appliedEngine = siteTheme?.engine ?? engine;
   const appliedTheme = useMemo<UserTheme>(() => {
-    if (!siteTheme) return userTheme;
-    const theme = siteTheme.theme;
+    if (!siteTheme?.engine) return userTheme;
+    const theme = siteTheme.theme ?? {};
     // A site may name its palette only by id.
     return !theme.palette && theme.paletteId ? { ...theme, palette: paletteFromId(theme.paletteId) } : theme;
   }, [siteTheme, userTheme]);
+  // The site's colour scheme wins over the visitor's light/dark choice (theme.tsx).
+  const siteMode = siteTheme?.mode ?? null;
+  useEffect(() => {
+    setForcedTheme(siteMode);
+  }, [siteMode]);
+  // The site's accent, else the visitor's when the site leaves the theme to them.
+  const effectiveAccent = siteTheme?.accentColor ?? (siteTheme?.engine ? null : accentColor);
   // What actually gets applied: nothing from the advanced theme in simple mode,
   // and only what the aero/TUI engine derives from its own settings in those modes.
   const activeTheme = useMemo<UserTheme>(() => {
@@ -698,7 +728,8 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
     setNavigationViewTransitions(viewTransitions);
   }, [router, viewTransitions]);
 
-  const isDark = mode === "dark" || (mode === "system" && systemDark);
+  const effectiveMode = siteMode ?? mode;
+  const isDark = effectiveMode === "dark" || (effectiveMode === "system" && systemDark);
   const shell = useMemo<ShellSettings | null | undefined>(() => {
     if (!siteLayout?.desktopLayout) return userTheme.shell;
     return { ...userTheme.shell, desktopLayout: siteLayout.desktopLayout, classicFrame: !!siteLayout.classicFrame };
@@ -708,15 +739,15 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
     if (!hydrated) return;
     // A site's theme wins over the visitor's own accent color, and the TUI engine has its own
     // accent among its colours.
-    const accentOverridden = accentColor != null && !siteTheme && appliedEngine !== "tui";
+    const accentOverridden = effectiveAccent != null && appliedEngine !== "tui";
     // applyVars() clears every managed property it isn't given, --bungalow-color-primary
     // included, so the chosen accent has to be part of the vars or any settings change
     // would reset it to the default.
     const varsFor = (dark: boolean): ComputedVars => {
       const vars = computeThemeVars(activeTheme, dark, accentOverridden);
-      if (accentOverridden && accentColor) {
+      if (accentOverridden && effectiveAccent) {
         delete vars["--bungalow-color-primary-contrast"];
-        Object.assign(vars, accentColorVars(accentColor));
+        Object.assign(vars, accentColorVars(effectiveAccent));
       }
       return vars;
     };
@@ -731,12 +762,14 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           dark: varsFor(true),
           fontSize: document.documentElement.style.fontSize,
           attrs: attributes,
+          // The site's colour scheme, applied by the blocking script before first paint.
+          mode: siteMode,
         }),
       );
     } catch {
       /* storage unavailable: theme still applies for this session */
     }
-  }, [hydrated, activeTheme, isDark, accentColor, shell, appliedEngine, siteTheme]);
+  }, [hydrated, activeTheme, isDark, effectiveAccent, shell, appliedEngine, siteMode]);
 
   const value = useMemo<UserThemeValue>(() => {
     const persist = (next: UserTheme) => {
@@ -778,8 +811,20 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           ...savedThemes,
         ]),
       deleteSavedTheme: (id) => persistSaved(savedThemes.filter((s) => s.id !== id)),
+      siteTheme: declaredSiteTheme,
+      usingPersonalTheme,
+      setUsingPersonalTheme: (on) => {
+        if (!siteId) return;
+        try {
+          if (on) window.localStorage.setItem(personalThemeKey(siteId), "true");
+          else window.localStorage.removeItem(personalThemeKey(siteId));
+        } catch {
+          /* still switches for this visit */
+        }
+        setPersonalOnSite(on);
+      },
     };
-  }, [engine, userTheme, savedThemes]);
+  }, [engine, userTheme, savedThemes, declaredSiteTheme, usingPersonalTheme, siteId]);
 
   return <UserThemeContext.Provider value={value}>{children}</UserThemeContext.Provider>;
 }

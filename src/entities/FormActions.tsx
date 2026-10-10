@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Button } from "../design-system/bungalow-79d923";
+import { useSiteOffers } from "../sites/capabilities";
 
 interface FormActionsProps {
   onCancel?: () => void;
@@ -23,10 +24,13 @@ export function FormActions({
   saving,
   submitDisabled,
 }: FormActionsProps) {
+  // A site that doesn't offer deleting (its aspects, sites/capabilities.ts) leaves the button out.
+  const offers = useSiteOffers();
+  const canDelete = !!onDelete && offers({ aspects: ["delete"] });
   return (
     <div className="form-actions">
       <div className="form-actions__secondary">
-        {onDelete ? (
+        {canDelete ? (
           <Button type="button" variant="outline" tone="danger" onClick={onDelete} loading={deleting}>
             {deleteLabel}
           </Button>

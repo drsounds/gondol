@@ -1,6 +1,8 @@
 import { useMemo, type ReactNode, type ComponentType } from "react";
 import { useActiveBundles, useRegisteredBundles } from "./hooks";
 import { getLocalizedText } from "./types";
+import { featureCapability } from "./registry";
+import { useSiteOffers } from "../sites/capabilities";
 import type {
   InternalAppBundle,
   AppFeature,
@@ -15,10 +17,12 @@ import type {
 
 /**
  * Dynamically builds menu sections and items for currently active apps.
- * Deactivated apps are omitted immediately.
+ * Deactivated apps are omitted immediately, and so are features the site served here doesn't
+ * offer (its roles and aspects, sites/capabilities.ts).
  */
 export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
   const activeBundles = useActiveBundles();
+  const offers = useSiteOffers();
 
   return useMemo(() => {
     const sections: DynamicMenuSection[] = [];
@@ -26,7 +30,12 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
     for (const bundle of activeBundles) {
       if (!bundle.features || bundle.features.length === 0) continue;
 
-      const items: DynamicMenuItem[] = bundle.features.filter((feature) => !feature.hiddenFromNav).map((feature) => {
+      const offered = bundle.features.filter((feature) => offers(featureCapability(bundle, feature)));
+      if (offered.length === 0) continue;
+
+      const items: DynamicMenuItem[] = offered
+        .filter((feature) => !feature.hiddenFromNav)
+        .map((feature) => {
         const featurePath = feature.path.startsWith("/") ? feature.path : `/${feature.path}`;
         return {
           id: `${bundle.id}-${feature.id}`,
@@ -49,7 +58,7 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
     }
 
     return sections;
-  }, [activeBundles, locale]);
+  }, [activeBundles, locale, offers]);
 }
 
 /**
@@ -58,8 +67,9 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
  */
 export function useDynamicRoute(pathname: string): DynamicRouteMatch | null {
   const allBundles = useRegisteredBundles();
+  const offers = useSiteOffers();
 
-  return useMemo(() => {
+  const match = useMemo((): Omit<DynamicRouteMatch, "offeredBySite"> | null => {
     const cleanPath = pathname.replace(/\/+$/, "") || "/";
 
     // 1. Matches Teams-style app route: /app/:appId/:featureId or /app/:appId
@@ -150,6 +160,11 @@ export function useDynamicRoute(pathname: string): DynamicRouteMatch | null {
 
     return null;
   }, [allBundles, pathname]);
+
+  return useMemo(
+    () => (match ? { ...match, offeredBySite: offers(featureCapability(match.app, match.feature)) } : null),
+    [match, offers],
+  );
 }
 
 /**

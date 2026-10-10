@@ -2,6 +2,8 @@ import type { ComponentType } from "react";
 import type { IconName } from "../design-system/bungalow-79d923";
 export type { IconName };
 import type { Register } from "../register";
+import type { Capability } from "../sites/capabilities";
+export type { Capability };
 
 /** A type the app registers under `key` on gondol's `Register`, else `fallback`. */
 type Registered<K extends string, Fallback> = Register extends { [P in K]: infer T } ? T : Fallback;
@@ -23,8 +25,14 @@ export function getLocalizedText(
   return value[locale] || value.en || Object.values(value)[0] || "";
 }
 
-/** Feature metadata declared in manifest.json */
-export interface AppManifestFeature {
+/** Roles and aspects as manifest.json declares them: plain strings, checked when read (featureCapability). */
+export interface ManifestCapability {
+  roles?: readonly string[];
+  aspects?: readonly string[];
+}
+
+/** Feature metadata declared in manifest.json. `roles`/`aspects` say which sites offer it (sites/capabilities.ts). */
+export interface AppManifestFeature extends ManifestCapability {
   id: string;
   name: AppLocaleString;
   description?: AppLocaleString;
@@ -32,8 +40,8 @@ export interface AppManifestFeature {
   iconName?: IconName | string;
 }
 
-/** App manifest specification (manifest.json) */
-export interface AppManifest {
+/** App manifest specification (manifest.json). Its `roles`/`aspects` apply to every feature that sets none. */
+export interface AppManifest extends ManifestCapability {
   id: string;
   slug: string;
   name: AppLocaleString;
@@ -76,7 +84,8 @@ export interface AppActionContext {
   [key: string]: unknown;
 }
 
-export interface AppAction {
+/** A palette action. Untagged, it takes its feature's roles and aspects (sites/capabilities.ts). */
+export interface AppAction extends Capability {
   id: string;
   title: string;
   subtitle?: string;
@@ -89,7 +98,8 @@ export interface AppAction {
   disabled?: boolean;
 }
 
-export interface AppFeature {
+/** An app's page. Its `roles`/`aspects`, else those declared in the manifest, say which sites offer it. */
+export interface AppFeature extends Capability {
   id: string;
   name: string;
   description?: string;
@@ -182,6 +192,8 @@ export interface DynamicRouteMatch {
   isActive: boolean;
   appId: string;
   featureId: string;
+  /** False when the site served here doesn't offer the feature (its roles/aspects, sites/capabilities.ts). */
+  offeredBySite: boolean;
   isAppView?: boolean;
   subpath?: string;
 }

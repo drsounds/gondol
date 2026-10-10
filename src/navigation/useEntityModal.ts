@@ -1,5 +1,6 @@
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import type { DateRangeSearch } from "./dateRangeSearch";
+import { useSiteOffers } from "../sites/capabilities";
 
 /**
  * Where closing an edit sheet goes back to when it was opened from somewhere other than its list,
@@ -41,10 +42,12 @@ export function useEntityModal(listPath: string, closePath: string = listPath): 
   const newPath = `${listPath}/new`;
   const editPrefix = `${listPath}/`;
   const editSuffix = "/edit";
+  // A site that doesn't offer creating (its aspects, sites/capabilities.ts) never opens a create sheet.
+  const canCreate = useSiteOffers()({ aspects: ["create"] });
 
   let state: EntityModalState = { mode: "closed" };
   if (pathname === newPath) {
-    state = { mode: "new" };
+    if (canCreate) state = { mode: "new" };
   } else if (pathname.startsWith(editPrefix) && pathname.endsWith(editSuffix)) {
     const id = pathname.slice(editPrefix.length, pathname.length - editSuffix.length);
     if (id && !id.includes("/")) state = { mode: "edit", id };
