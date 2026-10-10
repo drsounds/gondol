@@ -34,6 +34,42 @@ html:not([data-developer-mode]) [contenteditable]:not([contenteditable="false"])
   -webkit-touch-callout: default;
 }
 
+/* Press feedback: no browser tap highlight (Chrome's blue flash) anywhere; whatever can be
+   pressed shrinks a little while it is held instead, like a native app. Controls go to 0.9, while
+   full-width rows (table rows and .action-row lists) only go to 0.98, since a whole row shrinking
+   by a tenth reads as the list jumping. The TUI engine is text mode, so nothing scales there. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:is(button, a[href], summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]),
+  [role="button"], [role="link"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"],
+  [role="option"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"]):active:not(:disabled, [aria-disabled="true"]) {
+  scale: 0.9;
+}
+
+/* A row doesn't shrink while a field inside it is being pressed. */
+:is(tr, [role="row"], .action-row, .clickable-row):active:not(:has(:is(input, textarea, select, [contenteditable]):active)) {
+  scale: 0.98;
+}
+
+:root[data-theme-engine="tui"] :active {
+  scale: none !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a[href], summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]),
+    [role="button"], [role="link"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"],
+    [role="option"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"], [role="row"],
+    tr, .action-row, .clickable-row) {
+    transition: scale 120ms ease;
+  }
+  /* theme.css sets the button's transition (and its own 0.95 press) without scale. */
+  .bungalow-button {
+    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease, scale 120ms ease;
+  }
+}
+
 /* Spotify-style scrollbars: invisible by default, a thin translucent thumb
    fades in only while the pointer is over the scrolling area itself (CSS
    :hover already covers hovering any of its descendants). Applies globally
