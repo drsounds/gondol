@@ -108,6 +108,12 @@ export interface SiteConfig {
   restricted: boolean;
   /** Visitors without an account may browse the owner's public entities (rendered on the server for SEO). */
   allow_anonymous: boolean;
+  /**
+   * The domain of the owner's master site (`sites.is_master`), which OAuth sign-ins and other
+   * third-party authentication on every one of the owner's sites go through (see oauthReturnUrl),
+   * or null when the owner has none.
+   */
+  master_domain: string | null;
   is_owner: boolean;
   /** Whether the caller may use the site: always for an open one, else its owner and linked accounts. */
   is_member: boolean;
@@ -189,6 +195,7 @@ export function toSiteConfig(row: Record<string, unknown>): SiteConfig {
     aspects: Array.isArray(row.aspects) ? row.aspects.filter(isSiteAspect) : null,
     restricted: row.restricted !== false,
     allow_anonymous: row.allow_anonymous === true,
+    master_domain: typeof row.master_domain === "string" && row.master_domain ? row.master_domain : null,
     is_owner: row.is_owner === true,
     is_member: row.is_member === true,
   };
@@ -206,6 +213,9 @@ interface SiteValue {
   endPreview: () => void;
   previewing: boolean;
 }
+
+/** The site SiteProvider resolved last, for code outside React (oauthReturnUrl's default). */
+let currentSite: SiteConfig | null = null;
 
 const SiteContext = createContext<SiteValue>({ domain: null, site: null, loading: false, checking: false, endPreview: () => {}, previewing: false });
 
@@ -257,6 +267,7 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   // `data-site-create="off"` on <html> while the site doesn't offer creating, so the add button of
   // every list header (styles/base.css) goes with the plus button and the create picker.
   const site = query.data ?? null;
+  currentSite = site;
   const createOff = !siteOffers(site, { aspects: ["create"] });
   useEffect(() => {
     if (createOff) document.documentElement.setAttribute("data-site-create", "off");
@@ -275,6 +286,27 @@ export function SiteProvider({ children }: { children: ReactNode }) {
     [domain, query.data, query.isLoading, query.isFetching, endPreview, previewing],
   );
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;
+}
+
+/**
+ * Where an OAuth provider (the sign-in, Google, …) should send the browser back to, for a flow that
+ * ends at `target` (an absolute URL on this host). On a site whose owner has a master site on
+ * another domain that is the master's relay, `https://<master>/auth/relay?to=<target>`, which checks
+ * the target is one of the owner's sites and forwards the provider's answer (query and fragment)
+ * there; so only the master's address has to be registered with the providers. Elsewhere, including
+ * while previewing a site with `?site=`, it is `target` itself.
+ */
+export function oauthReturnUrl(target: string, site: SiteConfig | null = currentSite): string {
+  const master = site?.master_domain;
+  if (!master || typeof window === "undefined") return target;
+  const host = normalizeSiteDomain(window.location.hostname);
+  if (host === master || host !== site.domain) return target;
+  return `${oauthRelayUrl(master)}?to=${encodeURIComponent(target)}`;
+}
+
+/** The master site's relay address, without a target (for providers that carry it in `state`). */
+export function oauthRelayUrl(masterDomain: string): string {
+  return `https://${masterDomain}/auth/relay`;
 }
 
 export function useSite(): SiteValue {

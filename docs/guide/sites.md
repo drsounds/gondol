@@ -29,6 +29,7 @@ restricted).
 | `enabled_apps` | App ids that are on (plus their dependencies), or null for all. |
 | `layout` | `SiteLayout`: `desktopLayout`, `classicFrame`, `layoutStyle`, and `homePath` (where `/` goes). |
 | `theme` | `SiteTheme`: an engine and user theme, a colour scheme (`mode`), an `accentColor`, and `allowPersonal` (visitors may use their own theme there). Each part is optional. |
+| `master_domain` | The domain of the owner's master site, which OAuth flows on all of their sites go through (`oauthReturnUrl`), or null. |
 | `roles`, `aspects` | The [roles and aspects](#roles-and-aspects) of the apps the site offers, or null for all. |
 | `entity_types`, `conditions`, `condition_match` | Which entities show up, with the same conditions as the [global filter](./search-and-filters.md#conditions). |
 | `restricted`, `is_member`, `is_owner` | Whether the site is limited to its owner and linked accounts, and the caller's standing. |
@@ -51,6 +52,16 @@ restricted).
   Use `useSiteEntityFilter()` to apply the same filter to your own lists, or `siteShowsEntity(site,
   row)` and `siteAllowsType(site, type)` for single checks.
 - **Home.** Redirect `/` to `site.layout.homePath` in your shell when it is set.
+
+## Master site and OAuth
+
+An owner can make one of their sites the master site. Sign-ins and other third-party
+authentication on any of their sites then return through the master's domain, so providers only
+need that one callback address. Pass the provider your return address through
+`oauthReturnUrl(target)` (the current site by default): on a sub-site it becomes `https://<master>/auth/relay?to=<target>`
+(`oauthRelayUrl(master)` without a target, for providers that carry it elsewhere). The app serves
+`/auth/relay`: it checks that the target is one of the master owner's sites and redirects there
+with the provider's query, and the browser keeps the fragment.
 
 ## Roles and aspects
 
