@@ -8,7 +8,7 @@ import { Alert, Icon, type IconName } from "../design-system/bungalow-79d923";
 import { supabase } from "../supabase/client";
 import type { SearchRouteSearch } from "../navigation/dateRangeSearch";
 import { useI18n, type MessageKey } from "../i18n/i18n";
-import { useSiteEntityFilter } from "../sites/sites";
+import { useSiteEntityFilter, useSiteShows } from "../sites/sites";
 import { toEntityUri, type EntityType } from "../entities/uri";
 
 interface Props {
@@ -78,7 +78,10 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
   const debouncedQ = useDebounced(q.trim(), 200);
   const [recent, setRecent] = useState<RecentItem[]>([]);
   const siteFilter = useSiteEntityFilter();
+  const siteShows = useSiteShows();
   useEffect(() => setRecent(readRecent()), []);
+  // Recents of types the site leaves out stay stored (other sites may show them) but aren't listed.
+  const shownRecent = recent.filter((r) => siteShows.type(r.entity_type));
 
   function setSearch(next: Partial<SearchRouteSearch>) {
     navigate({ to: "/search", search: (prev: SearchRouteSearch) => ({ ...prev, ...next }), replace: true } as Parameters<
@@ -133,7 +136,7 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
 
       {!q.trim() ? (
         <>
-          {recent.length > 0 ? (
+          {shownRecent.length > 0 ? (
             <section className="search-section">
               <div className="search-section__head">
                 <h2 className="search-section__title">{t("search.recent")}</h2>
@@ -149,7 +152,7 @@ export function SearchPanel({ onOpenUri, browse = [] }: Props) {
                 </button>
               </div>
               <ul className="search-list">
-                {recent.map((r) => (
+                {shownRecent.map((r) => (
                   <ResultRow
                     key={`${r.entity_type}:${r.entity_id}`}
                     result={r}

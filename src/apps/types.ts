@@ -38,6 +38,12 @@ export interface AppManifestFeature extends ManifestCapability {
   description?: AppLocaleString;
   path: string;
   iconName?: IconName | string;
+  /**
+   * The entity types whose rows belong to this feature, when its path doesn't already hold their
+   * edit sheet or page (sites/sites.tsx entityTypeFeature). A site that leaves the feature out
+   * hides those rows from every mixed list.
+   */
+  entityTypes?: string[];
 }
 
 /** App manifest specification (manifest.json). Its `roles`/`aspects` apply to every feature that sets none. */

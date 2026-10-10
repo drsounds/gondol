@@ -48,9 +48,15 @@ restricted).
   (`useUserTheme().usingPersonalTheme`); otherwise it says the site's theme applies.
 - **Features and actions.** Features, palette actions and `ActionMenu` items the site's roles and
   aspects don't cover are left out; see below.
-- **Entities.** `useEntitySearch`, `SearchPanel` and pickers only return entities the site shows.
-  Use `useSiteEntityFilter()` to apply the same filter to your own lists, or `siteShowsEntity(site,
-  row)` and `siteAllowsType(site, type)` for single checks.
+- **Entities.** An entity type shows on a site when it's among the site's entity types, the app it
+  belongs to is enabled there (or is a dependency of one that is), and the site offers that app
+  feature's roles and aspects: `siteShowsType(site, type)`. A type belongs to the feature whose path
+  (or alias) is the longest prefix of its edit sheet, else its own page; list it in the feature's
+  manifest `entityTypes` when neither says. `useEntitySearch`, `SearchPanel` (recents too) and
+  pickers only return entities the site shows, and `ActionMenu` hides any `.action-row` whose `uri`
+  it doesn't, so mixed lists (library, playlists) leave them out entirely. Use
+  `useSiteEntityFilter()` to apply the same filter to your own lists, `useSiteShows()` for URIs and
+  types, or `siteShowsEntity(site, row)` / `siteShowsType(site, type)` for single checks.
 - **Home.** Redirect `/` to `site.layout.homePath` in your shell when it is set.
 
 ## Master site and OAuth

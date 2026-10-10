@@ -116,7 +116,7 @@ Guide: [Theming](../guide/theming.md).
 
 | Module | Main exports |
 | --- | --- |
-| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteAllowsApp`, `siteAllowsType`, `siteShowsEntity`, `useSiteEntityFilter` |
+| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteAllowsApp`, `siteAllowsType`, `siteShowsType`, `siteShowsUri`, `useSiteShows`, `entityTypeFeature`, `siteShowsEntity`, `useSiteEntityFilter` |
 | `i18n/i18n` | `I18nProvider`, `useI18n`, `Translate`, `MessageCatalogue` |
 | `i18n/messages` | `GONDOL_MESSAGES`, `GondolMessageKey` |
 | `supabase/client` | `getSupabaseClient`, `setSupabaseClient`, `supabase` |
