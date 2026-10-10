@@ -1,8 +1,8 @@
-import { useSite, type SiteLayout } from "./sites";
+import { isSiteThemeLocked, useSite, type SiteLayout, type SiteThemePart } from "./sites";
 
 /**
  * Visitor preferences a site can set (SiteLayout): every option Account offers besides the theme
- * (which SiteTheme covers, with its own `allowPersonal`). Each one the site sets is a default for
+ * (which SiteTheme covers, with its own `locked`). Each one the site sets is a default for
  * visitors who haven't picked their own, or, when it is in `SiteLayout.locked`, what everyone gets
  * there; Account then shows it disabled. A layout saved before `locked` existed locks the desktop
  * layout and layout style it sets (they used to always win) and leaves the rest as defaults.
@@ -15,6 +15,9 @@ export const SITE_PREFERENCES = [
   "darkTabBar",
   "darkFrame",
   "savedIcon",
+  "sheetStyle",
+  "tableLines",
+  "highContrast",
   "hideSoftDeletedEntities",
   "hideFutureEntities",
   "developerMode",
@@ -23,7 +26,7 @@ export type SitePreference = (typeof SITE_PREFERENCES)[number];
 
 const LEGACY_LOCKED: readonly SitePreference[] = ["desktopLayout", "layoutStyle"];
 
-const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["darkTabBar", "darkFrame", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
+const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["darkTabBar", "darkFrame", "tableLines", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
 
 /** The value a site sets for a preference, or undefined when it leaves it to the visitor. */
 export function sitePreferenceValue<K extends SitePreference>(layout: SiteLayout | null | undefined, key: K): SiteLayout[K] | undefined {
@@ -55,4 +58,10 @@ export function resolveSitePreference<K extends SitePreference, T>(
 export function useSitePreferenceLock(key: SitePreference): { siteName: string } | null {
   const { site } = useSite();
   return site && isSitePreferenceLocked(site.layout, key) ? { siteName: site.name } : null;
+}
+
+/** The site served here, when it locks a part of its theme (Account disables the setting); else null. */
+export function useSiteThemeLock(part: SiteThemePart): { siteName: string } | null {
+  const { site } = useSite();
+  return site && isSiteThemeLocked(site.theme, part) ? { siteName: site.name } : null;
 }

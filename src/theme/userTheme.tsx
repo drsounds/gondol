@@ -1,14 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { useUserThemeSync } from "./useUserThemeSync";
-import { setForcedTheme, useTheme } from "./theme";
+import { setForcedTheme, useTheme, type Theme } from "./theme";
 import { accentColorVars, useAccentColor } from "./accentColor";
 import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
-import { useSite, type SiteTheme } from "../sites/sites";
+import { isSiteThemeLocked, siteThemePartValue, useSite, type SiteTheme, type SiteThemePart } from "../sites/sites";
 import { resolveSitePreference, isSitePreferenceLocked, sitePreferenceValue } from "../sites/preferences";
-import { namespaced } from "../shell/storage";
 import type { SavedIconStyle } from "./savedIcon";
 
 /**
@@ -128,6 +127,10 @@ export const DESKTOP_LAYOUTS: DesktopLayout[] = ["modern", "classic"];
 export type PlayerVisibility = "always" | "auto" | "hidden";
 export const PLAYER_VISIBILITIES: PlayerVisibility[] = ["always", "auto", "hidden"];
 
+/** Edit sheets (EntitySheet): a modal over the page, or a page of their own over everything. */
+export type SheetStyle = "modal" | "page";
+export const SHEET_STYLES: SheetStyle[] = ["modal", "page"];
+
 export interface ShellSettings {
   /** Simple engine, light mode: dark bottom tab bar on phones. */
   darkTabBar?: boolean;
@@ -140,6 +143,14 @@ export interface ShellSettings {
   savedIcon?: SavedIconStyle;
   /** Unset follows the site's default, else "always". */
   player?: PlayerVisibility;
+  /** The foreground (text) colour as the accent instead of the accent colour (data-accent). */
+  accentForeground?: boolean;
+  /** Every shade is the foreground or the background colour (data-high-contrast). */
+  highContrast?: boolean;
+  /** Unset follows the site's default, else "modal". */
+  sheetStyle?: SheetStyle;
+  /** Lines between the rows of data tables. Unset follows the site's default, else none. */
+  tableLines?: boolean;
 }
 
 /**
@@ -493,7 +504,7 @@ function applyVars(vars: ComputedVars) {
 }
 
 /** Attributes for the shell preferences (see "Shell preferences" in styles.css). The dark
- * tab bar/frame options belong to the simple engine; the desktop layout applies to every engine. */
+ * tab bar/frame options belong to the simple engine; the rest apply to every engine. */
 function shellAttributesFor(shell: ShellSettings | null | undefined, engine: ThemeEngine): Record<string, string | null> {
   const classic = shell?.desktopLayout === "classic";
   return {
@@ -501,6 +512,12 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
     "data-dark-frame": engine === "simple" && shell?.darkFrame ? "" : null,
     "data-desktop-layout": classic ? "classic" : null,
     "data-classic-frame": classic && shell?.classicFrame ? "" : null,
+    // High contrast and the foreground accent re-declare the colour tokens on every element
+    // (styles/base.css), so they hold inside panes that set their own (the sheet preview).
+    "data-high-contrast": shell?.highContrast ? "" : null,
+    "data-accent": shell?.accentForeground ? "foreground" : null,
+    "data-sheet-style": shell?.sheetStyle === "page" ? "page" : null,
+    "data-table-lines": shell?.tableLines ? "" : null,
   };
 }
 
@@ -538,6 +555,14 @@ function applyAttributes(attributes: Record<string, string | null>, theme: UserT
   // WinUI Classic Mode forces an 11px base size, whatever the size preference says.
   const basePx = theme.fontFamily === "winui-classic" ? 11 : theme.fontSize;
   root.style.fontSize = basePx != null && basePx !== 16 ? `${(basePx / 16) * 100}%` : "";
+}
+
+/** UserTheme keys that are preferences rather than the theme itself (a site's theme leaves them be). */
+const PREFERENCE_KEYS: readonly string[] = ["shell", "hideSoftDeletedEntities", "hideFutureEntities"];
+
+/** Whether a theme sets anything of the theme itself, so the visitor has a theme of their own. */
+function ownsTheme(theme: Partial<UserTheme>): boolean {
+  return Object.keys(theme).some((key) => !PREFERENCE_KEYS.includes(key));
 }
 
 function systemPrefersDark(): boolean {
@@ -622,25 +647,27 @@ interface UserThemeValue {
   deleteSavedTheme: (id: string) => void;
   /** The theme the site served here sets (sites.tsx), whether or not it is applied right now. */
   siteTheme: SiteTheme | null;
-  /** True while the visitor uses their own theme on a site that lets them (SiteTheme.allowPersonal). */
-  usingPersonalTheme: boolean;
-  /** Switches between the site's theme and the visitor's own, remembered per site on this device. */
-  setUsingPersonalTheme: (on: boolean) => void;
+  /** The parts of the theme that come from the site right now: locked, or its default where the
+   * visitor hasn't picked their own. */
+  fromSite: Record<SiteThemePart, boolean>;
+  /** The engine, colour scheme and accent in effect here (accent: a colour, "foreground", or null
+   * for the theme's own). */
+  applied: { engine: ThemeEngine; mode: Theme; accent: string | null };
   /** The shell preferences in effect here, the site's defaults and locks applied. */
   preferences: EffectivePreferences;
 }
 
-const personalThemeKey = (siteId: string) => namespaced(`site-theme:personal:${siteId}`);
-
 const UserThemeContext = createContext<UserThemeValue | null>(null);
 
 export function UserThemeProvider({ children }: { children: ReactNode }) {
-  const { theme: mode, setTheme: setMode } = useTheme();
+  const { theme: mode, chosen: modeChosen, setTheme: setMode } = useTheme();
   const { accentColor, setAccentColor } = useAccentColor();
   // Empty on first render so server and client markup match; the blocking
   // script already applied the stored theme's variables before hydration.
   const [userTheme, setUserTheme] = useState<UserTheme>({});
   const [engine, setEngineState] = useState<ThemeEngine>("advanced");
+  // Whether the visitor has an engine and theme of their own (a site's default yields to them).
+  const [engineChosen, setEngineChosen] = useState(false);
   const [savedThemes, setSavedThemes] = useState<SavedTheme[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [systemDark, setSystemDark] = useState(false);
@@ -650,6 +677,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
     try {
       const storedEngine = window.localStorage.getItem(ENGINE_STORAGE_KEY);
       if (isThemeEngine(storedEngine)) setEngineState(storedEngine);
+      setEngineChosen(isThemeEngine(storedEngine) || ownsTheme(loadTheme()));
     } catch {
       /* default engine */
     }
@@ -683,10 +711,12 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           /* ignore */
         }
         setEngineState(remote.engine);
+        setEngineChosen(true);
       }
       if (remote.theme) {
         store(STORAGE_KEY, remote.theme);
         setUserTheme(remote.theme);
+        setEngineChosen(true);
       }
       if (remote.savedThemes) {
         store(SAVED_THEMES_STORAGE_KEY, remote.savedThemes);
@@ -696,37 +726,35 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
   });
 
   const router = useRouter();
-  // A site served on this domain (src/lib/sites.tsx) can bring its own theme, colour scheme, accent
-  // and base layout, which replace the visitor's while they're on it; their own settings stay
-  // stored as they are. A site that allows it lets the visitor switch back to their own theme.
+  // A site served on this domain (sites.tsx) can bring its own theme, colour scheme and accent.
+  // Each part it sets is a default for visitors who haven't picked their own, or, when the site
+  // locks it, what everyone gets there; the visitor's own settings stay stored as they are.
   const { site } = useSite();
-  const siteId = site?.id ?? null;
   const declaredSiteTheme = site?.theme ?? null;
-  const [personalOnSite, setPersonalOnSite] = useState(false);
-  useEffect(() => {
-    try {
-      setPersonalOnSite(!!siteId && window.localStorage.getItem(personalThemeKey(siteId)) === "true");
-    } catch {
-      setPersonalOnSite(false);
-    }
-  }, [siteId]);
-  const usingPersonalTheme = !!declaredSiteTheme?.allowPersonal && personalOnSite;
-  const siteTheme = usingPersonalTheme ? null : declaredSiteTheme;
+  const ownShell = useMemo<ShellSettings>(() => userTheme.shell ?? {}, [userTheme.shell]);
+  const ownAccent = ownShell.accentForeground ? "foreground" : accentColor;
+  const fromSite = useMemo<Record<SiteThemePart, boolean>>(() => {
+    const own: Record<SiteThemePart, boolean> = { engine: engineChosen, mode: modeChosen, accentColor: ownAccent != null };
+    const take = (part: SiteThemePart) =>
+      siteThemePartValue(declaredSiteTheme, part) !== undefined && (isSiteThemeLocked(declaredSiteTheme, part) || !own[part]);
+    return { engine: take("engine"), mode: take("mode"), accentColor: take("accentColor") };
+  }, [declaredSiteTheme, engineChosen, modeChosen, ownAccent]);
   const siteLayout = site?.layout;
-  const appliedEngine = siteTheme?.engine ?? engine;
+  const appliedEngine = (fromSite.engine ? declaredSiteTheme?.engine : null) ?? engine;
   const appliedTheme = useMemo<UserTheme>(() => {
-    if (!siteTheme?.engine) return userTheme;
-    const theme = siteTheme.theme ?? {};
+    if (!fromSite.engine) return userTheme;
+    const theme = declaredSiteTheme?.theme ?? {};
     // A site may name its palette only by id.
     return !theme.palette && theme.paletteId ? { ...theme, palette: paletteFromId(theme.paletteId) } : theme;
-  }, [siteTheme, userTheme]);
+  }, [fromSite.engine, declaredSiteTheme, userTheme]);
   // The site's colour scheme wins over the visitor's light/dark choice (theme.tsx).
-  const siteMode = siteTheme?.mode ?? null;
+  const siteMode = fromSite.mode ? (declaredSiteTheme?.mode ?? null) : null;
   useEffect(() => {
     setForcedTheme(siteMode);
   }, [siteMode]);
-  // The site's accent, else the visitor's when the site leaves the theme to them.
-  const effectiveAccent = siteTheme?.accentColor ?? (siteTheme?.engine ? null : accentColor);
+  // The site's accent, else the visitor's. "theme" (and null) is the theme's own accent.
+  const chosenAccent = fromSite.accentColor ? siteThemePartValue(declaredSiteTheme, "accentColor") : ownAccent;
+  const effectiveAccent = chosenAccent && chosenAccent !== "theme" ? chosenAccent : null;
   // What actually gets applied: nothing from the advanced theme in simple mode,
   // and only what the aero/TUI engine derives from its own settings in those modes.
   const activeTheme = useMemo<UserTheme>(() => {
@@ -754,7 +782,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
   const effectiveMode = siteMode ?? mode;
   const isDark = effectiveMode === "dark" || (effectiveMode === "system" && systemDark);
   const preferences = useMemo<EffectivePreferences>(() => {
-    const own = userTheme.shell ?? {};
+    const own = ownShell;
     // The classic layout's frame goes with whichever desktop layout is in effect.
     const siteDesktop = sitePreferenceValue(siteLayout, "desktopLayout");
     const desktopFromSite = siteDesktop !== undefined && (isSitePreferenceLocked(siteLayout, "desktopLayout") || own.desktopLayout === undefined);
@@ -766,23 +794,28 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       darkFrame: resolveSitePreference(siteLayout, "darkFrame", own.darkFrame),
       savedIcon: resolveSitePreference(siteLayout, "savedIcon", own.savedIcon),
       player: resolveSitePreference(siteLayout, "player", own.player),
+      sheetStyle: resolveSitePreference(siteLayout, "sheetStyle", own.sheetStyle),
+      tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
+      highContrast: resolveSitePreference(siteLayout, "highContrast", own.highContrast),
+      // The accent is the theme's (see effectiveAccent), carried here for the attributes.
+      accentForeground: effectiveAccent === "foreground",
       hideSoftDeletedEntities: resolveSitePreference(siteLayout, "hideSoftDeletedEntities", userTheme.hideSoftDeletedEntities),
       hideFutureEntities: resolveSitePreference(siteLayout, "hideFutureEntities", userTheme.hideFutureEntities),
     };
-  }, [userTheme.shell, userTheme.hideSoftDeletedEntities, userTheme.hideFutureEntities, siteLayout]);
+  }, [ownShell, userTheme.hideSoftDeletedEntities, userTheme.hideFutureEntities, siteLayout, effectiveAccent]);
   const shell = preferences;
 
   useEffect(() => {
     if (!hydrated) return;
-    // A site's theme wins over the visitor's own accent color, and the TUI engine has its own
-    // accent among its colours.
+    // A chosen accent wins over the theme's own, and the TUI engine has its own accent among its
+    // colours. The foreground accent is applied by the stylesheet (data-accent).
     const accentOverridden = effectiveAccent != null && appliedEngine !== "tui";
     // applyVars() clears every managed property it isn't given, --bungalow-color-primary
     // included, so the chosen accent has to be part of the vars or any settings change
     // would reset it to the default.
     const varsFor = (dark: boolean): ComputedVars => {
       const vars = computeThemeVars(activeTheme, dark, accentOverridden);
-      if (accentOverridden && effectiveAccent) {
+      if (accentOverridden && effectiveAccent && effectiveAccent !== "foreground") {
         delete vars["--bungalow-color-primary-contrast"];
         Object.assign(vars, accentColorVars(effectiveAccent));
       }
@@ -834,12 +867,19 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           /* ignore */
         }
         setEngineState(next);
+        setEngineChosen(true);
       },
       userTheme,
-      updateUserTheme: (partial) => persist({ ...userTheme, ...partial }),
+      updateUserTheme: (partial) => {
+        if (ownsTheme(partial)) setEngineChosen(true);
+        persist({ ...userTheme, ...partial });
+      },
       // The aero and TUI engines' settings and the shell preferences ride along on the same
       // object; loading or resetting an advanced theme keeps them.
-      replaceUserTheme: (next) => persist({ aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next }),
+      replaceUserTheme: (next) => {
+        setEngineChosen(true);
+        persist({ aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next });
+      },
       resetUserTheme: () => persist({ ...defaultUserTheme(), aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell }),
       savedThemes,
       saveCurrentTheme: (name) =>
@@ -849,20 +889,11 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
         ]),
       deleteSavedTheme: (id) => persistSaved(savedThemes.filter((s) => s.id !== id)),
       siteTheme: declaredSiteTheme,
-      usingPersonalTheme,
-      setUsingPersonalTheme: (on) => {
-        if (!siteId) return;
-        try {
-          if (on) window.localStorage.setItem(personalThemeKey(siteId), "true");
-          else window.localStorage.removeItem(personalThemeKey(siteId));
-        } catch {
-          /* still switches for this visit */
-        }
-        setPersonalOnSite(on);
-      },
+      fromSite,
+      applied: { engine: appliedEngine, mode: siteMode ?? mode, accent: effectiveAccent },
       preferences,
     };
-  }, [engine, userTheme, savedThemes, declaredSiteTheme, usingPersonalTheme, siteId, preferences]);
+  }, [engine, userTheme, savedThemes, declaredSiteTheme, fromSite, appliedEngine, siteMode, mode, effectiveAccent, preferences]);
 
   return <UserThemeContext.Provider value={value}>{children}</UserThemeContext.Provider>;
 }

@@ -58,6 +58,13 @@ function ThemeControls() {
 `resetUserTheme()`, `savedThemes`, `saveCurrentTheme(name)` and `deleteSavedTheme(id)`.
 `encodeTheme(theme)` and `decodeTheme(text)` turn a theme into a shareable string and back.
 
+`<AccentColorSettings/>` (`gondol/theme/AccentColorField`) is a ready-made Account section: the
+accent as the theme's own, the foreground colour (`UserTheme.shell.accentForeground`, applied as
+`data-accent="foreground"`) or a colour of one's own, plus high contrast
+(`UserTheme.shell.highContrast`, `data-high-contrast`), where every colour token is the foreground
+or the background. `<AccentColorField/>` is the accent picker on its own, for editing someone
+else's choice (a site's).
+
 ### The user theme
 
 `UserTheme` (in `gondol/theme/userTheme`) is a plain object; the most useful fields:

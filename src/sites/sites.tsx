@@ -8,7 +8,7 @@ import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type Entit
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
-import type { DesktopLayout, LayoutStyle, PlayerVisibility, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { DesktopLayout, LayoutStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from "./preferences";
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
@@ -49,29 +49,65 @@ export interface SiteLayout {
   hideFutureEntities?: boolean;
   /** The browser's native menu and text selection (shell/developerMode.ts). */
   developerMode?: boolean;
+  /** Every shade is the foreground or the background colour (data-high-contrast). */
+  highContrast?: boolean;
+  /** Edit sheets as a modal or as a page over everything (SheetStyle). */
+  sheetStyle?: SheetStyle;
+  /** Lines between the rows of data tables. */
+  tableLines?: boolean;
   /** The preferences visitors can't change here. Unset: see isSitePreferenceLocked(). */
   locked?: SitePreference[];
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */
   homePath?: string;
 }
 
+/** The parts of a site's theme a site can leave to its visitors (SiteTheme.locked). */
+export const SITE_THEME_PARTS = ["engine", "mode", "accentColor"] as const;
+export type SiteThemePart = (typeof SITE_THEME_PARTS)[number];
+
 /**
- * A site's theme, applied instead of the visitor's: the engine and the advanced/aero/TUI settings it
- * uses, its colour scheme (light, dark or the device's) and accent colour. Each part is optional,
- * so a site can set only a colour scheme and leave the rest to the visitor.
+ * A site accent: a colour (#rrggbb), "foreground" (the text colour, so accented things read as
+ * plain ink on the background) or "theme" (the theme's own accent, set on purpose).
+ */
+export type SiteAccent = string | "foreground" | "theme";
+
+/**
+ * A site's theme: the engine and the advanced/aero/TUI settings it uses, its colour scheme (light,
+ * dark or the device's) and accent colour. Each part is optional. A part the site sets is a default
+ * for visitors who haven't picked their own, or, when it is in `locked`, what everyone gets there
+ * (like SiteLayout's preferences; see isSiteThemeLocked()).
  */
 export interface SiteTheme {
   engine?: ThemeEngine;
   theme?: UserTheme;
   /** Light/dark colour scheme; unset leaves the visitor's own. */
   mode?: Theme;
-  /** Accent colour (#rrggbb) for the simple and advanced engines; unset keeps the theme's own. */
-  accentColor?: string;
+  /** Accent for the simple and advanced engines; unset leaves the visitor's own. */
+  accentColor?: SiteAccent;
+  /** The parts visitors can't change here. Unset: see isSiteThemeLocked(). */
+  locked?: SiteThemePart[];
   /**
-   * Whether visitors may switch to their own theme on this site (Account › Appearance). When
-   * false the site's theme is all they get here.
+   * Before `locked`: whether visitors could switch to their own theme here. A theme saved without
+   * `locked` locks everything it sets unless this is on.
    */
   allowPersonal?: boolean;
+}
+
+/** The value a site theme sets for a part, or undefined when it leaves it to the visitor. */
+export function siteThemePartValue(theme: SiteTheme | null | undefined, part: SiteThemePart): string | undefined {
+  if (!theme) return undefined;
+  if (part === "engine") return theme.engine;
+  if (part === "mode") return theme.mode;
+  // A theme saved before `locked` that brings its own engine also brought that engine's accent.
+  if (theme.accentColor) return theme.accentColor;
+  return !Array.isArray(theme.locked) && theme.engine && !theme.allowPersonal ? "theme" : undefined;
+}
+
+/** Whether the site's value for a part is all visitors get (a value it sets and locks). */
+export function isSiteThemeLocked(theme: SiteTheme | null | undefined, part: SiteThemePart): boolean {
+  if (siteThemePartValue(theme, part) === undefined) return false;
+  if (!Array.isArray(theme?.locked)) return !theme?.allowPersonal;
+  return theme.locked.includes(part);
 }
 
 const SITE_THEME_MODES: readonly Theme[] = ["system", "light", "dark"];
@@ -88,6 +124,8 @@ export function toSiteTheme(value: unknown): SiteTheme | null {
   }
   if (SITE_THEME_MODES.includes(raw.mode as Theme)) theme.mode = raw.mode as Theme;
   if (typeof raw.accentColor === "string" && HEX_COLOR.test(raw.accentColor)) theme.accentColor = raw.accentColor.toLowerCase();
+  else if (raw.accentColor === "foreground" || raw.accentColor === "theme") theme.accentColor = raw.accentColor;
+  if (Array.isArray(raw.locked)) theme.locked = SITE_THEME_PARTS.filter((part) => (raw.locked as unknown[]).includes(part));
   if (raw.allowPersonal === true) theme.allowPersonal = true;
   return theme.engine || theme.mode || theme.accentColor ? theme : null;
 }

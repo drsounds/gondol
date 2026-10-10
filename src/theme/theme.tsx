@@ -18,9 +18,9 @@ export const THEME_STORAGE_KEY = STORAGE_KEY;
 export const THEME_COLOR_LIGHT = "#ffffff";
 export const THEME_COLOR_DARK = "#111111";
 
-function detectTheme(): Theme {
+function storedTheme(): Theme | null {
   const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-  return stored && THEMES.includes(stored) ? stored : "system";
+  return stored && THEMES.includes(stored) ? stored : null;
 }
 
 function effectiveThemeColor(theme: Theme): string {
@@ -60,6 +60,8 @@ function applyTheme(chosen: Theme) {
 
 interface ThemeValue {
   theme: Theme;
+  /** Whether the visitor has picked a colour scheme themselves (a site's default yields to it). */
+  chosen: boolean;
   setTheme: (theme: Theme) => void;
 }
 
@@ -71,12 +73,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // component mounts, so we only need to adopt it into React state here
   // without touching the DOM again (that would flash back to "system").
   const [theme, setThemeState] = useState<Theme>("system");
+  const [chosen, setChosen] = useState(false);
   const skipNextApply = useRef(true);
 
   useEffect(() => {
-    const detected = detectTheme();
-    lastTheme = detected;
-    setThemeState(detected);
+    const stored = storedTheme();
+    lastTheme = stored ?? "system";
+    setThemeState(stored ?? "system");
+    setChosen(stored != null);
   }, []);
 
   useEffect(() => {
@@ -101,12 +105,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ThemeValue>(
     () => ({
       theme,
+      chosen,
       setTheme: (next) => {
         window.localStorage.setItem(STORAGE_KEY, next);
         setThemeState(next);
+        setChosen(true);
       },
     }),
-    [theme],
+    [theme, chosen],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

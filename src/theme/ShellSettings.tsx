@@ -3,10 +3,19 @@ import { useI18n, type MessageKey } from "../i18n/i18n";
 import { SiteLockHint } from "../sites/SiteLockHint";
 import { useSitePreferenceLock } from "../sites/preferences";
 import { SAVED_ICON_STYLES, SavedIcon, isSavedIconStyle } from "./savedIcon";
-import { DESKTOP_LAYOUTS, PLAYER_VISIBILITIES, useUserTheme, type DesktopLayout, type PlayerVisibility, type ShellSettings as Shell } from "./userTheme";
+import {
+  DESKTOP_LAYOUTS,
+  PLAYER_VISIBILITIES,
+  SHEET_STYLES,
+  useUserTheme,
+  type DesktopLayout,
+  type PlayerVisibility,
+  type SheetStyle,
+  type ShellSettings as Shell,
+} from "./userTheme";
 
-/** App shell preferences: the desktop layout (every engine), the bottom player, the saved icon,
- * which entities show and, in the simple engine, a dark tab bar / frame and left menu while the
+/** App shell preferences: the desktop layout (every engine), the bottom player, edit sheets as a
+ * modal or a page, lines between table rows, the saved icon, which entities show and, in the simple engine, a dark tab bar / frame and left menu while the
  * rest of the app is light. Each shows the value in effect; one the site locks is disabled
  * (sites/preferences.ts). */
 export function ShellSettings() {
@@ -21,6 +30,8 @@ export function ShellSettings() {
     desktopLayout: !!useSitePreferenceLock("desktopLayout"),
     player: !!useSitePreferenceLock("player"),
     savedIcon: !!useSitePreferenceLock("savedIcon"),
+    sheetStyle: !!useSitePreferenceLock("sheetStyle"),
+    tableLines: !!useSitePreferenceLock("tableLines"),
     hideSoftDeletedEntities: !!useSitePreferenceLock("hideSoftDeletedEntities"),
     hideFutureEntities: !!useSitePreferenceLock("hideFutureEntities"),
   };
@@ -86,6 +97,30 @@ export function ShellSettings() {
         ))}
       </Select>
       <SiteLockHint preference="player" />
+      <Select
+        label={t("appearance.sheetStyle")}
+        hint={t("appearance.sheetStyle.hint")}
+        value={preferences.sheetStyle ?? "modal"}
+        disabled={locked.sheetStyle}
+        onChange={(e) => update({ sheetStyle: e.target.value as SheetStyle })}
+      >
+        {SHEET_STYLES.map((option) => (
+          <option key={option} value={option}>{t(`appearance.sheetStyle.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="sheetStyle" />
+      <div className="bungalow-field">
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.tableLines}
+            disabled={locked.tableLines}
+            onChange={(e) => update({ tableLines: e.target.checked })}
+          />
+          <span>{t("appearance.tableLines")}</span>
+        </label>
+        <SiteLockHint preference="tableLines" />
+      </div>
       <div className="bungalow-field">
         <span className="bungalow-label" id="saved-icon-label">{t("appearance.savedIcon")}</span>
         <div className="saved-icon-choice" role="radiogroup" aria-labelledby="saved-icon-label">
