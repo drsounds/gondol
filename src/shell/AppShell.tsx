@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
@@ -135,6 +135,63 @@ export function AppShell({
   const { open: openApp, setOpenId: setOpenApp } = useOpenApp(appSections, pathname);
   const insetApp = menuStyle === "appsInset" ? openApp : null;
   const besideApp = menuStyle === "appsBeside" ? openApp : null;
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [menuHeight, setMenuHeight] = useState<number | null>(null);
+  const sidebarColumnRef = useRef<HTMLDivElement>(null);
+  const sidebarChromeRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const resizeDrag = useRef<{ axis: "horizontal" | "vertical"; pointerId: number; start: number; size: number } | null>(null);
+  const getMaxMenuHeight = () => {
+    if (!sidebarColumnRef.current) return 480;
+    return sidebarColumnRef.current.getBoundingClientRect().height
+      - (sidebarChromeRef.current?.getBoundingClientRect().height ?? 0)
+      - 128;
+  };
+
+  const startResize = (axis: "horizontal" | "vertical", event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = axis === "horizontal" ? sidebarColumnRef.current : navRef.current;
+    if (!target) return;
+    const bounds = target.getBoundingClientRect();
+    resizeDrag.current = {
+      axis,
+      pointerId: event.pointerId,
+      start: axis === "horizontal" ? event.clientX : event.clientY,
+      size: axis === "horizontal" ? bounds.width : bounds.height,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const moveResize = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = resizeDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.axis === "horizontal") {
+      setSidebarWidth(Math.max(180, Math.min(480, drag.size + event.clientX - drag.start)));
+    } else {
+      setMenuHeight(Math.max(120, Math.min(getMaxMenuHeight(), drag.size + event.clientY - drag.start)));
+    }
+  };
+
+  const stopResize = (event: PointerEvent<HTMLDivElement>) => {
+    if (resizeDrag.current?.pointerId === event.pointerId) resizeDrag.current = null;
+  };
+
+  const resizeWithKeyboard = (axis: "horizontal" | "vertical", event: KeyboardEvent<HTMLDivElement>) => {
+    const positive = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
+    const negative = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
+    if (event.key !== positive && event.key !== negative) return;
+    event.preventDefault();
+    const amount = event.key === positive ? 16 : -16;
+    if (axis === "horizontal") {
+      const currentWidth = sidebarWidth ?? sidebarColumnRef.current?.getBoundingClientRect().width ?? 256;
+      setSidebarWidth(Math.max(180, Math.min(480, currentWidth + amount)));
+    } else {
+      const currentHeight = menuHeight ?? navRef.current?.getBoundingClientRect().height ?? 240;
+      setMenuHeight(Math.max(120, Math.min(getMaxMenuHeight(), currentHeight + amount)));
+    }
+  };
+
   // Mobile hamburger drawer; any navigation (drawer item, back button, deep link) closes it.
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -202,9 +259,13 @@ export function AppShell({
       {/* Desktop: two stacked surfaces, like Spotify's left pane — the nav on top and "Your Library"
           filling the rest down to the bottom. On phones the column dissolves (display: contents)
           and the nav is the bottom tab bar; the library is desktop-only. */}
-      <div className={["sidebar-column", navCollapsed ? "sidebar-column--collapsed" : "", showLibrary ? "" : "sidebar-column--no-library"].filter(Boolean).join(" ")}>
+      <div
+        ref={sidebarColumnRef}
+        className={["sidebar-column", navCollapsed ? "sidebar-column--collapsed" : "", showLibrary ? "" : "sidebar-column--no-library"].filter(Boolean).join(" ")}
+        style={sidebarWidth === null || navCollapsed ? undefined : { width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }}
+      >
       {/* Classic desktop layout only: back/forward and search at the top of the left menu. */}
-      <div className="sidebar-chrome">
+      <div ref={sidebarChromeRef} className="sidebar-chrome">
         <div className="sidebar-chrome__row">
           {historyButtons}
           {sidebarChromeActions}
@@ -212,10 +273,12 @@ export function AppShell({
         {searchForm}
       </div>
       <nav
+        ref={navRef}
         className={["bottom-nav", navCollapsed ? "bottom-nav--collapsed" : "", insetApp ? "bottom-nav--inset" : ""].filter(Boolean).join(" ")}
         aria-label={t("nav.label")}
         role="tablist"
         onKeyDown={handleNavKeyDown}
+        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px` }}
       >
         <button
           type="button"
@@ -282,10 +345,44 @@ export function AppShell({
         </div>
         ) : null}
       </nav>
+      {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
+        <div
+          className="sidebar-resize-handle sidebar-resize-handle--height"
+          role="separator"
+          aria-label={t("nav.resizeMenuHeight")}
+          aria-orientation="horizontal"
+          aria-valuemin={120}
+          aria-valuemax={Math.max(120, getMaxMenuHeight())}
+          aria-valuenow={Math.round(menuHeight ?? navRef.current?.getBoundingClientRect().height ?? 240)}
+          tabIndex={0}
+          onPointerDown={(event) => startResize("vertical", event)}
+          onPointerMove={moveResize}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          onKeyDown={(event) => resizeWithKeyboard("vertical", event)}
+        />
+      ) : null}
       {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
       {showLibrary
         ? sidebarPanelWidgets.map((Widget, idx) => <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />)
         : null}
+      {!navCollapsed ? (
+        <div
+          className="sidebar-resize-handle sidebar-resize-handle--width"
+          role="separator"
+          aria-label={t("nav.resizeSidebarWidth")}
+          aria-orientation="vertical"
+          aria-valuemin={180}
+          aria-valuemax={480}
+          aria-valuenow={Math.round(sidebarWidth ?? sidebarColumnRef.current?.getBoundingClientRect().width ?? 256)}
+          tabIndex={0}
+          onPointerDown={(event) => startResize("horizontal", event)}
+          onPointerMove={moveResize}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          onKeyDown={(event) => resizeWithKeyboard("horizontal", event)}
+        />
+      ) : null}
       </div>
       </div>
 
