@@ -45,6 +45,11 @@ interface ActionMenuProps {
    * pointer. Set to false for a standalone, always-visible trigger (e.g. a sheet header).
    */
   row?: boolean;
+  /**
+   * The list decides itself whether soft-deleted rows show (e.g. a "Show deleted" switch): the row
+   * is then only dimmed, never hidden by the user's "hide soft-deleted entities" preference.
+   */
+  showSoftDeleted?: boolean;
 }
 
 /**
@@ -94,7 +99,7 @@ let closeOpenMenu: (() => void) | null = null;
  * button that opens a dropdown, and the same dropdown as a right-click context menu on the
  * surrounding `.action-row`. See CLAUDE.md ("Row and entity actions").
  */
-export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) {
+export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = false }: ActionMenuProps) {
   const { t } = useI18n();
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -311,7 +316,8 @@ export function ActionMenu({ actions, name, uri, row = true }: ActionMenuProps) 
   // So do sites, for rows of entity types (or their apps, roles and aspects) the site leaves out.
   const siteShows = useSiteShows();
   const siteHides = !!row && !!uri && !siteShows.uri(uri);
-  const lifecycleHidden = lifecycle.isHidden(uri);
+  // A passed soft deletion only dims the row where the list shows deleted rows on purpose.
+  const lifecycleHidden = lifecycle.isHidden(uri) && !(showSoftDeleted && deletionHasPassed && !lifecycleState?.future_start);
   const lifecycleDimmed = lifecycle.isDimmed(uri);
   useLayoutEffect(() => {
     const host = triggerRef.current?.closest<HTMLElement>(".action-row");
