@@ -177,6 +177,65 @@ body {
 .saved-icon-choice__option input { accent-color: var(--bungalow-color-primary); margin: 0; }
 .saved-icon-choice__glyphs { color: var(--bungalow-color-primary); display: inline-flex; font-size: 1.25rem; gap: var(--bungalow-space-1); }
 
+/* Desktop sidebar splitters. The separators are keyboard-operable as well as draggable. */
+.sidebar-resize-handle {
+  background: transparent;
+  display: none;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  z-index: 2;
+}
+
+.sidebar-resize-handle:focus-visible {
+  outline: 2px solid var(--bungalow-color-primary);
+  outline-offset: -2px;
+}
+
+@media (min-width: 64rem) {
+  .sidebar-column { position: relative; }
+
+  .sidebar-resize-handle { display: block; }
+
+  .sidebar-resize-handle--height {
+    cursor: row-resize;
+    flex: 0 0 0.5rem;
+    width: 100%;
+  }
+
+  .sidebar-resize-handle--height::after {
+    background: color-mix(in srgb, var(--bungalow-color-ink) 24%, transparent);
+    border-radius: var(--bungalow-radius-pill);
+    content: "";
+    height: 2px;
+    left: 25%;
+    position: absolute;
+    right: 25%;
+    top: 50%;
+    translate: 0 -50%;
+  }
+
+  .sidebar-resize-handle--height:hover::after { background: var(--bungalow-color-primary); }
+
+  .sidebar-resize-handle--width {
+    bottom: 0;
+    cursor: col-resize;
+    right: -0.3125rem;
+    top: 0;
+    width: 0.625rem;
+  }
+
+  .sidebar-resize-handle--width::after {
+    background: transparent;
+    content: "";
+    inset: 0 0.25rem;
+    position: absolute;
+  }
+
+  .sidebar-resize-handle--width:hover::after,
+  .sidebar-resize-handle--width:focus-visible::after { background: var(--bungalow-color-primary); }
+}
+
 /*
  * Dark mode: follows the OS preference by default. A user can override it
  * explicitly via the theme picker, which sets data-theme="light"/"dark" on
