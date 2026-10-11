@@ -227,7 +227,7 @@ export function ActionsProvider({
             : tab.id === "search"
             ? "magnifying-glass"
             : tab.id === "apps"
-            ? "three-dots-h"
+            ? "grid"
             : "user",
         shortcut: tab.shortcut,
         keywords: ["navigate", "tab", tab.name.toLowerCase()],
