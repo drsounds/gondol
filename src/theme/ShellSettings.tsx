@@ -5,16 +5,18 @@ import { useSitePreferenceLock } from "../sites/preferences";
 import { SAVED_ICON_STYLES, SavedIcon, isSavedIconStyle } from "./savedIcon";
 import {
   DESKTOP_LAYOUTS,
+  MENU_STYLES,
   PLAYER_VISIBILITIES,
   SHEET_STYLES,
   useUserTheme,
   type DesktopLayout,
+  type MenuStyle,
   type PlayerVisibility,
   type SheetStyle,
   type ShellSettings as Shell,
 } from "./userTheme";
 
-/** App shell preferences: the desktop layout (every engine), the bottom player, edit sheets as a
+/** App shell preferences: the desktop layout (every engine), the menu, Your Library, the bottom player, edit sheets as a
  * modal or a page, lines between table rows, the saved icon, which entities show and, in the simple engine, a dark tab bar / frame and left menu while the
  * rest of the app is light. Each shows the value in effect; one the site locks is disabled
  * (sites/preferences.ts). */
@@ -29,6 +31,8 @@ export function ShellSettings() {
     darkFrame: !!useSitePreferenceLock("darkFrame"),
     desktopLayout: !!useSitePreferenceLock("desktopLayout"),
     player: !!useSitePreferenceLock("player"),
+    sidebarLibrary: !!useSitePreferenceLock("sidebarLibrary"),
+    menuStyle: !!useSitePreferenceLock("menuStyle"),
     savedIcon: !!useSitePreferenceLock("savedIcon"),
     sheetStyle: !!useSitePreferenceLock("sheetStyle"),
     tableLines: !!useSitePreferenceLock("tableLines"),
@@ -85,6 +89,30 @@ export function ShellSettings() {
           <span>{t("appearance.desktopLayout.frame")}</span>
         </label>
       ) : null}
+      <Select
+        label={t("appearance.menuStyle")}
+        hint={t("appearance.menuStyle.hint")}
+        value={preferences.menuStyle ?? "features"}
+        disabled={locked.menuStyle}
+        onChange={(e) => update({ menuStyle: e.target.value as MenuStyle })}
+      >
+        {MENU_STYLES.map((option) => (
+          <option key={option} value={option}>{t(`appearance.menuStyle.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="menuStyle" />
+      <div className="bungalow-field">
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={preferences.sidebarLibrary ?? true}
+            disabled={locked.sidebarLibrary}
+            onChange={(e) => update({ sidebarLibrary: e.target.checked })}
+          />
+          <span>{t("appearance.sidebarLibrary")}</span>
+        </label>
+        <SiteLockHint preference="sidebarLibrary" />
+      </div>
       <Select
         label={t("appearance.player")}
         hint={t("appearance.player.hint")}

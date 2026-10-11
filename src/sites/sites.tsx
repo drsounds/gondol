@@ -8,7 +8,7 @@ import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type Entit
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
-import type { DesktopLayout, LayoutStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { DesktopLayout, LayoutStyle, MenuStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from "./preferences";
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
@@ -43,6 +43,10 @@ export interface SiteLayout {
   locale?: string;
   /** Whether the bottom player shows (PlayerVisibility). */
   player?: PlayerVisibility;
+  /** Whether "Your Library" shows under the desktop menu. */
+  sidebarLibrary?: boolean;
+  /** Features in the menu, or apps leading to their features (MenuStyle). */
+  menuStyle?: MenuStyle;
   darkTabBar?: boolean;
   darkFrame?: boolean;
   hideSoftDeletedEntities?: boolean;
