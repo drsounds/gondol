@@ -217,9 +217,11 @@ body {
 
   .sidebar-resize-handle--height:hover::after { background: var(--bungalow-color-primary); }
 
+  /* Out of the column's flow: a flex item would be 0px tall at the bottom and add a gap. */
   .sidebar-resize-handle--width {
     bottom: 0;
     cursor: col-resize;
+    position: absolute;
     right: -0.3125rem;
     top: 0;
     width: 0.625rem;
