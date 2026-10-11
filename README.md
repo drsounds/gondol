@@ -2,17 +2,14 @@
 
 **A web application framework for building apps out of apps**, on TanStack Start, React and
 Supabase. Gondol is the frame: an application shell that looks and feels like a music player, a
-theming engine, navigation, search, an entity system and an apps framework. The product built on it
-brings a *bundle of apps* (Finances, Wiki, Playlists, …), each self-contained, described by a
+theming engine, navigation, search, an entity system and an apps framework. It originated from an internal tool built on it which organized its functionality as a *bundle of apps* (Finances, Wiki, Playlists, …), each self-contained, described by a
 manifest and switchable on and off by every user and every site.
-
-It was extracted from [Spacify](https://github.com/drsounds/spacify), which is still its main user.
 
 **Documentation:** [drsounds.github.io/gondol](https://drsounds.github.io/gondol/), built from
 [`docs/`](docs/): getting started, building apps and features, entities, the shell, theming, a
 tutorial and a module reference.
 
-![The gondol shell in Spacify: navigation built from the active apps, the library, the player bar and a Kanban app page](.github/readme/shell.png)
+![The gondol shell: navigation built from the active apps, the library, the player bar and a Kanban app page](.github/readme/shell.png)
 
 <sub>Screenshots are from Spacify with made-up demo data.</sub>
 
@@ -27,6 +24,10 @@ gets a place in the navigation, the command palette, the create picker and every
 It stays flexible because gondol never imports from the app: everything reaches it through
 `configureGondol()`, type augmentation and props, so the same shell can carry a very different
 product, and one deployment can look like several products on different domains.
+
+## Advantages
+
+The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'OS' for common infrastructure, so developers (with agents) can focus on functionality, and experiment with different features, objectives under different name. The inspiration was taken from [Spotify Portal](https://technology.spotify.com) and [Spotify Confidence](https://technology.spotify.com] but we found it lacked a great ready to made feature based architecture as Spotify's commercial developer tools is focused on devOps infrastructure, not frameworking for applications
 
 ## Features
 
