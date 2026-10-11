@@ -90,8 +90,7 @@ preferences, and the roles (`admin`, `creator`, `consumer`, …) and aspects (`v
 `edit`, …) it offers. Features, actions and menu items carry the same tags, so a site only shows
 what overlaps. See [Sites](docs/guide/sites.md).
 
-**Hooks, resolutions and lazy loading** *(in progress in [#14](https://github.com/drsounds/gondol/pull/14),
-adopted by Spacify in [spacify#157](https://github.com/drsounds/spacify/pull/157)).* The manifest
+**Hooks, resolutions and lazy loading** *(in progress in [#14](https://github.com/drsounds/gondol/pull/14), The manifest
 grows to declare everything an app adds to the shell (palette actions, create items, browse tiles,
 nav items, entity types and routing facts), validated by a zod schema. The shell asks for these
 through hooks (`defineHook`) and apps answer with resolutions (`answer`, `useResolutions`), which
