@@ -215,3 +215,8 @@ The docs site is [VitePress](https://vitepress.dev), run without adding it to th
 npx vitepress@1.6.4 dev docs     # http://localhost:5173/gondol/
 npx vitepress@1.6.4 build docs   # what .github/workflows/docs.yml publishes to GitHub Pages
 ```
+
+## License
+
+Copyright (C) 2026 Alexander Forselius. Gondol is licensed under the GNU Lesser General Public
+License, version 3 only. See [LICENSE](LICENSE).
