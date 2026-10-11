@@ -1,13 +1,103 @@
 # Gondol
 
-A web application framework on TanStack Start, React and Supabase, extracted from
-[Spacify](https://github.com/drsounds/spacify). It provides the application shell, the theming
-engine, navigation, search, the entity system, the apps framework and the Supabase base, and an app
-built on it brings its own bundle of apps.
+**A web application framework for building apps out of apps**, on TanStack Start, React and
+Supabase. Gondol is the frame: an application shell that looks and feels like a music player, a
+theming engine, navigation, search, an entity system and an apps framework. The product built on it
+brings a *bundle of apps* (Finances, Wiki, Playlists, …), each self-contained, described by a
+manifest and switchable on and off by every user and every site.
+
+It was extracted from [Spacify](https://github.com/drsounds/spacify), which is still its main user.
 
 **Documentation:** [drsounds.github.io/gondol](https://drsounds.github.io/gondol/), built from
 [`docs/`](docs/): getting started, building apps and features, entities, the shell, theming, a
 tutorial and a module reference.
+
+![The gondol shell in Spacify: navigation built from the active apps, the library, the player bar and a Kanban app page](.github/readme/shell.png)
+
+<sub>Screenshots are from Spacify with made-up demo data.</sub>
+
+## Why
+
+Most products grow into many small tools that should know about each other: a task can point at a
+document, a playlist can hold anything, search should find everything. Gondol makes that the
+default. Register an entity type once and it gets an address, a URI, search, a row menu, drag and
+drop, library and playlist support, edit sheets and filtering for free; register an app once and it
+gets a place in the navigation, the command palette, the create picker and every site's settings.
+
+It stays flexible because gondol never imports from the app: everything reaches it through
+`configureGondol()`, type augmentation and props, so the same shell can carry a very different
+product, and one deployment can look like several products on different domains.
+
+## Features
+
+- ✅ **Application shell**: chrome bar with back, forward and search, sidebar built from the active apps, phone navigation drawer, slots for widgets such as a bottom player bar, keyboard shortcuts and a command palette
+- ✅ **Apps framework**: apps described by `manifest.json`, features (pages), actions, widgets and providers, dependencies between apps, per-user activation
+- ✅ **Entity system**: `scheme:type:key` URIs, readable public addresses (`/note/shopping-list`), base62 identifiers and custom slugs, labels and art from registered sources
+- ✅ **Entity UI**: `EntitySheet` (routed create and edit sheets with a fixed-dark preview pane), `FormActions`, `ActionMenu` (row menu, context menu, long-press bottom sheet), `EntityPicker`, drag and drop
+- ✅ **URL-first state**: sheets are routes (`useEntityModal`), search and the global filter live in the query string and survive navigation
+- ✅ **Search and the global filter**: one Postgres full-text search behind the search page, `@` mentions and pickers; a filter and date period that apply to every view
+- ✅ **Theming engine**: light and dark, any accent, palettes, the Aero and TUI (DOS and mainframe text mode) engines, neon glow, high contrast, synced to the user's account
+- ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
+- ✅ **Bungalow design system** and its icon font
+- ✅ **English and Swedish** strings, merged with the app's own catalogue
+- ✅ **Desktop shell bridge** for Tauri and Electron
+- ✅ **Supabase base**: lazily created browser and server clients, auth middleware, session, base schema types
+- ⏳ **Hooks and resolutions, lazy pages, subset builds**: in progress in [#14](https://github.com/drsounds/gondol/pull/14), see [Architecture](#architecture)
+
+| | |
+| --- | --- |
+| ![ActionMenu on a library row: library, playlists, tags, covers, address and sharing come with the entity URI](.github/readme/action-menu.png) | ![The TUI theme engine in DOS mode](.github/readme/tui-engine.png) |
+
+![A site's settings sheet, an EntitySheet with its dark preview pane](.github/readme/site-sheet.png)
+
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│ Your app (e.g. Spacify)                                              │
+│   src/gondol.ts      configureGondol(), Register                     │
+│   src/apps/*         the bundle of apps: manifest, features, models  │
+│   src/routes/*       thin route files that render the shell          │
+│   supabase/          the app's tables, plus gondol's base schema     │
+├──────────────────────────────────────────────────────────────────────┤
+│ gondol                                                               │
+│   apps/  shell/  entities/  search/  theme/  navigation/  sites/     │
+│   i18n/  supabase/  design-system/  styles/                          │
+├──────────────────────────────────────────────────────────────────────┤
+│ TanStack Start · TanStack Router · TanStack Query · React · Supabase  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Manifests.** Each app lives in its own folder and describes itself in a `manifest.json`: a stable
+id, names and descriptions per locale, an icon from the bungalow font, the apps it depends on, its
+features (each with a path and icon) and the roles and aspects that decide which sites offer it.
+`index.ts` turns the manifest into an `InternalAppBundle` and attaches the pages, actions and
+widgets. See [Building apps](docs/guide/apps.md).
+
+```
+src/apps/wiki/
+├── manifest.json     # id, names, icon, dependencies, features, roles/aspects
+├── index.ts          # the InternalAppBundle
+├── features/pages/   # the feature page and its components
+└── models/           # types, queries and mutations
+```
+
+**Sites.** `SiteProvider` resolves the request's host to a site (`site_for_domain()`, callable
+anonymously, so the sign-in page already wears the site's theme). A site picks its apps (their
+dependencies come along), linked users, layout, theme, entity types and conditions, visitor
+preferences, and the roles (`admin`, `creator`, `consumer`, …) and aspects (`view`, `create`,
+`edit`, …) it offers. Features, actions and menu items carry the same tags, so a site only shows
+what overlaps. See [Sites](docs/guide/sites.md).
+
+**Hooks, resolutions and lazy loading** *(in progress in [#14](https://github.com/drsounds/gondol/pull/14),
+adopted by Spacify in [spacify#157](https://github.com/drsounds/spacify/pull/157)).* The manifest
+grows to declare everything an app adds to the shell (palette actions, create items, browse tiles,
+nav items, entity types and routing facts), validated by a zod schema. The shell asks for these
+through hooks (`defineHook`) and apps answer with resolutions (`answer`, `useResolutions`), which
+only count active apps and features the current site offers, so the shell names no app.
+`defineApp()` makes every page and widget load lazily, and a Vite plugin discovers the apps and can
+build a subset (`GONDOL_APPS=wiki,ideas`): dead-code elimination per site setup, and a main chunk of
+about 0.8 MB instead of 4 MB in Spacify.
 
 ## Installing
 
