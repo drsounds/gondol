@@ -277,6 +277,21 @@ body {
   gap: var(--bungalow-space-3);
 }
 
+.app-bundle-header__tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.5rem;
+  touch-action: pan-x;
+}
+
+.app-bundle-header__tabs > [role="tab"] {
+  flex: 0 0 auto;
+}
+
 .stat-grid {
   display: grid;
   gap: var(--bungalow-space-4);
