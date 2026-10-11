@@ -6,10 +6,16 @@ import type { DateRangeSearch } from "../navigation/dateRangeSearch";
 import { isUuid } from "./slugs";
 
 /**
- * Paths left alone: a person (an account or an ego) is addressed by its id, and /app/<x> swaps
- * itself over to the app's slug in the Dashboard (it can also be another user's public app).
+ * Paths left alone: /app/<x> swaps itself over to the app's slug in the shell (it can also be
+ * another user's public app), plus the prefixes apps declare in their manifest's `uuidPaths` (e.g.
+ * a person, an account or an ego, addressed by its id).
  */
-const KEEP_IDS = [/^\/channels\/people\//, /^\/app\//];
+let keepIdPrefixes: string[] = ["/app/"];
+
+/** Path prefixes whose uuids stay uuids (an app manifest's `uuidPaths`). */
+export function registerUuidPaths(prefixes: string[]): void {
+  keepIdPrefixes = [...new Set([...keepIdPrefixes, ...prefixes.map((p) => (p.endsWith("/") ? p : `${p}/`))])];
+}
 
 /**
  * Old links and spacify: URIs address rows by uuid; the app's URLs use the row's slug. This swaps
@@ -20,7 +26,7 @@ const KEEP_IDS = [/^\/channels\/people\//, /^\/app\//];
 export function useSlugRedirect() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const keep = KEEP_IDS.some((re) => re.test(pathname));
+  const keep = keepIdPrefixes.some((prefix) => pathname.startsWith(prefix));
   const uuids = keep ? [] : [...new Set(pathname.split("/").filter(isUuid))].sort();
 
   const slugs = useQuery({

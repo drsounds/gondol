@@ -1,0 +1,619 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+    },
+    "name": {
+      "description": "Text per locale (`en` required, e.g. `sv`).",
+      "type": "object",
+      "properties": {
+        "en": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "en"
+      ],
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "description": {
+      "description": "Text per locale (`en` required, e.g. `sv`).",
+      "type": "object",
+      "properties": {
+        "en": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "en"
+      ],
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "iconName": {
+      "description": "A glyph of the bungalow icon font (IconName).",
+      "type": "string",
+      "minLength": 1
+    },
+    "defaultFeatureId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][\\w.-]*$"
+    },
+    "dependencies": {
+      "description": "Apps this one needs; they are built and enabled with it.",
+      "default": [],
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][\\w.-]*$"
+      }
+    },
+    "defaultActive": {
+      "description": "Whether it is on before the user switches it (default true).",
+      "type": "boolean"
+    },
+    "roles": {
+      "description": "Who it is for; a site offers it when the roles overlap.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "admin",
+          "analytics",
+          "creator",
+          "curator",
+          "operator",
+          "consumer"
+        ]
+      }
+    },
+    "aspects": {
+      "description": "What kind of work it does; a site offers it when the aspects overlap.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "view",
+          "create",
+          "edit",
+          "organize",
+          "share",
+          "analyze",
+          "configure",
+          "delete"
+        ]
+      }
+    },
+    "features": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][\\w.-]*$"
+          },
+          "name": {
+            "description": "Text per locale (`en` required, e.g. `sv`).",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "description": "Text per locale (`en` required, e.g. `sv`).",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^[\\w\\-./]+$"
+          },
+          "aliases": {
+            "description": "Other paths that open the feature.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "iconName": {
+            "description": "A glyph of the bungalow icon font (IconName).",
+            "type": "string",
+            "minLength": 1
+          },
+          "hiddenFromNav": {
+            "description": "Routable, but left out of the app's menu section.",
+            "type": "boolean"
+          },
+          "entityTypes": {
+            "description": "Entity types whose rows belong to this feature when its path doesn't hold their edit sheet or page.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "iconName": {
+                  "description": "A glyph of the bungalow icon font (IconName).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "shortcut": {
+                  "description": "e.g. `Mod+Alt+N` (Mod is ⌘ on macOS, Ctrl elsewhere).",
+                  "type": "string"
+                },
+                "keywords": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "navigate": {
+                  "description": "Where the action goes. Without it, defineApp's `actions` must implement it.",
+                  "type": "string",
+                  "pattern": "^\\/[\\w\\-./]*$"
+                },
+                "roles": {
+                  "description": "Who it is for; a site offers it when the roles overlap.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "analytics",
+                      "creator",
+                      "curator",
+                      "operator",
+                      "consumer"
+                    ]
+                  }
+                },
+                "aspects": {
+                  "description": "What kind of work it does; a site offers it when the aspects overlap.",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "view",
+                      "create",
+                      "edit",
+                      "organize",
+                      "share",
+                      "analyze",
+                      "configure",
+                      "delete"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "id",
+                "title"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "create": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "description": "Unique among create items; also its `create-<key>` tour target.",
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                },
+                "entityType": {
+                  "description": "The entity type it creates, when it differs from `key` (sites hide types they don't show).",
+                  "type": "string"
+                },
+                "label": {
+                  "description": "A key of the host app's message catalogue (e.g. `nav.ideas`).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "section": {
+                  "description": "The area it belongs to, shown next to the label.",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "iconName": {
+                  "description": "A glyph of the bungalow icon font (IconName).",
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^\\/[\\w\\-./]*$"
+                },
+                "action": {
+                  "description": "An action id of this app to run instead of opening a path.",
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][\\w.-]*$"
+                },
+                "order": {
+                  "description": "Position in the picker (ascending).",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "key",
+                "label",
+                "section",
+                "iconName"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "browse": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "description": "A key of the host app's message catalogue (e.g. `nav.ideas`).",
+                "type": "string",
+                "minLength": 1
+              },
+              "iconName": {
+                "description": "A glyph of the bungalow icon font (IconName).",
+                "type": "string",
+                "minLength": 1
+              },
+              "hue": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^\\/[\\w\\-./]*$"
+              },
+              "order": {
+                "description": "Position in the grid (ascending).",
+                "type": "number"
+              }
+            },
+            "required": [
+              "label",
+              "iconName",
+              "hue"
+            ],
+            "additionalProperties": false
+          },
+          "nav": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "description": "A key of the host app's message catalogue (e.g. `nav.ideas`).",
+                "type": "string",
+                "minLength": 1
+              },
+              "iconName": {
+                "description": "A glyph, or `@saved` for the saved-to-library glyph the user picked.",
+                "type": "string",
+                "minLength": 1
+              },
+              "order": {
+                "description": "Position among the shell's items: Home is 0, Search 20.",
+                "type": "number"
+              },
+              "path": {
+                "type": "string",
+                "pattern": "^\\/[\\w\\-./]*$"
+              },
+              "tourId": {
+                "description": "Its `data-tour` key (defaults to nav-<feature id>).",
+                "type": "string"
+              },
+              "tour": {
+                "description": "A step of the first-run walkthrough, pointing at the item.",
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "description": "A key of the host app's message catalogue (e.g. `nav.ideas`).",
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "body": {
+                    "description": "A key of the host app's message catalogue (e.g. `nav.ideas`).",
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "title",
+                  "body"
+                ],
+                "additionalProperties": false
+              },
+              "drawer": {
+                "description": "Also in the phones' menu drawer.",
+                "type": "boolean"
+              },
+              "tab": {
+                "description": "A root tab: the palette's Go to … actions and Mod+<n> shortcuts.",
+                "type": "boolean"
+              },
+              "extra": {
+                "description": "Desktop sidebar only, not the phone tab bar.",
+                "type": "boolean"
+              },
+              "mobileOnly": {
+                "type": "boolean"
+              },
+              "afterAdd": {
+                "description": "After the plus button in the phone tab bar.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "label",
+              "iconName",
+              "order"
+            ],
+            "additionalProperties": false
+          },
+          "roles": {
+            "description": "Who it is for; a site offers it when the roles overlap.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "analytics",
+                "creator",
+                "curator",
+                "operator",
+                "consumer"
+              ]
+            }
+          },
+          "aspects": {
+            "description": "What kind of work it does; a site offers it when the aspects overlap.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "view",
+                "create",
+                "edit",
+                "organize",
+                "share",
+                "analyze",
+                "configure",
+                "delete"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "entities": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "description": "The singular public segment (/<slug>/<key>); null for none.",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "view": {
+            "description": "The row's own page, e.g. `/boards/{key}`; else the generic entity view.",
+            "type": "string",
+            "pattern": "^\\/[\\w\\-./]*\\{key\\}[\\w\\-./]*$"
+          },
+          "edit": {
+            "description": "The row's edit sheet, e.g. `/ideas/{key}/edit`.",
+            "type": "string",
+            "pattern": "^\\/[\\w\\-./]*\\{key\\}[\\w\\-./]*$"
+          },
+          "plural": {
+            "description": "The plural segment of its shelf sub-view, when adding -s is wrong (media).",
+            "type": "string"
+          },
+          "sheet": {
+            "description": "Opens in a sheet the app owns rather than a route (registerEntitySheetOpener).",
+            "type": "boolean"
+          },
+          "art": {
+            "type": "object",
+            "properties": {
+              "iconName": {
+                "description": "A glyph of the bungalow icon font (IconName).",
+                "type": "string",
+                "minLength": 1
+              },
+              "hue": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 360
+              }
+            },
+            "required": [
+              "iconName",
+              "hue"
+            ],
+            "additionalProperties": false
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "table": {
+                "type": "string",
+                "minLength": 1
+              },
+              "columns": {
+                "description": "The select list, e.g. `id, name`.",
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "separator": {
+                "description": "Between label columns (default a space).",
+                "type": "string"
+              },
+              "first": {
+                "description": "Use the first label column with a value instead of joining them.",
+                "type": "boolean"
+              },
+              "prefix": {
+                "description": "Text before a column's value, e.g. `{ \"entry_number\": \"#\" }`.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "table",
+              "columns",
+              "label"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "staticPaths": {
+      "description": "Static sub-routes under a list that are never a row's key (/calendar/events).",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\/[\\w\\-./]*$"
+      }
+    },
+    "uuidPaths": {
+      "description": "Path prefixes whose uuids stay uuids (a person's id), not swapped for slugs.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\/[\\w\\-./]*$"
+      }
+    },
+    "menuAspects": {
+      "description": "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "view",
+            "create",
+            "edit",
+            "organize",
+            "share",
+            "analyze",
+            "configure",
+            "delete"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "id",
+    "slug",
+    "name",
+    "description",
+    "iconName",
+    "defaultFeatureId",
+    "features"
+  ],
+  "additionalProperties": false,
+  "$id": "https://github.com/drsounds/gondol/blob/main/src/apps/manifest.schema.json",
+  "title": "gondol app manifest",
+  "description": "An app's manifest.json (gondol/apps/manifest.ts); defineApp validates it when the app loads."
+}

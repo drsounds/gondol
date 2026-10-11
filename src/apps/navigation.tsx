@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode, type ComponentType } from "react";
+import { Suspense, useMemo, type ReactNode, type ComponentType } from "react";
 import { useActiveBundles, useRegisteredBundles } from "./hooks";
 import { getLocalizedText } from "./types";
 import { featureCapability } from "./registry";
@@ -180,6 +180,8 @@ export function useActiveAppWidgets() {
     const sidebarPanelWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const sidebarWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const bottomWidgets: ComponentType<AppBottomWidgetProps>[] = [];
+    const overlayWidgets: ComponentType[] = [];
+    const contentHeadWidgets: ComponentType[] = [];
     const Providers: ComponentType<{ children: ReactNode }>[] = [];
 
     for (const bundle of activeBundles) {
@@ -202,6 +204,12 @@ export function useActiveAppWidgets() {
         if (bundle.widgets.bottomWidgets) {
           bottomWidgets.push(...bundle.widgets.bottomWidgets);
         }
+        if (bundle.widgets.overlayWidgets) {
+          overlayWidgets.push(...bundle.widgets.overlayWidgets);
+        }
+        if (bundle.widgets.contentHeadWidgets) {
+          contentHeadWidgets.push(...bundle.widgets.contentHeadWidgets);
+        }
         if (bundle.widgets.Providers) {
           Providers.push(...bundle.widgets.Providers);
         }
@@ -214,9 +222,27 @@ export function useActiveAppWidgets() {
       sidebarPanelWidgets,
       sidebarWidgets,
       bottomWidgets,
+      overlayWidgets,
+      contentHeadWidgets,
       Providers,
     };
   }, [activeBundles]);
+}
+
+/**
+ * Renders apps' widgets, each in its own Suspense boundary: widgets may be lazy (lazyWidget), and
+ * one still loading never holds up the rest of the shell.
+ */
+export function Widgets<P extends object>({ widgets, props }: { widgets: ComponentType<P>[]; props: P }) {
+  return (
+    <>
+      {widgets.map((Widget, index) => (
+        <Suspense key={index} fallback={null}>
+          <Widget {...props} />
+        </Suspense>
+      ))}
+    </>
+  );
 }
 
 /**

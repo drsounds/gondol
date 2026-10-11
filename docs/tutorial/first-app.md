@@ -313,40 +313,6 @@ export function NotesPage(_props: AppFeaturePageProps) {
 }
 ```
 
-```ts
-// src/apps/notes/features/notes/index.ts
-import type { AppFeature } from "gondol/apps/types";
-import { NotesPage } from "./src/pages/NotesPage";
-
-export const notesFeature: AppFeature = {
-  id: "notes",
-  name: "Notes",
-  description: "Quick notes",
-  iconName: "document",
-  path: "notes",
-  Page: NotesPage,
-  actions: [
-    {
-      id: "notes.open",
-      title: "Go to Notes",
-      category: "Notes",
-      iconName: "document",
-      keywords: ["notes", "memo"],
-      perform: ({ navigate }) => navigate("/notes"),
-    },
-    {
-      id: "notes.new",
-      title: "New Note",
-      category: "Notes",
-      iconName: "plus",
-      shortcut: "Mod+Alt+O",
-      keywords: ["note", "new", "create", "write"],
-      perform: ({ navigate }) => navigate("/notes/new"),
-    },
-  ],
-};
-```
-
 ```jsonc
 // src/apps/notes/manifest.json
 {
@@ -363,47 +329,39 @@ export const notesFeature: AppFeature = {
       "name": { "en": "Notes", "sv": "Anteckningar" },
       "description": { "en": "Quick notes", "sv": "Snabba anteckningar" },
       "path": "notes",
-      "iconName": "document"
+      "iconName": "document",
+      "actions": [
+        { "id": "notes.open", "title": "Go to Notes", "category": "Notes", "iconName": "document", "keywords": ["notes", "memo"], "navigate": "/notes" },
+        { "id": "notes.new", "title": "New Note", "category": "Notes", "iconName": "plus", "shortcut": "Mod+Alt+O", "keywords": ["note", "new", "create", "write"], "navigate": "/notes/new", "aspects": ["create"] }
+      ],
+      "create": [{ "key": "note", "label": "entity.note", "section": "nav.notes", "iconName": "document", "path": "/notes/new" }]
     }
-  ]
+  ],
+  "entities": {
+    "note": { "slug": "note", "edit": "/notes/{key}/edit", "art": { "iconName": "document", "hue": 45 }, "source": { "table": "notes", "columns": "id, title", "label": "title" } }
+  }
 }
 ```
 
 ```ts
 // src/apps/notes/index.ts
-import type { IconName, InternalAppBundle } from "gondol/apps/types";
+import { defineApp, lazyWidget } from "gondol/apps/defineApp";
 import manifest from "./manifest.json";
-import { notesFeature } from "./features/notes";
-import { RecentNotesWidget } from "./widgets/RecentNotesWidget";
 
-export const notesApp: InternalAppBundle = {
-  id: manifest.id,
-  slug: manifest.slug,
-  name: manifest.name.en,
-  description: manifest.description.en,
-  iconName: manifest.iconName as IconName,
-  defaultFeatureId: manifest.defaultFeatureId,
-  dependencies: manifest.dependencies,
+export default defineApp({
   manifest,
-  isInternal: true,
-  defaultActive: true,
-  features: [notesFeature],
+  // Loaded when the page first opens, so the app's code stays out of the first load.
+  pages: { notes: () => import("./features/notes/src/pages/NotesPage").then((m) => m.NotesPage) },
   widgets: {
-    sidebarNavWidgets: [RecentNotesWidget],
+    sidebarNavWidgets: [lazyWidget(() => import("./widgets/RecentNotesWidget").then((m) => m.RecentNotesWidget))],
   },
-};
-
-export * from "./models";
+});
 ```
 
-Add it to the bundle list, where it should appear in the sidebar:
-
-```ts
-// src/apps/bundle.ts
-import { notesApp } from "./notes";
-
-export const INTERNAL_APPS: InternalAppBundle[] = [/* … */ notesApp /* … */];
-```
+`defineApp` validates the manifest and turns it into the bundle: the palette actions, the create
+picker item and the `note` entity type all come from it. The build finds the app by its folder
+(`gondolApps` in `vite.config.ts`); add `"notes"` to the plugin's `order` where it should appear in
+the sidebar.
 
 ## 7. A sidebar widget
 

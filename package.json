@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "exports": "node scripts/exports.mjs",
-    "check-exports": "node scripts/exports.mjs --check"
+    "check-exports": "node scripts/exports.mjs --check",
+    "manifest-schema": "bun scripts/manifest-schema.ts",
+    "check-manifest-schema": "bun scripts/manifest-schema.ts --check"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -56,12 +58,17 @@
     "./apps/components/AppBundleView": "./src/apps/components/AppBundleView.tsx",
     "./apps/components/AppDeactivatedNotice": "./src/apps/components/AppDeactivatedNotice.tsx",
     "./apps/components/AppFeatureNav": "./src/apps/components/AppFeatureNav.tsx",
+    "./apps/components/FeaturePage": "./src/apps/components/FeaturePage.tsx",
     "./apps/components/InternalAppBadge": "./src/apps/components/InternalAppBadge.tsx",
     "./apps/components/KeyboardShortcutsDialog": "./src/apps/components/KeyboardShortcutsDialog.tsx",
+    "./apps/contributions": "./src/apps/contributions.ts",
+    "./apps/defineApp": "./src/apps/defineApp.ts",
     "./apps/external": "./src/apps/external.ts",
     "./apps/hooks": "./src/apps/hooks.ts",
+    "./apps/manifest": "./src/apps/manifest.ts",
     "./apps/navigation": "./src/apps/navigation.tsx",
     "./apps/registry": "./src/apps/registry.ts",
+    "./apps/shellHooks": "./src/apps/shellHooks.ts",
     "./apps/types": "./src/apps/types.ts",
     "./design-system/bungalow-79d923/design-system/bungalow/components/accordion": "./src/design-system/bungalow-79d923/design-system/bungalow/components/accordion.tsx",
     "./design-system/bungalow-79d923/design-system/bungalow/components/alert": "./src/design-system/bungalow-79d923/design-system/bungalow/components/alert.tsx",
@@ -146,6 +153,14 @@
     "./theme/tuiTheme": "./src/theme/tuiTheme.ts",
     "./theme/useUserThemeSync": "./src/theme/useUserThemeSync.ts",
     "./theme/userTheme": "./src/theme/userTheme.tsx",
+    "./vite/apps": {
+      "types": "./src/vite/apps.d.mts",
+      "default": "./src/vite/apps.mjs"
+    },
+    "./vite/virtual": {
+      "types": "./src/vite/virtual.d.ts"
+    },
+    "./apps/manifest.schema.json": "./src/apps/manifest.schema.json",
     "./styles/*": "./src/styles/*",
     "./design-system/*": "./src/design-system/*",
     "./assets/*": "./src/assets/*",

@@ -31,15 +31,16 @@ const newNote: AppAction = {
 | `openActionsMenu()`, `closeActionsMenu()` | The palette. |
 | `openShortcutsHelp()` | The keyboard shortcuts dialog. |
 | `toggleSidebar()`, `toggleTheme()` | When the shell passed them to `ActionsProvider`. |
-| `openCreate()`, `openNewEntry()` | The shell's create picker, and a quick-create hook, when passed. |
+| `openCreate()` | The shell's create picker, when passed. |
 
 Set `disabled: true` to keep an action out of the palette and its shortcut inactive.
 
 ## Where actions come from
 
-**App-wide actions** go on the bundle (`InternalAppBundle.actions`). **Feature actions** go on the
-feature (`AppFeature.actions`); a feature that leaves the field out gets a default "Open *name*"
-action that navigates to its path. Both only exist while their app is active.
+**App-wide actions** go on the bundle (`InternalAppBundle.actions`). **Feature actions** are
+declared on the feature in `manifest.json`: with `navigate` they go to that path, otherwise the app's
+`defineApp({ actions })` implements them by id. A feature that leaves `actions` out gets a default
+"Open *name*" action that navigates to its path. Both only exist while their app is active.
 
 **Contextual actions** belong to whatever is on screen. Register them from any component inside
 `ActionsProvider`; they are removed when it unmounts:
@@ -77,13 +78,13 @@ Memoize the array: a new array on every render re-registers the actions every re
 | Toggle Sidebar (when `toggleSidebar` is passed) | `Mod+B` |
 | Toggle Color Theme (when `toggleTheme` is passed) | `Mod+Shift+T` |
 | Create New… (when `openCreate` is passed) | `Mod+Shift+A` |
-| Go to Overview, Timeline, Search, App Finder, Account | `Mod+1` to `Mod+5` |
+| Go to … (the root tabs) | `Mod+1` to `Mod+9`, by position |
 | Previous Tab, Next Tab | `Mod+[`, `Mod+]` |
 
 ::: info
-The tab actions currently navigate to fixed paths (`/`, `/timeline`, `/search`, `/app-finder`,
-`/account`), and passing `openNewEntry` adds a "New Transaction" action; both come from Spacify.
-An app without those pages can leave `openNewEntry` out and ignore the tab shortcuts.
+The root tabs are Overview, Search, App Finder and Account (`DEFAULT_ROOT_TABS`, override with
+`ActionsProvider`'s `rootTabs`), plus every app navigation item with `"tab": true` in its manifest,
+merged by `order`.
 :::
 
 ## The provider

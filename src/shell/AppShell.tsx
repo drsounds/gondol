@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode } 
 import { useRouterState } from "@tanstack/react-router";
 import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
-import { useActiveAppWidgets, useAppNavigation } from "../apps/navigation";
+import { useActiveAppWidgets, useAppNavigation, Widgets } from "../apps/navigation";
 import { ActionsPalette } from "../apps/components/ActionsPalette";
 import { KeyboardShortcutsDialog } from "../apps/components/KeyboardShortcutsDialog";
 import { ChromeSearchForm, type ChromeSearchState } from "./ChromeSearch";
@@ -122,7 +122,7 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navSections = useAppNavigation(intlLocale);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
-  const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets } = useActiveAppWidgets();
+  const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
   // The bottom player: always, only while something plays (the widget decides), or never.
   const player = useOptionalUserTheme()?.preferences.player ?? "always";
   // Mobile hamburger drawer; any navigation (drawer item, back button, deep link) closes it.
@@ -209,9 +209,7 @@ export function AppShell({
         {navItems}
 
         {/* Dynamic sidebar navigation widgets (e.g. ChatSidebar) */}
-        {sidebarNavWidgets.map((Widget, idx) => (
-          <Widget key={idx} className="bottom-nav__chat" onOpenUri={onOpenUri} collapsed={navCollapsed} />
-        ))}
+        <Widgets widgets={sidebarNavWidgets} props={{ className: "bottom-nav__chat", onOpenUri, collapsed: navCollapsed }} />
 
         {navExtra}
 
@@ -254,9 +252,7 @@ export function AppShell({
         ) : null}
       </nav>
       {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
-      {sidebarPanelWidgets.map((Widget, idx) => (
-        <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />
-      ))}
+      <Widgets widgets={sidebarPanelWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
       </div>
       </div>
 
@@ -274,11 +270,11 @@ export function AppShell({
       ) : null}
 
       {/* Dynamic bottom widgets (e.g. TaskPlayer), unless the player is hidden (ShellSettings.player). */}
-      {player === "hidden"
-        ? null
-        : bottomWidgets.map((Widget, idx) => <Widget key={idx} alwaysShow={player === "always"} />)}
+      {player === "hidden" ? null : <Widgets widgets={bottomWidgets} props={{ alwaysShow: player === "always" }} />}
 
       {overlays}
+      {/* Sheets the apps own (e.g. an entity type that opens in its app's own sheet). */}
+      <Widgets widgets={overlayWidgets} props={{}} />
 
       <ActionsPalette />
       <KeyboardShortcutsDialog />

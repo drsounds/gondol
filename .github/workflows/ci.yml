@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    name: Exports, lint, typecheck
+    name: Exports, manifest schema, lint, typecheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,5 +19,6 @@ jobs:
 
       - run: bun install --frozen-lockfile
       - run: bun run check-exports
+      - run: bun run check-manifest-schema
       - run: bun run lint
       - run: bun run typecheck

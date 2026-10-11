@@ -21,8 +21,16 @@ for (const file of walk(src).sort()) {
   if (/\.(tsx?)$/.test(rel) && !rel.endsWith(".d.ts")) {
     const subpath = rel.replace(/\.(tsx?)$/, "").replace(/\/index$/, "");
     exports[`./${subpath}`] = `./src/${rel}`;
+  } else if (rel.endsWith(".d.ts")) {
+    // Ambient declarations (virtual modules), for tsconfig "types".
+    exports[`./${rel.replace(/\.d\.ts$/, "")}`] = { types: `./src/${rel}` };
+  } else if (rel.endsWith(".mjs")) {
+    // Plain JavaScript for Node (Vite plugins, loaded with vite.config before any TypeScript compiles).
+    const types = rel.replace(/\.mjs$/, ".d.mts");
+    exports[`./${rel.replace(/\.mjs$/, "")}`] = { types: `./src/${types}`, default: `./src/${rel}` };
   }
 }
+exports["./apps/manifest.schema.json"] = "./src/apps/manifest.schema.json";
 exports["./styles/*"] = "./src/styles/*";
 exports["./design-system/*"] = "./src/design-system/*";
 exports["./assets/*"] = "./src/assets/*";

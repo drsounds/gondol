@@ -2,6 +2,7 @@ import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
 import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import type { AppSidebarWidgetProps, DynamicMenuSection } from "../apps/types";
+import { Widgets } from "../apps/navigation";
 import { NavItem } from "./NavItem";
 
 /**
@@ -57,9 +58,7 @@ export function MobileNavDrawer({
         </div>
         <div className="nav-drawer__body">
           <div className="nav-group">{primary}</div>
-          {sidebarNavWidgets.map((Widget, idx) => (
-            <Widget key={idx} onOpenUri={onOpenUri} collapsed={false} />
-          ))}
+          <Widgets widgets={sidebarNavWidgets} props={{ onOpenUri, collapsed: false }} />
           {extra}
           {navSections.map((section) => (
             <div key={section.id} className="nav-group">

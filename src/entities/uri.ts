@@ -56,7 +56,13 @@ export function parseEntityUri(uri: string): { entityType: EntityType; entityId:
  * Old plural addresses (/suppliers/<key>/edit, /suppliers/<key>, …) keep working and show up in the
  * address bar as the singular ones. A `slug` of null means the type has no singular address.
  */
-export type EntityRoute = { slug: string | null; view?: (key: string) => string; edit?: (key: string) => string };
+export type EntityRoute = {
+  slug: string | null;
+  view?: (key: string) => string;
+  edit?: (key: string) => string;
+  /** The plural of `slug` for its shelf sub-view, when adding -s/-es/-ies is wrong (media). */
+  plural?: string;
+};
 
 /** An edit sub-route under a list: sheet("/suppliers") -> /suppliers/<key>/edit. */
 export const sheet = (base: string) => (key: string) => `${base}/${key}/edit`;
@@ -137,8 +143,9 @@ export function entityEditPath(type: EntityType, key: string): string | null {
  * its slug in the plural (/creator/astrid/books, /organization/acme/bank-accounts).
  */
 export function entitySectionSlug(type: EntityType): string {
-  const slug = routeOf(type)?.slug ?? type.replace(/_/g, "-");
-  if (slug === "media") return slug;
+  const route = routeOf(type);
+  if (route?.plural) return route.plural;
+  const slug = route?.slug ?? type.replace(/_/g, "-");
   if (/[^aeiou]y$/.test(slug)) return `${slug.slice(0, -1)}ies`;
   if (/(s|x|ch|sh)$/.test(slug)) return `${slug}es`;
   return `${slug}s`;
@@ -248,28 +255,47 @@ export function entityFromPath(path: string): { entityType: EntityType; entityId
   return null;
 }
 
-export type EntityUriTarget = { kind: "path"; path: string } | { kind: "entry"; entryId: string };
+export type EntityUriTarget = { kind: "path"; path: string } | { kind: "sheet"; entityType: EntityType; entityId: string };
 
 let sheetTypes = new Set<EntityType>();
+const sheetOpeners = new Map<EntityType, (entityId: string) => void>();
 
 /**
- * Entity types that open in a sheet owned by the shell (its own state, no route of its own), like
- * spacify's finance entries: resolveEntityUri() hands them back as `{ kind: "entry" }`.
+ * Entity types that open in a sheet an app owns (its own state, no route of its own), like
+ * spacify's finance entries: resolveEntityUri() hands them back as `{ kind: "sheet" }`, and
+ * openEntitySheet() calls the opener the app registered (registerEntitySheetOpener). An app declares
+ * them with `"sheet": true` on the type in its manifest.
  */
 export function registerShellSheetTypes(types: EntityType[]): void {
   sheetTypes = new Set([...sheetTypes, ...types]);
 }
 
+/** Registers how an app opens its sheet for `type` (from its Provider, while mounted); returns an unregister. */
+export function registerEntitySheetOpener(type: EntityType, open: (entityId: string) => void): () => void {
+  sheetOpeners.set(type, open);
+  return () => {
+    if (sheetOpeners.get(type) === open) sheetOpeners.delete(type);
+  };
+}
+
+/** Opens a `{ kind: "sheet" }` target in its app's sheet; false when no app has registered one. */
+export function openEntitySheet(type: EntityType, entityId: string): boolean {
+  const open = sheetOpeners.get(type);
+  if (!open) return false;
+  open(entityId);
+  return true;
+}
+
 /**
  * Resolves an entity URI to where it opens in the app (its view), or null if it's
- * malformed/unknown. Shell-sheet types (registerShellSheetTypes) open their sheet, which is the
- * shell's state.
+ * malformed/unknown. Sheet types (registerShellSheetTypes) come back as `{ kind: "sheet" }`, for
+ * openEntitySheet().
  */
 export function resolveEntityUri(uri: string): EntityUriTarget | null {
   const parsed = parseEntityUri(uri);
   if (!parsed) return null;
   const { entityType, entityId } = parsed;
   if (!/^[\w-]+$/.test(entityId)) return null;
-  if (sheetTypes.has(entityType)) return { kind: "entry", entryId: entityId };
+  if (sheetTypes.has(entityType)) return { kind: "sheet", entityType, entityId };
   return Object.hasOwn(entityRoutes, entityType) ? { kind: "path", path: entityViewPath(entityType, entityId) } : null;
 }
