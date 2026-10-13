@@ -6,6 +6,7 @@
 export const GONDOL_MESSAGES = {
   en: {
     "app.name": "Gondol",
+    "app.loading": "Loading…",
     "chrome.back": "Back",
     "chrome.forward": "Forward",
     "chrome.searchHint": "Search everything, or paste an entity URI and press Enter to open it",
@@ -226,6 +227,7 @@ export const GONDOL_MESSAGES = {
   },
   sv: {
     "app.name": "Gondol",
+    "app.loading": "Laddar…",
     "chrome.back": "Bakåt",
     "chrome.forward": "Framåt",
     "chrome.searchHint": "Sök i allt, eller klistra in en URI och tryck Enter för att öppna den",

@@ -177,7 +177,8 @@ and `useNavCollapsed`.
 | --- | --- |
 | `supabase/` | The lazily created browser and server clients (`getSupabaseClient()`, `getSupabaseAdmin()`), auth middleware, the session |
 | `entities/` | Entity URIs and public addresses, slugs, sources and labels, `EntitySheet`, `FormActions`, `ActionMenu`, `EntityPicker`, drag and drop, lifecycle |
-| `apps/` | The apps framework: `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
+| `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
+| `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |
 | `navigation/` | Navigation progress, shortcuts, date-range search params, `useEntityModal` |

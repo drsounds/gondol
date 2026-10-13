@@ -7,7 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { AppAction, AppActionContext } from "./types";
+import type { AppAction, AppActionContext, IconName } from "./types";
+import { useResolutions } from "./contributions";
+import { byOrder, navItemsHook } from "./shellHooks";
 import { useActiveBundles } from "./hooks";
 import { featureCapability } from "./registry";
 import { mergeCapability, useSiteOffers } from "../sites/capabilities";
@@ -31,34 +33,45 @@ interface ActionsContextValue {
 
 const ActionsContext = createContext<ActionsContextValue | null>(null);
 
+/** A root tab: a "Go to …" palette action with a Mod+<n> shortcut, by its place among the tabs. */
+export interface RootTab {
+  id: string;
+  path: string;
+  name: string;
+  iconName: IconName;
+  /** Position among the tabs; apps' navigation items marked `tab` join by their `order`. */
+  order: number;
+}
+
+/** The shell's own root tabs; apps add theirs through their navigation items (`nav.tab`). */
+export const DEFAULT_ROOT_TABS: RootTab[] = [
+  { path: "/", id: "overview", name: "Overview", iconName: "home", order: 0 },
+  { path: "/search", id: "search", name: "Search", iconName: "magnifying-glass", order: 20 },
+  { path: "/app-finder", id: "apps", name: "App Finder", iconName: "grid", order: 90 },
+  { path: "/account", id: "account", name: "Account", iconName: "user", order: 100 },
+];
+
 export interface ActionsProviderProps {
   children: ReactNode;
   navigate: (path: string) => void;
   openCreate?: () => void;
-  openNewEntry?: () => void;
   toggleSidebar?: () => void;
   toggleTheme?: () => void;
   pathname?: string;
   activeTab?: string;
+  /** The shell's own root tabs (default DEFAULT_ROOT_TABS). */
+  rootTabs?: RootTab[];
 }
-
-const ROOT_TABS = [
-  { path: "/", id: "overview", name: "Overview", shortcut: "Mod+1" },
-  { path: "/timeline", id: "timeline", name: "Timeline", shortcut: "Mod+2" },
-  { path: "/search", id: "search", name: "Search", shortcut: "Mod+3" },
-  { path: "/app-finder", id: "apps", name: "App Finder", shortcut: "Mod+4" },
-  { path: "/account", id: "account", name: "Account", shortcut: "Mod+5" },
-];
 
 export function ActionsProvider({
   children,
   navigate,
   openCreate,
-  openNewEntry,
   toggleSidebar,
   toggleTheme,
   pathname = "/",
   activeTab = "overview",
+  rootTabs = DEFAULT_ROOT_TABS,
 }: ActionsProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isShortcutsHelpOpen, setIsShortcutsHelpOpen] = useState(false);
@@ -67,6 +80,17 @@ export function ActionsProvider({
   );
 
   const activeBundles = useActiveBundles();
+  const navItems = useResolutions(navItemsHook);
+  const ROOT_TABS = useMemo(
+    () =>
+      byOrder([
+        ...rootTabs,
+        ...navItems
+          .filter(({ value }) => value.tab)
+          .map(({ value }) => ({ id: value.id, path: value.path, name: value.title, iconName: (value.iconName === "@saved" ? "like-fill" : value.iconName) as IconName, order: value.order })),
+      ]).map((tab, index) => ({ ...tab, shortcut: index < 9 ? `Mod+${index + 1}` : undefined })),
+    [rootTabs, navItems],
+  );
 
   const openActionsMenu = useCallback(() => setIsOpen(true), []);
   const closeActionsMenu = useCallback(() => setIsOpen(false), []);
@@ -97,7 +121,6 @@ export function ActionsProvider({
     () => ({
       navigate,
       openCreate,
-      openNewEntry,
       toggleSidebar,
       toggleTheme,
       openShortcutsHelp,
@@ -109,7 +132,6 @@ export function ActionsProvider({
     [
       navigate,
       openCreate,
-      openNewEntry,
       toggleSidebar,
       toggleTheme,
       openShortcutsHelp,
@@ -197,20 +219,6 @@ export function ActionsProvider({
       });
     }
 
-    if (openNewEntry) {
-      list.push({
-        id: "finances.newEntryQuick",
-        title: "New Transaction",
-        aspects: ["create"],
-        description: "Add an income, expense or bill",
-        category: "Finances",
-        iconName: "document",
-        shortcut: "Mod+Alt+N",
-        keywords: ["entry", "transaction", "invoice", "bill", "expense", "income"],
-        perform: () => openNewEntry(),
-      });
-    }
-
     // Tab Navigation Actions
     ROOT_TABS.forEach((tab) => {
       list.push({
@@ -219,16 +227,7 @@ export function ActionsProvider({
         subtitle: tab.path,
         description: `Navigate to ${tab.name} tab`,
         category: "Navigation",
-        iconName:
-          tab.id === "overview"
-            ? "home"
-            : tab.id === "timeline"
-            ? "calendar"
-            : tab.id === "search"
-            ? "magnifying-glass"
-            : tab.id === "apps"
-            ? "grid"
-            : "user",
+        iconName: tab.iconName,
         shortcut: tab.shortcut,
         keywords: ["navigate", "tab", tab.name.toLowerCase()],
         perform: () => navigate(tab.path),
@@ -279,9 +278,9 @@ export function ActionsProvider({
     toggleSidebar,
     toggleTheme,
     openCreate,
-    openNewEntry,
     navigate,
     pathname,
+    ROOT_TABS,
   ]);
 
   // Combine actions from:

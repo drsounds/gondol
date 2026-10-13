@@ -3,6 +3,8 @@ import type { IconName } from "../design-system/bungalow-79d923";
 export type { IconName };
 import type { Register } from "../register";
 import type { Capability } from "../sites/capabilities";
+import type { AppManifest, AppManifestFeature } from "./manifest";
+import type { Resolution } from "./contributions";
 export type { Capability };
 
 /** A type the app registers under `key` on gondol's `Register`, else `fallback`. */
@@ -25,38 +27,10 @@ export function getLocalizedText(
   return value[locale] || value.en || Object.values(value)[0] || "";
 }
 
-/** Roles and aspects as manifest.json declares them: plain strings, checked when read (featureCapability). */
-export interface ManifestCapability {
-  roles?: readonly string[];
-  aspects?: readonly string[];
-}
+/** Roles and aspects as manifest.json declares them (validated by ./manifest.ts). */
+export type ManifestCapability = Pick<AppManifest, "roles" | "aspects">;
 
-/** Feature metadata declared in manifest.json. `roles`/`aspects` say which sites offer it (sites/capabilities.ts). */
-export interface AppManifestFeature extends ManifestCapability {
-  id: string;
-  name: AppLocaleString;
-  description?: AppLocaleString;
-  path: string;
-  iconName?: IconName | string;
-  /**
-   * The entity types whose rows belong to this feature, when its path doesn't already hold their
-   * edit sheet or page (sites/sites.tsx entityTypeFeature). A site that leaves the feature out
-   * hides those rows from every mixed list.
-   */
-  entityTypes?: string[];
-}
-
-/** App manifest specification (manifest.json). Its `roles`/`aspects` apply to every feature that sets none. */
-export interface AppManifest extends ManifestCapability {
-  id: string;
-  slug: string;
-  name: AppLocaleString;
-  description: AppLocaleString;
-  iconName: IconName | string;
-  defaultFeatureId: string;
-  dependencies: string[];
-  features: AppManifestFeature[];
-}
+export type { AppManifest, AppManifestFeature };
 
 /** Context and props passed to a feature page */
 export interface BaseAppFeaturePageProps {
@@ -79,7 +53,6 @@ export type AppFeaturePageProps = BaseAppFeaturePageProps & Registered<"appFeatu
 export interface AppActionContext {
   navigate: (path: string) => void;
   openCreate?: () => void;
-  openNewEntry?: () => void;
   toggleSidebar?: () => void;
   toggleTheme?: () => void;
   openShortcutsHelp?: () => void;
@@ -143,6 +116,11 @@ export interface AppWidgets {
   sidebarPanelWidgets?: ComponentType<AppSidebarWidgetProps>[];
   sidebarWidgets?: ComponentType<AppSidebarWidgetProps>[];
   bottomWidgets?: ComponentType<AppBottomWidgetProps>[];
+  /** Sheets and dialogs the app owns, rendered over everything (the shell's `overlays`). */
+  overlayWidgets?: ComponentType[];
+  /** Above the view's content on every page but external apps (e.g. a load error the app reports). */
+  contentHeadWidgets?: ComponentType[];
+  /** Wrap the whole shell; never lazy, since the shell waits for them. */
   Providers?: ComponentType<{ children: React.ReactNode }>[];
 }
 
@@ -172,6 +150,8 @@ export interface InternalAppBundle {
   isInternal: true;
   defaultActive?: boolean;
   hooks?: AppBundleHooks;
+  /** The app's answers to the shell's hooks (./contributions.ts); defineApp adds the manifest's. */
+  resolutions?: Resolution[];
 }
 
 export interface DynamicMenuItem {

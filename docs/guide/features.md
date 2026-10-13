@@ -1,42 +1,47 @@
 # Features
 
-A feature is one page of an app. It is an `AppFeature` object: an id, a name, a path, a React
-component, and optionally palette actions.
+A feature is one page of an app. It is declared in the app's `manifest.json` (an id, a name, a path,
+an icon, palette actions, create items, …; see [Building apps](./apps.md#the-manifest)) and its page
+is attached, lazily, in the app's `index.ts`:
+
+```json
+{
+  "id": "pages",
+  "name": { "en": "Wiki", "sv": "Wiki" },
+  "description": { "en": "Wiki pages with links, @ mentions and media" },
+  "iconName": "edit",
+  "path": "wiki",
+  "actions": [
+    {
+      "id": "wiki.pages.new",
+      "title": "New Wiki Page",
+      "category": "Wiki",
+      "iconName": "plus",
+      "keywords": ["wiki", "page", "new", "create"],
+      "navigate": "/wiki/new"
+    }
+  ]
+}
+```
 
 ```ts
-// src/apps/wiki/features/pages/index.ts
-import type { AppFeature } from "gondol/apps/types";
-import { WikiPage } from "./src/pages/WikiPage";
-
-export const pagesFeature: AppFeature = {
-  id: "pages",
-  name: "Pages",
-  description: "Wiki pages with links, @ mentions and media",
-  iconName: "edit",
-  path: "wiki",
-  Page: WikiPage,
-  actions: [
-    {
-      id: "wiki.pages.new",
-      title: "New Wiki Page",
-      category: "Wiki",
-      iconName: "plus",
-      keywords: ["wiki", "page", "new", "create"],
-      perform: ({ navigate }) => navigate("/wiki/new"),
-    },
-  ],
-};
+export default defineApp({
+  manifest,
+  pages: { pages: () => import("./features/pages/src/pages/WikiPage").then((m) => m.WikiPage) },
+});
 ```
+
+`defineApp` makes each one an `AppFeature`:
 
 | Field | Meaning |
 | --- | --- |
 | `id` | Unique within the app. Used in `/app/<appId>/<featureId>` and in nav item ids. |
 | `name`, `description`, `iconName` | Shown in the sidebar, the menu drawer, the palette and `AppFeatureNav`. Without an icon the app's is used. |
-| `path` | The feature's top-level path, without or with a leading slash (`"wiki"` is `/wiki`). |
+| `path` | The feature's top-level path, without a leading slash (`"wiki"` is `/wiki`). |
 | `aliases` | Other top-level paths that open the same feature (old addresses, short forms). |
 | `hiddenFromNav` | Routable, but left out of the app's sidebar section (for pages linked from elsewhere). |
-| `Page` | The component, a `ComponentType<AppFeaturePageProps>`. |
-| `actions` | Palette actions. When the field is left out, gondol adds an "Open *name*" action for the feature. |
+| `Page` | The page, a lazy `ComponentType<AppFeaturePageProps>`; render it with `<FeaturePage/>` (`gondol/apps/components/FeaturePage`), which adds the `Suspense`. |
+| `actions` | Palette actions. When the field is left out, gondol adds an "Open *name*" action for the feature; `[]` means none. |
 
 ## How a path finds a feature
 

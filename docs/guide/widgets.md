@@ -26,7 +26,14 @@ export const planningApp: InternalAppBundle = {
 | `sidebarPanelWidgets` | Below the navigation, filling the sidebar column (desktop only). | `AppSidebarWidgetProps` |
 | `sidebarWidgets` | Collected for shells that render them; `AppShell` doesn't. | `AppSidebarWidgetProps` |
 | `bottomWidgets` | After the content, for fixed bars along the bottom. | `AppBottomWidgetProps` |
+| `contentHeadWidgets` | Above the page content (notices, load errors). | none |
+| `overlayWidgets` | After the shell's own overlays, for sheets an app opens from anywhere. | none |
 | `Providers` | Around everything inside `ActiveAppsProvider`. | `{ children }` |
+
+Make widgets with `lazyWidget(() => import("./Widget").then((m) => m.Widget))` (`gondol/apps/defineApp`)
+so their code loads only when they render; the shell renders every slot with `<Widgets/>`
+(`gondol/apps/navigation`), which wraps each widget in `Suspense`. Providers can't be lazy: keep them
+small and load the heavy parts inside them.
 
 `AppShell` renders the sidebar and bottom slots itself. The home view is yours, so render the
 overview widgets where you want them:

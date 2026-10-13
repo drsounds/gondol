@@ -44,7 +44,7 @@ export function isSiteAspect(value: unknown): value is SiteAspect {
   return typeof value === "string" && (SITE_ASPECTS as readonly string[]).includes(value);
 }
 
-/** The aspect of an ActionMenu item that doesn't name one, by its key. */
+/** The aspect of an ActionMenu item that doesn't name one, by its key (apps add theirs: registerActionAspects). */
 export const DEFAULT_ACTION_ASPECTS: Record<string, readonly SiteAspect[]> = {
   edit: ["edit"],
   delete: ["delete"],
@@ -60,8 +60,12 @@ export const DEFAULT_ACTION_ASPECTS: Record<string, readonly SiteAspect[]> = {
   right: ["organize"],
   "add-sub": ["create"],
   "add-child": ["create"],
-  subtask: ["create"],
 };
+
+/** Adds an app's menu keys to DEFAULT_ACTION_ASPECTS (its manifest's `menuAspects`). */
+export function registerActionAspects(aspects: Record<string, readonly SiteAspect[]>): void {
+  Object.assign(DEFAULT_ACTION_ASPECTS, aspects);
+}
 
 /** A menu item's capability: its own tags, else the default aspect for its key. */
 export function actionCapability(action: Capability & { key?: string }): Capability {

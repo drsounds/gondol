@@ -4,6 +4,7 @@ import type { InternalAppBundle } from "../types";
 import { useAppActivation } from "../hooks";
 import { AppFeatureNav } from "./AppFeatureNav";
 import { AppDeactivatedNotice } from "./AppDeactivatedNotice";
+import { FeaturePage } from "./FeaturePage";
 
 export function AppBundleView({
   app,
@@ -56,7 +57,6 @@ export function AppBundleView({
     } as Parameters<typeof navigate>[0]);
   };
 
-  const FeatureComponent = activeFeature?.Page;
 
   return (
     <div
@@ -90,8 +90,9 @@ export function AppBundleView({
             onActivate={activate}
             onBackToApps={onBackToApps}
           />
-        ) : FeatureComponent ? (
-          <FeatureComponent
+        ) : activeFeature ? (
+          <FeaturePage
+            feature={activeFeature}
             appId={app.id}
             featureId={activeFeature.id}
             splat={subpath}

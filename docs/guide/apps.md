@@ -1,56 +1,68 @@
 # Building apps
 
-An app built on gondol is a bundle of apps. Each one lives in its own folder, describes itself in a
-`manifest.json`, exports an `InternalAppBundle`, and is registered in menu order through
-`configureGondol({ apps })`.
+An app built on gondol is a bundle of apps. Each one lives in its own folder, declares itself in a
+`manifest.json` (checked against a schema), and default-exports `defineApp({ manifest, pages, … })`
+from its `index.ts`. The build discovers the apps (`gondol/vite/apps`), so the shell never imports
+one by name, and every app's code is loaded lazily.
 
 ## Folder layout
 
-Spacify's apps all follow the same shape, which keeps each app self-contained:
-
 ```
 src/apps/wiki/
-├── manifest.json              # id, names, icon, features (metadata only)
-├── index.ts                   # the InternalAppBundle
+├── manifest.json              # everything declarative: features, actions, nav, create items, entity types
+├── index.ts                   # export default defineApp({ manifest, pages, … })
 ├── features/
-│   └── pages/
-│       ├── index.ts           # the AppFeature (path, Page, actions)
-│       └── src/
-│           ├── pages/WikiPage.tsx        # the feature page component
-│           └── components/WikiPanel.tsx  # the UI it renders
+│   └── pages/src/
+│       ├── pages/WikiPage.tsx        # the feature page (loaded lazily)
+│       └── components/WikiPanel.tsx  # the UI it renders
 └── models/
-    ├── index.ts               # re-exports, so other apps import from "@/apps/wiki"
+    ├── index.ts               # re-exports, so other apps import from "@/apps/wiki/models"
     └── wikiPages.ts           # types, queries and mutations (TanStack Query + Supabase)
 ```
 
-Other apps import an app's models through its `index.ts` (`export * from "./models"`), never from
-inside its `features/`.
+Other apps import an app's models (`@/apps/<id>/models`), never its `index.ts` (which would pull the
+whole app into their chunk) and never from inside its `features/`.
 
 ## The manifest
 
-`manifest.json` holds an app's metadata, with names and descriptions in every locale you ship:
+`manifest.json` is everything about an app that is data. `defineApp` validates it with
+`appManifestSchema` (`gondol/apps/manifest`) and throws an error naming every problem, so a typo
+fails loudly instead of quietly hiding a feature. Point `$schema` at the generated JSON Schema for
+completion and checks in your editor:
 
 ```json
 {
+  "$schema": "../../../node_modules/gondol/src/apps/manifest.schema.json",
   "id": "wiki",
   "slug": "wiki",
   "name": { "en": "Wiki", "sv": "Wiki" },
-  "description": {
-    "en": "Pages in wiki markup, linking to each other and mentioning any entity.",
-    "sv": "Sidor i wikimarkering som länkar till varandra och nämner vad som helst."
-  },
+  "description": { "en": "Pages in wiki markup.", "sv": "Sidor i wikimarkering." },
   "iconName": "edit",
   "defaultFeatureId": "pages",
   "dependencies": ["media"],
+  "roles": ["creator"],
   "features": [
     {
       "id": "pages",
-      "name": { "en": "Pages", "sv": "Sidor" },
-      "description": { "en": "Wiki pages with links and mentions", "sv": "Wikisidor med länkar" },
+      "name": { "en": "Wiki", "sv": "Wiki" },
       "path": "wiki",
-      "iconName": "edit"
+      "iconName": "edit",
+      "actions": [
+        { "id": "wiki.new", "title": "New wiki page", "category": "Wiki", "navigate": "/wiki/new", "aspects": ["create"] }
+      ],
+      "create": [{ "key": "wiki_page", "label": "entity.wiki_page", "section": "nav.wiki", "iconName": "edit", "path": "/wiki/new" }],
+      "browse": { "label": "nav.wiki", "iconName": "edit", "hue": 200 }
     }
-  ]
+  ],
+  "entities": {
+    "wiki_page": {
+      "slug": "wiki-page",
+      "view": "/wiki/{key}",
+      "edit": "/wiki/{key}/edit",
+      "art": { "iconName": "edit", "hue": 200 },
+      "source": { "table": "wiki_pages", "columns": "id, title", "label": "title" }
+    }
+  }
 }
 ```
 
@@ -58,70 +70,117 @@ inside its `features/`.
 | --- | --- |
 | `id` | Stable id. Used in `/app/<id>`, in activation storage keys and in a site's `enabled_apps`. Never change it. |
 | `slug` | The `/app/<slug>` segment; usually the same as `id`. |
-| `name`, `description` | `AppLocaleString`: `{ en, sv?, … }`. Read one with `getLocalizedText(value, locale)`. |
+| `name`, `description` | `{ en, sv?, … }`. Read one with `getLocalizedText(value, locale)`. |
 | `iconName` | A glyph of the bungalow icon font (`IconName`). |
 | `defaultFeatureId` | The feature `/app/<id>` opens. |
-| `dependencies` | Ids of apps this one needs. A site that enables this app enables them too. |
-| `features` | Each feature's id, names, `path` and icon. |
+| `dependencies` | Apps this one needs. They are built with it and a site that enables it enables them too. |
+| `roles`, `aspects` | The [site](./sites.md) capabilities of every feature (a feature can set its own). |
+| `features[]` | `id`, `name`, `path`, `aliases`, `iconName`, `hiddenFromNav`, `entityTypes`, `roles`/`aspects`, and: |
+| `features[].actions` | Palette actions. With `navigate` they go to that path; otherwise `defineApp`'s `actions` implements them. Omit for a default "Open …" action, `[]` for none. |
+| `features[].create` | Items of the create picker (the plus button): a `path`, or an `action` of this app. |
+| `features[].browse` | A tile of the search page's "Browse all" grid. |
+| `features[].nav` | An item of the shell's own navigation next to Home and Search (`order`; Home is 0, Search 20), with `drawer`, `tab`, `extra`, `mobileOnly`, `afterAdd`, a `tourId` and a walkthrough step. |
+| `entities` | The entity types the app owns: public `slug`, `view`/`edit` path templates with `{key}`, `plural`, `sheet`, tile `art`, and the `source` table and label columns. |
+| `staticPaths`, `uuidPaths`, `menuAspects` | Routing facts: static sub-routes that are never a key, path prefixes whose uuids stay uuids, aspects of the app's own menu keys. |
 
-`iconName` values come from the design system's icon font; `IconName` is exported from
-`gondol/apps/types` so editors can complete them.
+Every answer a manifest declares under a feature goes with that feature: when a site doesn't offer
+it (its roles and aspects) or the app is switched off, its nav item, create items and browse tile go
+too.
 
-## The bundle
+## The app's code
 
-`index.ts` turns the manifest into an `InternalAppBundle` and attaches the code:
+`index.ts` attaches what isn't data. Pages are loaders, so the app's code is a chunk of its own,
+fetched when one of its pages opens; widgets made with `lazyWidget` are lazy too:
 
 ```ts
 // src/apps/wiki/index.ts
-import type { InternalAppBundle, IconName } from "gondol/apps/types";
+import { defineApp, lazyWidget } from "gondol/apps/defineApp";
 import manifest from "./manifest.json";
-import { pagesFeature } from "./features/pages";
 
-export const wikiApp: InternalAppBundle = {
-  id: manifest.id,
-  slug: manifest.slug,
-  name: manifest.name.en,
-  description: manifest.description.en,
-  iconName: manifest.iconName as IconName,
-  defaultFeatureId: manifest.defaultFeatureId,
-  dependencies: manifest.dependencies,
+export default defineApp({
   manifest,
-  isInternal: true,
-  defaultActive: true,
-  features: [pagesFeature],
-};
-
-export * from "./models";
+  pages: {
+    pages: () => import("./features/pages/src/pages/WikiPage").then((m) => m.WikiPage),
+  },
+  actions: {
+    // Manifest actions without `navigate`, by id.
+    "wiki.random": ({ navigate }) => navigate("/wiki/random"),
+  },
+  widgets: {
+    sidebarWidgets: [lazyWidget(() => import("./widgets/RecentPages").then((m) => m.RecentPages))],
+  },
+});
 ```
 
 | Field | Meaning |
 | --- | --- |
-| `features` | The `AppFeature`s, in the order they appear in the sidebar section. See [Features](./features.md). |
-| `actions` | App-wide palette actions, in addition to each feature's. See [Actions](./actions.md). |
-| `widgets` | Components for the home view, sidebar, bottom of the screen, and providers. See [Widgets](./widgets.md). |
-| `defaultActive` | Whether the app is on for a user who hasn't switched it. Defaults to `true`. |
-| `hooks` | Optional hooks the bundle exposes to other code (`useAppStatus`, or your own). |
-| `iconUrl` | An image to use instead of the icon glyph. |
-| `isInternal` | Always `true` for bundles in your source code. |
+| `pages` | One loader per manifest feature (`() => import(…).then((m) => m.Page)`). Required for every feature. |
+| `actions` | Implementations of the manifest's actions that have no `navigate`. See [Actions](./actions.md). |
+| `widgets` | Home, sidebar, bottom, overlay and content-head widgets, and providers. See [Widgets](./widgets.md). |
+| `resolutions` | Answers to hooks in code (below). |
+| `entitySources` | Entity sources whose label needs code, replacing the manifest's `source`. |
+| `hooks` | Optional hooks the bundle exposes (`useAppStatus`, or your own). |
 
-## Registering the bundle
+## Hooks and resolutions
 
-Collect every app in one list, in the order the sidebar should show them, and pass it to
-`configureGondol()`:
+The shell asks apps for things through **hooks**, typed extension points, and apps **answer** them
+with resolutions; the manifest's `nav`, `create`, `browse`, `entities` and routing facts are such
+answers, made by `defineApp`. The shell only reads answers, so it never names an app:
+
+```ts
+import { defineHook, answer, useResolutions, resolutionsOf } from "gondol/apps/contributions";
+import { navItemsHook, createItemsHook, searchBrowseHook, entityTypesHook, entityExtensionsHook, byOrder } from "gondol/apps/shellHooks";
+
+// Your own hook:
+export const reportHook = defineHook<{ label: string; load: () => Promise<Report> }>("myapp.reports");
+
+// An app answers it (defineApp({ resolutions: [answer(reportHook, { … }, { featureId: "charts" })] }))
+// and the shell reads the answers of apps that are on and offered by the site:
+const reports = useResolutions(reportHook).map((a) => a.value);
+```
+
+- `useResolutions(hook)` gives the answers that apply now: the host's own and those of active apps
+  the site allows, leaving out answers tied (`featureId`) to a feature the site doesn't offer.
+- `resolutionsOf(hook)` gives every registered app's answers, for static facts read once (entity
+  addresses, sources, art).
+- `configureGondol({ resolutions })` adds the host's own answers (its core items, always there).
+- gondol's own hooks: `navItemsHook`, `createItemsHook`, `searchBrowseHook`, `entityTypesHook`,
+  `entityExtensionsHook` (covers, tags, likes, restrictions) and `routingHook`.
+
+## Registering the apps
+
+Add the vite plugin and import the discovered apps from its virtual module:
+
+```ts
+// vite.config.ts
+import { gondolApps } from "gondol/vite/apps";
+export default defineConfig({ plugins: [gondolApps({ dir: "src/apps", order: ["notes", "wiki", "tags"] })] });
+```
 
 ```ts
 // src/apps/bundle.ts
-import type { InternalAppBundle } from "gondol/apps/types";
-import { notesApp } from "./notes";
-import { tagsApp } from "./tags";
-import { wikiApp } from "./wiki";
-
-export const INTERNAL_APPS: InternalAppBundle[] = [notesApp, wikiApp, tagsApp];
+import apps from "virtual:gondol/apps";
+export const INTERNAL_APPS = apps;
 ```
 
 ```ts
 configureGondol({ uriScheme: "myapp", apps: INTERNAL_APPS /* … */ });
 ```
+
+Add `"gondol/vite/virtual"` to `compilerOptions.types` for the module's types. `order` is the menu
+order; apps it doesn't list come after, alphabetically.
+
+### Building a subset
+
+A fork or a dedicated site can build only some apps, so the rest never reaches the bundle:
+
+```sh
+GONDOL_APPS=wiki,ideas vite build          # these and their dependencies
+GONDOL_EXCLUDE_APPS=finances,leads vite build
+```
+
+(or `gondolApps({ include, exclude })`). Dependencies come along; excluding an app another selected
+app needs fails the build. This is the build-time counterpart of a site's `enabled_apps`.
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`
@@ -161,14 +220,14 @@ Its pages still resolve, so a shell can show `AppDeactivatedNotice` (from
 
 Apps reach each other through models and through entities, not through each other's components:
 
-- **Models.** Import another app's types, queries and mutations from its `index.ts`
-  (`import { useTags } from "@/apps/tags"`) and list it in `dependencies`.
+- **Models.** Import another app's types, queries and mutations from its models
+  (`import { useTags } from "@/apps/tags/models"`) and list it in `dependencies`.
 - **Entities.** Point at another app's rows by entity URI (`myapp:note:<id>`). Anything that only
   holds a URI can label it with `useEntityLabels`, open it with `resolveEntityUri` and show its art.
   See [Entities](./entities.md).
-- **Entity extensions.** An app can provide a framework-wide capability through
-  `configureGondol({ entities: { extensions } })`, such as cover images or tags, which gondol's own UI
-  then uses. See [Entity UI](./entity-ui.md#entity-extensions).
+- **Entity extensions.** An app can provide a framework-wide capability by answering
+  `entityExtensionsHook` (or through `configureGondol({ entities: { extensions } })`), such as cover
+  images or tags, which gondol's own UI then uses. See [Entity UI](./entity-ui.md#entity-extensions).
 - **Entity actions.** `EntityActionsProvider` adds items ("Save to library", "Tags…") to every
   entity's actions menu. See [Entity UI](./entity-ui.md#entity-wide-actions).
 
@@ -186,9 +245,9 @@ is up to your app (Spacify keeps them in an `apps` table):
 
 ## Checklist for a new app
 
-1. Create `src/apps/<id>/` with `manifest.json`, `index.ts`, `features/` and `models/`.
-2. Write at least one feature (see [Features](./features.md)).
-3. Add the bundle to your `INTERNAL_APPS` list.
-4. If it introduces entity types, register them (see [Entities](./entities.md#adding-an-entity-type)).
+1. Create `src/apps/<id>/` with `manifest.json` (with `$schema`), `index.ts`, `features/` and `models/`.
+2. Declare its features, actions, nav/create/browse items and entity types in the manifest.
+3. `export default defineApp({ manifest, pages })` with a lazy loader per feature.
+4. Add it to the plugin's `order` where it should appear in the menu.
 5. Add its strings to your message catalogue (see [Internationalization](./i18n.md)).
 6. Add route files for any create and edit sheets, and for pages that need their own `<title>`.

@@ -1,4 +1,8 @@
 import { registerApps } from "./apps/registry";
+import { registerResolutions, resolutionsOf, type Resolution } from "./apps/contributions";
+import { entityExtensionsHook, entityTypesHook, routingHook } from "./apps/shellHooks";
+import { registerActionAspects } from "./sites/capabilities";
+import { registerUuidPaths } from "./entities/useSlugRedirect";
 import type { InternalAppBundle } from "./apps/types";
 import { registerEntityArt, type EntityArtStyle } from "./entities/EntityArt";
 import { registerEntityExtensions, type EntityExtensions } from "./entities/extensions";
@@ -19,8 +23,14 @@ export interface GondolConfig {
   storageNamespace?: string;
   /** The desktop shells' public web origin and Electron bridge (see shell/desktopApp). */
   desktop?: { publicOrigin: string; bridge?: string };
-  /** The app's internal app bundles, in menu order. */
+  /**
+   * The app's internal app bundles, in menu order (`virtual:gondol/apps` from gondol/vite/apps.mjs,
+   * which builds in only the apps selected for the build). Their manifests and resolutions add
+   * entity types, sources, art, sheet types, extensions and routing facts to `entities` below.
+   */
   apps?: InternalAppBundle[];
+  /** The host's own answers to hooks (core navigation items, browse tiles, …), always there. */
+  resolutions?: Resolution[];
   entities?: {
     /** Each type's public addresses, and static sub-routes that share a path with keys. */
     routes?: Partial<Record<EntityType, EntityRoute>>;
@@ -45,10 +55,37 @@ export function configureGondol(config: GondolConfig): void {
   if (config.storageNamespace) configureStorageNamespace(config.storageNamespace);
   if (config.desktop) configureDesktopApp(config.desktop);
   if (config.apps) registerApps(config.apps);
+  if (config.resolutions) registerResolutions(config.resolutions);
   const entities = config.entities ?? {};
   if (entities.routes) registerEntityRoutes(entities.routes, { staticPaths: entities.staticPaths });
   if (entities.sources) registerEntitySources(entities.sources);
   if (entities.art) registerEntityArt(entities.art);
   if (entities.shellSheetTypes) registerShellSheetTypes(entities.shellSheetTypes);
   if (entities.extensions) registerEntityExtensions(entities.extensions);
+  registerAppContributions();
+}
+
+/** What the apps (and the host's resolutions) declare about entities and routing, registered once. */
+function registerAppContributions(): void {
+  const routes: Partial<Record<EntityType, EntityRoute>> = {};
+  const sources: Partial<Record<EntityType, EntitySource>> = {};
+  const art: Partial<Record<EntityType, EntityArtStyle>> = {};
+  const sheetTypes: EntityType[] = [];
+  for (const { value } of resolutionsOf(entityTypesHook)) {
+    if (value.route) routes[value.type] = value.route;
+    if (value.source) sources[value.type] = value.source;
+    if (value.art) art[value.type] = value.art;
+    if (value.sheet) sheetTypes.push(value.type);
+  }
+  const staticPaths: string[] = [];
+  for (const { value } of resolutionsOf(routingHook)) {
+    staticPaths.push(...(value.staticPaths ?? []));
+    if (value.uuidPaths) registerUuidPaths(value.uuidPaths);
+    if (value.menuAspects) registerActionAspects(value.menuAspects);
+  }
+  registerEntityRoutes(routes, { staticPaths });
+  registerEntitySources(sources);
+  registerEntityArt(art);
+  registerShellSheetTypes(sheetTypes);
+  for (const { value } of resolutionsOf(entityExtensionsHook)) registerEntityExtensions(value);
 }
