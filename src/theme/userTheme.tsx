@@ -127,6 +127,14 @@ export const DESKTOP_LAYOUTS: DesktopLayout[] = ["modern", "classic"];
 export type PlayerVisibility = "always" | "auto" | "hidden";
 export const PLAYER_VISIBILITIES: PlayerVisibility[] = ["always", "auto", "hidden"];
 
+/**
+ * The left menu: every app's features listed under the app's name ("features"), or one row per app
+ * that opens the app's features in a second menu beside the first ("appsBeside", desktop) or in a
+ * sub-view sliding in over it, like iPhone settings ("appsInset"). Phones always slide in.
+ */
+export type MenuStyle = "features" | "appsBeside" | "appsInset";
+export const MENU_STYLES: MenuStyle[] = ["features", "appsBeside", "appsInset"];
+
 /** Edit sheets (EntitySheet): a modal over the page, or a page of their own over everything. */
 export type SheetStyle = "modal" | "page";
 export const SHEET_STYLES: SheetStyle[] = ["modal", "page"];
@@ -143,6 +151,10 @@ export interface ShellSettings {
   savedIcon?: SavedIconStyle;
   /** Unset follows the site's default, else "always". */
   player?: PlayerVisibility;
+  /** "Your Library" under the desktop menu (the apps' sidebar panels). Unset follows the site's default, else shown. */
+  sidebarLibrary?: boolean;
+  /** Unset follows the site's default, else "features". */
+  menuStyle?: MenuStyle;
   /** The foreground (text) colour as the accent instead of the accent colour (data-accent). */
   accentForeground?: boolean;
   /** Every shade is the foreground or the background colour (data-high-contrast). */
@@ -794,6 +806,8 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       darkFrame: resolveSitePreference(siteLayout, "darkFrame", own.darkFrame),
       savedIcon: resolveSitePreference(siteLayout, "savedIcon", own.savedIcon),
       player: resolveSitePreference(siteLayout, "player", own.player),
+      sidebarLibrary: resolveSitePreference(siteLayout, "sidebarLibrary", own.sidebarLibrary),
+      menuStyle: resolveSitePreference(siteLayout, "menuStyle", own.menuStyle),
       sheetStyle: resolveSitePreference(siteLayout, "sheetStyle", own.sheetStyle),
       tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
       highContrast: resolveSitePreference(siteLayout, "highContrast", own.highContrast),

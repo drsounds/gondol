@@ -10,6 +10,8 @@ import { isSiteThemeLocked, useSite, type SiteLayout, type SiteThemePart } from 
 export const SITE_PREFERENCES = [
   "locale",
   "player",
+  "sidebarLibrary",
+  "menuStyle",
   "desktopLayout",
   "layoutStyle",
   "darkTabBar",
@@ -26,7 +28,7 @@ export type SitePreference = (typeof SITE_PREFERENCES)[number];
 
 const LEGACY_LOCKED: readonly SitePreference[] = ["desktopLayout", "layoutStyle"];
 
-const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["darkTabBar", "darkFrame", "tableLines", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
+const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["sidebarLibrary", "darkTabBar", "darkFrame", "tableLines", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
 
 /** The value a site sets for a preference, or undefined when it leaves it to the visitor. */
 export function sitePreferenceValue<K extends SitePreference>(layout: SiteLayout | null | undefined, key: K): SiteLayout[K] | undefined {

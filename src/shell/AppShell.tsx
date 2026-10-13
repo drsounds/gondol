@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
@@ -9,6 +9,7 @@ import { ChromeSearchForm, type ChromeSearchState } from "./ChromeSearch";
 import { ChevronIcon, HamburgerIcon } from "./icons";
 import { FeatureDotContext, NavItem, type FeatureDot } from "./NavItem";
 import { MobileNavDrawer } from "./MobileNavDrawer";
+import { AppInset, AppPages, AppRows, isPathActive, useOpenApp } from "./AppMenu";
 import { useSiteOffers } from "../sites/capabilities";
 import { useOptionalUserTheme } from "../theme/userTheme";
 
@@ -122,9 +123,77 @@ export function AppShell({
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navSections = useAppNavigation(intlLocale);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
+
   const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
+  const preferences = useOptionalUserTheme()?.preferences;
+  
   // The bottom player: always, only while something plays (the widget decides), or never.
-  const player = useOptionalUserTheme()?.preferences.player ?? "always";
+  const player = preferences?.player ?? "always";
+  // "Your Library" (the apps' sidebar panels) under the desktop menu, unless turned off.
+  const showLibrary = preferences?.sidebarLibrary ?? true;
+  // Every app's pages in the menu, or one row per app opening its pages beside it or in place of it.
+  const menuStyle = preferences?.menuStyle ?? "features";
+  const appSections = navSections.filter((section) => section.items.length > 0);
+  const { open: openApp, setOpenId: setOpenApp } = useOpenApp(appSections, pathname);
+  const insetApp = menuStyle === "appsInset" ? openApp : null;
+  const besideApp = menuStyle === "appsBeside" ? openApp : null;
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const [menuHeight, setMenuHeight] = useState<number | null>(null);
+  const sidebarColumnRef = useRef<HTMLDivElement>(null);
+  const sidebarChromeRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const resizeDrag = useRef<{ axis: "horizontal" | "vertical"; pointerId: number; start: number; size: number } | null>(null);
+  const getMaxMenuHeight = () => {
+    if (!sidebarColumnRef.current) return 480;
+    return sidebarColumnRef.current.getBoundingClientRect().height
+      - (sidebarChromeRef.current?.getBoundingClientRect().height ?? 0)
+      - 128;
+  };
+
+  const startResize = (axis: "horizontal" | "vertical", event: PointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = axis === "horizontal" ? sidebarColumnRef.current : navRef.current;
+    if (!target) return;
+    const bounds = target.getBoundingClientRect();
+    resizeDrag.current = {
+      axis,
+      pointerId: event.pointerId,
+      start: axis === "horizontal" ? event.clientX : event.clientY,
+      size: axis === "horizontal" ? bounds.width : bounds.height,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const moveResize = (event: PointerEvent<HTMLDivElement>) => {
+    const drag = resizeDrag.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.axis === "horizontal") {
+      setSidebarWidth(Math.max(180, Math.min(480, drag.size + event.clientX - drag.start)));
+    } else {
+      setMenuHeight(Math.max(120, Math.min(getMaxMenuHeight(), drag.size + event.clientY - drag.start)));
+    }
+  };
+
+  const stopResize = (event: PointerEvent<HTMLDivElement>) => {
+    if (resizeDrag.current?.pointerId === event.pointerId) resizeDrag.current = null;
+  };
+
+  const resizeWithKeyboard = (axis: "horizontal" | "vertical", event: KeyboardEvent<HTMLDivElement>) => {
+    const positive = axis === "horizontal" ? "ArrowRight" : "ArrowDown";
+    const negative = axis === "horizontal" ? "ArrowLeft" : "ArrowUp";
+    if (event.key !== positive && event.key !== negative) return;
+    event.preventDefault();
+    const amount = event.key === positive ? 16 : -16;
+    if (axis === "horizontal") {
+      const currentWidth = sidebarWidth ?? sidebarColumnRef.current?.getBoundingClientRect().width ?? 256;
+      setSidebarWidth(Math.max(180, Math.min(480, currentWidth + amount)));
+    } else {
+      const currentHeight = menuHeight ?? navRef.current?.getBoundingClientRect().height ?? 240;
+      setMenuHeight(Math.max(120, Math.min(getMaxMenuHeight(), currentHeight + amount)));
+    }
+  };
+
   // Mobile hamburger drawer; any navigation (drawer item, back button, deep link) closes it.
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -179,12 +248,26 @@ export function AppShell({
       <div className={contentFlush ? "app-content app-content--flush" : "app-content"}>{children}</div>
       </div>
 
+      {/* The open app's pages in a second menu right of the first (desktop, MenuStyle "appsBeside"). */}
+      {besideApp ? (
+        <nav className="bottom-nav app-submenu" aria-label={besideApp.title} onKeyDown={handleNavKeyDown}>
+          <div className="nav-group bottom-nav__group">
+            <div className="nav-group__label">{besideApp.title}</div>
+            <AppPages section={besideApp} pathname={pathname} onNavigate={onNavigate} />
+          </div>
+        </nav>
+      ) : null}
+
       {/* Desktop: two stacked surfaces, like Spotify's left pane — the nav on top and "Your Library"
           filling the rest down to the bottom. On phones the column dissolves (display: contents)
           and the nav is the bottom tab bar; the library is desktop-only. */}
-      <div className={navCollapsed ? "sidebar-column sidebar-column--collapsed" : "sidebar-column"}>
+      <div
+        ref={sidebarColumnRef}
+        className={["sidebar-column", navCollapsed ? "sidebar-column--collapsed" : "", showLibrary ? "" : "sidebar-column--no-library"].filter(Boolean).join(" ")}
+        style={sidebarWidth === null || navCollapsed ? undefined : { width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }}
+      >
       {/* Classic desktop layout only: back/forward and search at the top of the left menu. */}
-      <div className="sidebar-chrome">
+      <div ref={sidebarChromeRef} className="sidebar-chrome">
         <div className="sidebar-chrome__row">
           {historyButtons}
           {sidebarChromeActions}
@@ -192,10 +275,12 @@ export function AppShell({
         {searchForm}
       </div>
       <nav
-        className={navCollapsed ? "bottom-nav bottom-nav--collapsed" : "bottom-nav"}
+        ref={navRef}
+        className={["bottom-nav", navCollapsed ? "bottom-nav--collapsed" : "", insetApp ? "bottom-nav--inset" : ""].filter(Boolean).join(" ")}
         aria-label={t("nav.label")}
         role="tablist"
         onKeyDown={handleNavKeyDown}
+        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px` }}
       >
         <button
           type="button"
@@ -206,6 +291,9 @@ export function AppShell({
         >
           <ChevronIcon direction={navCollapsed ? "right" : "left"} />
         </button>
+        {/* The app's own items (also the phone tab bar, so they stay put there: the desktop
+            hides this while an app's pages have slid in). */}
+        <div className="bottom-nav__main">
         {navItems}
 
         {/* Dynamic sidebar navigation widgets (e.g. ChatSidebar) */}
@@ -213,22 +301,28 @@ export function AppShell({
 
         {navExtra}
 
-        {/* Dynamic App Menu Sections */}
-        {navSections.map((section) => (
-          <div key={section.id} className="nav-group bottom-nav__group">
-            <div className="nav-group__label">{section.title}</div>
-            {section.items.map((item) => (
-              <NavItem
-                key={item.id}
-                icon={<Icon name={item.iconName} />}
-                label={item.name}
-                extra
-                active={pathname === item.path || pathname.startsWith(item.path + "/")}
-                onClick={() => onNavigate(item.path)}
-              />
-            ))}
-          </div>
-        ))}
+        {/* Dynamic App Menu Sections: every app's pages, or a row per app (MenuStyle). */}
+        {menuStyle === "features"
+          ? navSections.map((section) => (
+              <div key={section.id} className="nav-group bottom-nav__group">
+                <div className="nav-group__label">{section.title}</div>
+                {section.items.map((item) => (
+                  <NavItem
+                    key={item.id}
+                    icon={<Icon name={item.iconName} />}
+                    label={item.name}
+                    extra
+                    active={isPathActive(pathname, item.path)}
+                    onClick={() => onNavigate(item.path)}
+                  />
+                ))}
+              </div>
+            ))
+          : <AppRows sections={appSections} pathname={pathname} openId={openApp?.id ?? null} onOpen={setOpenApp} onNavigate={onNavigate} extra />}
+        </div>
+        {insetApp ? (
+          <AppInset key={insetApp.id} section={insetApp} pathname={pathname} onBack={() => setOpenApp(null)} onNavigate={onNavigate} />
+        ) : null}
         {/* A site that doesn't offer creating (its aspects, sites/capabilities.ts) has no plus button. */}
         {canCreate ? (
         <div className="bottom-nav__add">
@@ -251,8 +345,45 @@ export function AppShell({
         </div>
         ) : null}
       </nav>
+      {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
+        <div
+          className="sidebar-resize-handle sidebar-resize-handle--height"
+          role="separator"
+          aria-label={t("nav.resizeMenuHeight")}
+          aria-orientation="horizontal"
+          aria-valuemin={120}
+          aria-valuemax={Math.max(120, getMaxMenuHeight())}
+          aria-valuenow={Math.round(menuHeight ?? navRef.current?.getBoundingClientRect().height ?? 240)}
+          tabIndex={0}
+          onPointerDown={(event) => startResize("vertical", event)}
+          onPointerMove={moveResize}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          onKeyDown={(event) => resizeWithKeyboard("vertical", event)}
+        />
+      ) : null}
       {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
       <Widgets widgets={sidebarPanelWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
+      {showLibrary
+        ? sidebarPanelWidgets.map((Widget, idx) => <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />)
+        : null}
+      {!navCollapsed ? (
+        <div
+          className="sidebar-resize-handle sidebar-resize-handle--width"
+          role="separator"
+          aria-label={t("nav.resizeSidebarWidth")}
+          aria-orientation="vertical"
+          aria-valuemin={180}
+          aria-valuemax={480}
+          aria-valuenow={Math.round(sidebarWidth ?? sidebarColumnRef.current?.getBoundingClientRect().width ?? 256)}
+          tabIndex={0}
+          onPointerDown={(event) => startResize("horizontal", event)}
+          onPointerMove={moveResize}
+          onPointerUp={stopResize}
+          onPointerCancel={stopResize}
+          onKeyDown={(event) => resizeWithKeyboard("horizontal", event)}
+        />
+      ) : null}
       </div>
       </div>
 
@@ -260,6 +391,7 @@ export function AppShell({
         <MobileNavDrawer
           currentPath={pathname}
           navSections={navSections}
+          appsMenu={menuStyle !== "features"}
           sidebarNavWidgets={sidebarNavWidgets}
           primary={drawerItems(drawerNavigate)}
           extra={drawerExtra?.(drawerNavigate)}

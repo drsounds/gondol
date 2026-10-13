@@ -23,6 +23,7 @@ export function NavItem({
   mobileOnly,
   tourId,
   dot,
+  expanded,
 }: {
   icon: ReactNode;
   label: string;
@@ -35,9 +36,11 @@ export function NavItem({
   tourId?: string;
   /** Blue "update available" dot on the icon (the mobile tab leading to Account). */
   dot?: boolean;
+  /** An app row whose pages open beside or in place of the menu (AppMenu): whether they're open. */
+  expanded?: boolean;
 }) {
   const featureDot = useContext(FeatureDotContext);
-  const className = ["nav-item", extra ? "nav-item--extra" : "", afterAdd ? "nav-item--after-add" : "", mobileOnly ? "nav-item--mobile-only" : ""]
+  const className = ["nav-item", extra ? "nav-item--extra" : "", afterAdd ? "nav-item--after-add" : "", mobileOnly ? "nav-item--mobile-only" : "", expanded !== undefined ? "nav-item--opens" : ""]
     .filter(Boolean)
     .join(" ");
   return (
@@ -49,6 +52,7 @@ export function NavItem({
       className={className}
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-expanded={expanded}
       data-tour={tourId}
       title={label}
     >

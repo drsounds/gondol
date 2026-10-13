@@ -4,15 +4,19 @@ import { useI18n } from "../i18n/i18n";
 import type { AppSidebarWidgetProps, DynamicMenuSection } from "../apps/types";
 import { Widgets } from "../apps/navigation";
 import { NavItem } from "./NavItem";
+import { AppInset, AppRows, useOpenApp } from "./AppMenu";
 
 /**
  * Phone-only left drawer with the same dynamic navigation as the desktop sidebar: the app's
  * `primary` items, the apps' sidebar widgets, its `extra` groups and every active app's section.
+ * With `appsMenu` (MenuStyle "appsBeside"/"appsInset") it lists the apps instead, and an app's
+ * pages slide in over the menu, with a back button to the apps.
  * Closes on backdrop click, Escape, or navigating (AppShell closes it on pathname change).
  */
 export function MobileNavDrawer({
   currentPath,
   navSections,
+  appsMenu,
   sidebarNavWidgets,
   primary,
   extra,
@@ -22,6 +26,7 @@ export function MobileNavDrawer({
 }: {
   currentPath: string;
   navSections: DynamicMenuSection[];
+  appsMenu?: boolean;
   sidebarNavWidgets: ComponentType<AppSidebarWidgetProps>[];
   primary: ReactNode;
   extra?: ReactNode;
@@ -31,6 +36,9 @@ export function MobileNavDrawer({
 }) {
   const { t } = useI18n();
   const closeRef = useRef<HTMLButtonElement>(null);
+  const appSections = navSections.filter((section) => section.items.length > 0);
+  const { open: openApp, setOpenId: setOpenApp } = useOpenApp(appSections, currentPath);
+  const insetApp = appsMenu ? openApp : null;
   useEffect(() => {
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
@@ -56,11 +64,18 @@ export function MobileNavDrawer({
             </svg>
           </button>
         </div>
+        {insetApp ? (
+          <div className="nav-drawer__body">
+            <AppInset key={insetApp.id} section={insetApp} pathname={currentPath} onBack={() => setOpenApp(null)} onNavigate={onNavigate} />
+          </div>
+        ) : (
         <div className="nav-drawer__body">
           <div className="nav-group">{primary}</div>
           <Widgets widgets={sidebarNavWidgets} props={{ onOpenUri, collapsed: false }} />
           {extra}
-          {navSections.map((section) => (
+          {appsMenu ? (
+            <AppRows sections={appSections} pathname={currentPath} openId={null} onOpen={setOpenApp} onNavigate={onNavigate} />
+          ) : navSections.map((section) => (
             <div key={section.id} className="nav-group">
               <div className="nav-group__label">{section.title}</div>
               {section.items.map((item) => (
@@ -75,6 +90,7 @@ export function MobileNavDrawer({
             </div>
           ))}
         </div>
+        )}
       </nav>
     </div>
   );

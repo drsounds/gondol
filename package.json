@@ -2,13 +2,15 @@
   "name": "gondol",
   "version": "0.1.0",
   "description": "A web application framework on TanStack Start, React and Supabase: the application shell, theming engine, navigation, search, entity system and apps framework.",
+  "license": "LGPL-3.0-only",
   "type": "module",
   "sideEffects": [
     "*.css"
   ],
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -113,6 +115,7 @@
     "./search/entitySearch": "./src/search/entitySearch.ts",
     "./search/globalFilterState": "./src/search/globalFilterState.tsx",
     "./search/searchFieldActive": "./src/search/searchFieldActive.ts",
+    "./shell/AppMenu": "./src/shell/AppMenu.tsx",
     "./shell/AppShell": "./src/shell/AppShell.tsx",
     "./shell/ChromeSearch": "./src/shell/ChromeSearch.tsx",
     "./shell/DeveloperModeToggle": "./src/shell/DeveloperModeToggle.tsx",

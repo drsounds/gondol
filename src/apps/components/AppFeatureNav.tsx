@@ -83,12 +83,7 @@ export function AppFeatureNav({
       {isActive && app.features.length > 1 ? (
         <div
           role="tablist"
-          style={{
-            display: "flex",
-            gap: "0.5rem",
-            overflowX: "auto",
-            paddingBottom: "0.5rem",
-          }}
+          className="app-bundle-header__tabs"
         >
           {app.features.map((feature) => {
             const isSelected = feature.id === activeFeatureId;
@@ -127,4 +122,3 @@ export function AppFeatureNav({
     </div>
   );
 }
-
