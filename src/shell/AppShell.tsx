@@ -140,14 +140,20 @@ export function AppShell({
   const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
   const [menuHeight, setMenuHeight] = useState<number | null>(null);
   const sidebarColumnRef = useRef<HTMLDivElement>(null);
-  const sidebarChromeRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const resizeDrag = useRef<{ axis: "horizontal" | "vertical"; pointerId: number; start: number; size: number } | null>(null);
+  // The menu grows by what the panels under it (Your Library) can still give up, down to their own
+  // min-height (128px when they set none), so it never pushes them out of the column.
   const getMaxMenuHeight = () => {
-    if (!sidebarColumnRef.current) return 480;
-    return sidebarColumnRef.current.getBoundingClientRect().height
-      - (sidebarChromeRef.current?.getBoundingClientRect().height ?? 0)
-      - 128;
+    const nav = navRef.current;
+    if (!nav) return 480;
+    let spare = 0;
+    for (let el = nav.nextElementSibling; el; el = el.nextElementSibling) {
+      if (el.classList.contains("sidebar-resize-handle")) continue;
+      const min = parseFloat(getComputedStyle(el).minHeight);
+      spare += Math.max(0, el.getBoundingClientRect().height - (min > 0 ? min : 128));
+    }
+    return nav.getBoundingClientRect().height + spare;
   };
 
   const startResize = (axis: "horizontal" | "vertical", event: PointerEvent<HTMLDivElement>) => {
@@ -267,7 +273,7 @@ export function AppShell({
         style={sidebarWidth === null || navCollapsed ? undefined : { width: `${sidebarWidth}px`, flex: `0 0 ${sidebarWidth}px` }}
       >
       {/* Classic desktop layout only: back/forward and search at the top of the left menu. */}
-      <div ref={sidebarChromeRef} className="sidebar-chrome">
+      <div className="sidebar-chrome">
         <div className="sidebar-chrome__row">
           {historyButtons}
           {sidebarChromeActions}
@@ -280,7 +286,8 @@ export function AppShell({
         aria-label={t("nav.label")}
         role="tablist"
         onKeyDown={handleNavKeyDown}
-        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px` }}
+        // A dragged height replaces the app's own cap on the menu (getMaxMenuHeight() bounds it instead).
+        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px`, maxHeight: "none" }}
       >
         <button
           type="button"
