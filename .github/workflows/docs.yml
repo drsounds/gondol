@@ -20,11 +20,18 @@ jobs:
   build:
     name: Build docs
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
     steps:
       - uses: actions/checkout@v4
         with:
           # VitePress reads git history for "Last updated".
           fetch-depth: 0
+
+      - name: Configure GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v6
 
       - uses: actions/setup-node@v4
         with:
