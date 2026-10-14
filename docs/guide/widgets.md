@@ -5,7 +5,7 @@ in the sidebar, a player along the bottom, or a context provider around the whol
 declared on the bundle and only mounted while the app is active.
 
 ```ts
-// src/apps/planning/index.ts
+// apps/planning/index.ts
 export const planningApp: InternalAppBundle = {
   // …
   widgets: {

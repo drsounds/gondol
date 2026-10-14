@@ -8,7 +8,7 @@ one by name, and every app's code is loaded lazily.
 ## Folder layout
 
 ```
-src/apps/wiki/
+apps/wiki/
 ├── manifest.json              # everything declarative: features, actions, nav, create items, entity types
 ├── index.ts                   # export default defineApp({ manifest, pages, … })
 ├── features/
@@ -16,11 +16,11 @@ src/apps/wiki/
 │       ├── pages/WikiPage.tsx        # the feature page (loaded lazily)
 │       └── components/WikiPanel.tsx  # the UI it renders
 └── models/
-    ├── index.ts               # re-exports, so other apps import from "@/apps/wiki/models"
+    ├── index.ts               # re-exports, so other apps import from "@apps/wiki/models"
     └── wikiPages.ts           # types, queries and mutations (TanStack Query + Supabase)
 ```
 
-Other apps import an app's models (`@/apps/<id>/models`), never its `index.ts` (which would pull the
+Other apps import an app's models (`@apps/<id>/models`), never its `index.ts` (which would pull the
 whole app into their chunk) and never from inside its `features/`.
 
 ## The manifest
@@ -32,7 +32,7 @@ completion and checks in your editor:
 
 ```json
 {
-  "$schema": "../../../node_modules/gondol/src/apps/manifest.schema.json",
+  "$schema": "../../node_modules/gondol/src/apps/manifest.schema.json",
   "id": "wiki",
   "slug": "wiki",
   "name": { "en": "Wiki", "sv": "Wiki" },
@@ -93,7 +93,7 @@ too.
 fetched when one of its pages opens; widgets made with `lazyWidget` are lazy too:
 
 ```ts
-// src/apps/wiki/index.ts
+// apps/wiki/index.ts
 import { defineApp, lazyWidget } from "gondol/apps/defineApp";
 import manifest from "./manifest.json";
 
@@ -154,11 +154,11 @@ Add the vite plugin and import the discovered apps from its virtual module:
 ```ts
 // vite.config.ts
 import { gondolApps } from "gondol/vite/apps";
-export default defineConfig({ plugins: [gondolApps({ dir: "src/apps", order: ["notes", "wiki", "tags"] })] });
+export default defineConfig({ plugins: [gondolApps({ dir: "apps", order: ["notes", "wiki", "tags"] })] });
 ```
 
 ```ts
-// src/apps/bundle.ts
+// apps/bundle.ts
 import apps from "virtual:gondol/apps";
 export const INTERNAL_APPS = apps;
 ```
@@ -167,7 +167,10 @@ export const INTERNAL_APPS = apps;
 configureGondol({ uriScheme: "myapp", apps: INTERNAL_APPS /* … */ });
 ```
 
-Add `"gondol/vite/virtual"` to `compilerOptions.types` for the module's types. `order` is the menu
+Add `"gondol/vite/virtual"` to `compilerOptions.types` for the module's types. Because `apps/` sits
+outside `src/`, add it to the host's `tsconfig.json` (`include`, and a `"@apps/*": ["./apps/*"]` path)
+and to its Vite `resolve.alias`, so `@apps/<id>/models` resolves. Gondol's own framework modules
+(registry, manifest parser, hooks, navigation, `defineApp`) stay in `src/apps/` and are not bundles. `order` is the menu
 order; apps it doesn't list come after, alphabetically.
 
 ### Building a subset
@@ -221,7 +224,7 @@ Its pages still resolve, so a shell can show `AppDeactivatedNotice` (from
 Apps reach each other through models and through entities, not through each other's components:
 
 - **Models.** Import another app's types, queries and mutations from its models
-  (`import { useTags } from "@/apps/tags/models"`) and list it in `dependencies`.
+  (`import { useTags } from "@apps/tags/models"`) and list it in `dependencies`.
 - **Entities.** Point at another app's rows by entity URI (`myapp:note:<id>`). Anything that only
   holds a URI can label it with `useEntityLabels`, open it with `resolveEntityUri` and show its art.
   See [Entities](./entities.md).
@@ -245,7 +248,7 @@ is up to your app (Spacify keeps them in an `apps` table):
 
 ## Checklist for a new app
 
-1. Create `src/apps/<id>/` with `manifest.json` (with `$schema`), `index.ts`, `features/` and `models/`.
+1. Create `apps/<id>/` with `manifest.json` (with `$schema`), `index.ts`, `features/` and `models/`.
 2. Declare its features, actions, nav/create/browse items and entity types in the manifest.
 3. `export default defineApp({ manifest, pages })` with a lazy loader per feature.
 4. Add it to the plugin's `order` where it should appear in the menu.

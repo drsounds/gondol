@@ -57,7 +57,7 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Your app (e.g. Spacify)                                              │
 │   src/gondol.ts      configureGondol(), Register                     │
-│   src/apps/*         the bundle of apps: manifest, features, models  │
+│   apps/*             the bundle of apps: manifest, features, models  │
 │   src/routes/*       thin route files that render the shell          │
 │   supabase/          the app's tables, plus gondol's base schema     │
 ├──────────────────────────────────────────────────────────────────────┤
@@ -76,7 +76,7 @@ features (each with a path and icon) and the roles and aspects that decide which
 widgets. See [Building apps](docs/guide/apps.md).
 
 ```
-src/apps/wiki/
+apps/wiki/
 ├── manifest.json     # id, names, icon, dependencies, features, roles/aspects
 ├── index.ts          # the InternalAppBundle
 ├── features/pages/   # the feature page and its components

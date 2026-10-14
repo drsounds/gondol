@@ -4,7 +4,7 @@
 //
 //   // vite.config.ts
 //   import { gondolApps } from "gondol/vite/apps";
-//   plugins: [gondolApps({ dir: "src/apps", order: ["finances", "wiki"] })]
+//   plugins: [gondolApps({ dir: "apps", order: ["finances", "wiki"] })]
 //
 // Each app is a folder of `dir` with a manifest.json and an index.ts(x) that default-exports its
 // bundle (defineApp). Which apps: `include` (or the GONDOL_APPS environment variable, a
@@ -85,7 +85,7 @@ export function selectApps(apps, { include = null, exclude = null, order = [] } 
 
 /** The Vite plugin; see the top of this file. */
 export function gondolApps(options = {}) {
-  const { dir = "src/apps", order = [], include, exclude } = options;
+  const { dir = "apps", order = [], include, exclude } = options;
   let selected = [];
   return {
     name: "gondol:apps",

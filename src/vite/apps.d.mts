@@ -1,7 +1,7 @@
 import type { Plugin } from "vite";
 
 export interface GondolAppsOptions {
-  /** The folder holding one folder per app (manifest.json + index.ts). Default `src/apps`. */
+  /** The folder holding one folder per app (manifest.json + index.ts). Default `apps` (a top-level folder outside `src/`). */
   dir?: string;
   /** Menu order by app id; apps it doesn't name follow, by id. */
   order?: string[];
