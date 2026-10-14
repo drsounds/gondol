@@ -87,7 +87,7 @@ Every feature page receives `AppFeaturePageProps`:
 | Your own props | Whatever your shell hands every page, typed through `Register["appFeaturePageProps"]`. |
 
 ```tsx
-// src/apps/wiki/features/pages/src/pages/WikiPage.tsx
+// apps/wiki/features/pages/src/pages/WikiPage.tsx
 import type { AppFeaturePageProps } from "gondol/apps/types";
 import { WikiPanel } from "../components/WikiPanel";
 

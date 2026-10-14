@@ -5,8 +5,8 @@ started](../guide/getting-started.md)). By the end, notes have their own sidebar
 row actions, a create and edit sheet on their own routes, entity URIs and public addresses, search
 results, palette actions with a shortcut, and a sidebar widget.
 
-The app's name below is `myapp` and its URI scheme is `myapp`. Paths assume Spacify's layout:
-`src/apps/<id>/`, `src/lib/`, `src/routes/`.
+The app's name below is `myapp` and its URI scheme is `myapp`. Paths assume Spacify's layout (app bundles live in a top-level `apps/` folder, outside `src/`, because they are separate components that are linked in and can be lazy loaded):
+`apps/<id>/`, `src/lib/`, `src/routes/`.
 
 ## 1. The table
 
@@ -110,7 +110,7 @@ sv: {
 Queries and mutations live in the app's `models/`, so other apps can reuse them:
 
 ```ts
-// src/apps/notes/models/notes.ts
+// apps/notes/models/notes.ts
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "gondol/supabase/client";
 import { sessionUserId } from "gondol/supabase/session";
@@ -174,7 +174,7 @@ export function useDeleteNote() {
 ```
 
 ```ts
-// src/apps/notes/models/index.ts
+// apps/notes/models/index.ts
 export * from "./notes";
 ```
 
@@ -185,7 +185,7 @@ entity's URI, an empty list shows `EmptyState`, and create and edit open an `Ent
 the URL through `useEntityModal`.
 
 ```tsx
-// src/apps/notes/features/notes/src/components/NotesPanel.tsx
+// apps/notes/features/notes/src/components/NotesPanel.tsx
 import { useState } from "react";
 import { Button, Card, Input } from "gondol/design-system/bungalow-79d923";
 import { ActionMenu } from "gondol/entities/ActionMenu";
@@ -304,7 +304,7 @@ function NoteSheet({ note, onClose, onDelete }: { note?: Note; onClose: () => vo
 ## 6. The feature, manifest and bundle
 
 ```tsx
-// src/apps/notes/features/notes/src/pages/NotesPage.tsx
+// apps/notes/features/notes/src/pages/NotesPage.tsx
 import type { AppFeaturePageProps } from "gondol/apps/types";
 import { NotesPanel } from "../components/NotesPanel";
 
@@ -314,7 +314,7 @@ export function NotesPage(_props: AppFeaturePageProps) {
 ```
 
 ```jsonc
-// src/apps/notes/manifest.json
+// apps/notes/manifest.json
 {
   "id": "notes",
   "slug": "notes",
@@ -344,7 +344,7 @@ export function NotesPage(_props: AppFeaturePageProps) {
 ```
 
 ```ts
-// src/apps/notes/index.ts
+// apps/notes/index.ts
 import { defineApp, lazyWidget } from "gondol/apps/defineApp";
 import manifest from "./manifest.json";
 
@@ -366,7 +366,7 @@ the sidebar.
 ## 7. A sidebar widget
 
 ```tsx
-// src/apps/notes/widgets/RecentNotesWidget.tsx
+// apps/notes/widgets/RecentNotesWidget.tsx
 import type { AppSidebarWidgetProps } from "gondol/apps/types";
 import { toEntityUri } from "gondol/entities/uri";
 import { useNotes } from "../models";

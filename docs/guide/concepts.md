@@ -10,7 +10,7 @@ each one.
 ┌──────────────────────────────────────────────────────────────────────┐
 │ Your app (e.g. Spacify)                                              │
 │   src/gondol.ts      configureGondol(), Register                     │
-│   src/apps/*         the bundle of apps: features, actions, widgets  │
+│   apps/*         the bundle of apps: features, actions, widgets  │
 │   src/routes/*       thin route files that render the shell          │
 │   supabase/          the app's tables, plus gondol's base schema     │
 ├──────────────────────────────────────────────────────────────────────┤

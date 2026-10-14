@@ -72,7 +72,7 @@ Call it once, before anything renders.
 ```ts
 // src/gondol.ts
 import { configureGondol } from "gondol";
-import { INTERNAL_APPS } from "@/apps/bundle";
+import { INTERNAL_APPS } from "@apps/bundle";
 import { ENTITY_ART } from "@/lib/entityArt";
 import { ENTITY_SOURCES } from "@/lib/entitySources";
 import { ENTITY_ROUTES, STATIC_PATHS, type EntityType } from "@/lib/entities";
