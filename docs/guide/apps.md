@@ -82,6 +82,7 @@ completion and checks in your editor:
 | `features[].nav` | An item of the shell's own navigation next to Home and Search (`order`; Home is 0, Search 20), with `drawer`, `tab`, `extra`, `mobileOnly`, `afterAdd`, a `tourId` and a walkthrough step. |
 | `entities` | The entity types the app owns: public `slug`, `view`/`edit` path templates with `{key}`, `plural`, `sheet`, tile `art`, and the `source` table and label columns. |
 | `staticPaths`, `uuidPaths`, `menuAspects` | Routing facts: static sub-routes that are never a key, path prefixes whose uuids stay uuids, aspects of the app's own menu keys. |
+| `settings` | The app's settings: sections, settings of six types and submenus, each stored per user, workspace or site. See [App settings](./settings.md). |
 
 Every answer a manifest declares under a feature goes with that feature: when a site doesn't offer
 it (its roles and aspects) or the app is switched off, its nav item, create items and browse tile go
@@ -184,6 +185,13 @@ GONDOL_EXCLUDE_APPS=finances,leads vite build
 
 (or `gondolApps({ include, exclude })`). Dependencies come along; excluding an app another selected
 app needs fails the build. This is the build-time counterpart of a site's `enabled_apps`.
+
+### Gondol's own apps
+
+Gondol ships apps of its own under `src/builtin/`, which a host builds in by id:
+`gondolApps({ dir: "apps", builtin: ["ai"] })`, or imports and adds to `configureGondol({ apps })`
+by hand (`import { aiApp } from "gondol/builtin/ai"`). So far there is one, the
+[ai app](./ai.md).
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`

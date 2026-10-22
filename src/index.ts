@@ -11,6 +11,7 @@ import { configureEntityUris, registerEntityRoutes, registerShellSheetTypes, typ
 import type { EntityType } from "./register";
 import { configureDesktopApp } from "./shell/desktopApp";
 import { configureStorageNamespace } from "./shell/storage";
+import { configureSettingsScopes } from "./settings/settings";
 
 export type { Register, EntityType, MessageKey } from "./register";
 
@@ -29,6 +30,11 @@ export interface GondolConfig {
    * entity types, sources, art, sheet types, extensions and routing facts to `entities` below.
    */
   apps?: InternalAppBundle[];
+  /**
+   * App settings (gondol/settings/settings): `useWorkspaceId` is a hook returning the open
+   * workspace's id (or null), for settings stored per workspace. Gondol has no workspaces of its own.
+   */
+  settings?: { useWorkspaceId?: () => string | null };
   /** The host's own answers to hooks (core navigation items, browse tiles, …), always there. */
   resolutions?: Resolution[];
   entities?: {
@@ -54,6 +60,7 @@ export function configureGondol(config: GondolConfig): void {
   configureEntityUris({ scheme: config.uriScheme, legacyNamespaces: config.legacyUriNamespaces });
   if (config.storageNamespace) configureStorageNamespace(config.storageNamespace);
   if (config.desktop) configureDesktopApp(config.desktop);
+  if (config.settings) configureSettingsScopes(config.settings);
   if (config.apps) registerApps(config.apps);
   if (config.resolutions) registerResolutions(config.resolutions);
   const entities = config.entities ?? {};
