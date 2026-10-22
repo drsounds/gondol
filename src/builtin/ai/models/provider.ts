@@ -53,11 +53,14 @@ export interface AiProvider {
   chat: (settings: AiSettings, request: AiChatRequest) => Promise<AiChatResult>;
 }
 
-/** A provider failed: `unreachable` (nothing answered, often CORS), `http` (it answered with an error) or `aborted`. */
+/**
+ * A provider failed: `unreachable` (nothing answered), `http` (it answered with an error), `config`
+ * (no address), `forbidden` (the server won't call that address), `invalid` or `aborted`.
+ */
 export class AiProviderError extends Error {
   constructor(
     message: string,
-    readonly kind: "unreachable" | "http" | "aborted" | "invalid",
+    readonly kind: "unreachable" | "http" | "aborted" | "invalid" | "config" | "forbidden",
     readonly status?: number,
   ) {
     super(message);

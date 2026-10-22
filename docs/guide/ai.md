@@ -30,7 +30,8 @@ or, with the [Vite plugin](./apps.md#building-a-subset), build it in with your o
 gondolApps({ dir: "apps", builtin: ["ai"] });
 ```
 
-Then create [its tables](#the-tables), and show the [settings panel](./settings.md#showing-the-settings)
+Then create [its tables](#the-tables), deploy [the `ai-ollama` edge function](#ollama-through-the-server)
+to your Supabase project, and show the [settings panel](./settings.md#showing-the-settings)
 somewhere (Account) so users can set the address. Like any app, users can switch it off, and a site
 can leave it out.
 
@@ -55,7 +56,7 @@ The palette has "Open AI chat", "New AI conversation" and "AI models and provide
 | `sendWith` | select (radio) | user | Enter or Ctrl/⌘+Enter sends. |
 | `showMetrics` | checkbox | user | Tokens, speed and time under answers. |
 | `providers` | checkboxes | user, workspace, site | The providers in use (default: Ollama). |
-| `ollama.baseUrl` | URL (submenu Ollama) | user, workspace, site | Ollama's API address (default `http://localhost:11434`). |
+| `ollama.baseUrl` | URL (submenu Ollama) | user, workspace, site | Ollama's API address, as the server reaches it. Empty uses the function's `OLLAMA_BASE_URL`. |
 | `ollama.apiKey` | password (submenu Ollama) | user | A bearer token, for an Ollama behind a proxy that asks for one. |
 | `ollama.keepAlive` | string (submenu Ollama) | user, workspace, site | How long Ollama keeps the model loaded (`5m`, `1h`, `-1`). |
 | `ollama.numCtx` | whole number (submenu Ollama) | user, workspace, site | The context window, in tokens. |
@@ -63,19 +64,43 @@ The palette has "Open AI chat", "New AI conversation" and "AI models and provide
 A site's owner can point everyone on the site at a shared Ollama by setting `ollama.baseUrl` in the
 site's settings; a user's own address still wins.
 
-## Ollama and the browser
+## Ollama through the server
 
-The browser calls Ollama directly (`GET /api/tags`, `POST /api/chat`), so:
+The browser never calls Ollama itself. It asks a Supabase edge function (`ai-ollama` by default),
+which calls Ollama's API (`GET /api/tags`, `POST /api/chat`) for the signed-in user and streams the
+answer back. So the address has to be reachable **from the server**, not from the user's device, and
+Ollama needs no CORS setup (`OLLAMA_ORIGINS`).
 
-- the address has to be reachable **from the user's device** (`http://localhost:11434` is the
-  Ollama on their own computer);
-- Ollama has to **allow the page's origin**, or the browser blocks the answer. Start it with the
-  origin listed, e.g. `OLLAMA_ORIGINS=https://app.example.com ollama serve` (or set the
-  environment variable for the Ollama service);
-- an `https` page can call `http://localhost`, but not plain `http` on another host: serve a remote
-  Ollama over `https` (behind a reverse proxy).
+The function is the host app's to deploy (Spacify's is `supabase/functions/ai-ollama`), with
+`verify_jwt` on. Its contract:
 
-When Ollama can't be reached, the chat and the models page say so and what to check.
+| Request (POST, JSON) | Answer |
+| --- | --- |
+| `{ action: "models", baseUrl? }` | `{ models: [{ name, model, size, modified_at, details }] }`, Ollama's `/api/tags` |
+| `{ action: "chat", baseUrl?, model, messages: [{ role, content }], options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece, the last with `done: true`, or `data: {"error": "…"}` |
+
+Errors are JSON `{ error, kind }` with `kind` one of `config` (no address, or not a URL),
+`forbidden` (an address the server won't call), `unreachable`, `http` (Ollama answered with an
+error) or `invalid` (a bad request); the chat and the models page show the message and what to check.
+
+`baseUrl` is the `ollama.baseUrl` setting in effect; when it's empty the function uses its own
+`OLLAMA_BASE_URL`. The API key isn't sent along: the function reads the user's own `ollama.apiKey`
+from `app_settings`. Since anyone can type an address, Spacify's function only calls public hosts,
+except for:
+
+| Secret | |
+| --- | --- |
+| `OLLAMA_BASE_URL` | The server's own Ollama, used when no address is set (its host is always allowed). |
+| `OLLAMA_ALLOWED_HOSTS` | Comma-separated host names or `host:port` that may be internal (an Ollama on the LAN). |
+| `OLLAMA_ALLOW_PRIVATE` | `true` lets every address through (a single-user install). |
+
+A host whose function has another name sets it once, before anything renders:
+
+```ts
+import { configureOllama } from "gondol/builtin/ai/models";
+
+configureOllama({ functionName: "my-ollama" });
+```
 
 ## Using it from code
 

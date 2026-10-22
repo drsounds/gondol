@@ -136,7 +136,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
               {error instanceof AiProviderError && error.kind === "unreachable" ? (
                 <>
                   {" "}
-                  {t("ai.unreachableHint", { origin: typeof window === "undefined" ? "" : window.location.origin, address: provider?.describe?.(settings) ?? "" })}
+                  {t("ai.unreachableHint", { address: provider?.describe?.(settings) || t("ai.serverDefault") })}
                 </>
               ) : null}
             </span>

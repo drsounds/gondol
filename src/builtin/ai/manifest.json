@@ -124,8 +124,8 @@
             "id": "connection",
             "title": { "en": "Connection", "sv": "Anslutning" },
             "description": {
-              "en": "The browser talks to Ollama directly, so the address must be reachable from this device, and Ollama must allow this site's origin (OLLAMA_ORIGINS).",
-              "sv": "Webbläsaren pratar direkt med Ollama, så adressen måste nås från den här enheten, och Ollama måste tillåta sajtens ursprung (OLLAMA_ORIGINS)."
+              "en": "The server calls Ollama for you (the ai-ollama function), so the address must be reachable from the server. Leave it empty for the server's own Ollama.",
+              "sv": "Servern anropar Ollama åt dig (funktionen ai-ollama), så adressen måste nås från servern. Lämna tomt för serverns egen Ollama."
             },
             "settings": [
               {
@@ -133,8 +133,7 @@
                 "type": "string",
                 "format": "url",
                 "label": { "en": "API address", "sv": "API-adress" },
-                "placeholder": "http://localhost:11434",
-                "default": "http://localhost:11434",
+                "placeholder": "https://ollama.example.com",
                 "maxLength": 500
               },
               {
