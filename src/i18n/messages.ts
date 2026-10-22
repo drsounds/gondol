@@ -262,7 +262,7 @@ export const GONDOL_MESSAGES = {
     "ai.placeholderMod": "Write a message (Ctrl/⌘+Enter sends)",
     "ai.send": "Send",
     "ai.stop": "Stop",
-    "ai.unreachableHint": "Check the API address ({address}) in the AI settings, that Ollama is running, and that it allows this site: start it with OLLAMA_ORIGINS={origin}.",
+    "ai.unreachableHint": "Check the API address ({address}) in the AI settings and that Ollama is running and reachable from the server.",
     "ai.models.title": "AI models",
     "ai.models.intro": "The models each provider serves. Tick the ones the chat should offer; with none ticked it offers every model.",
     "ai.models.otherProviders": "Not in use (see the AI settings): {names}",
@@ -277,6 +277,7 @@ export const GONDOL_MESSAGES = {
     "ai.models.makeDefault": "Make default",
     "ai.models.gone": "Kept, but the provider no longer serves them:",
     "ai.models.forget": "Forget",
+    "ai.serverDefault": "The server's Ollama",
   },
   sv: {
     "app.name": "Gondol",
@@ -536,7 +537,7 @@ export const GONDOL_MESSAGES = {
     "ai.placeholderMod": "Skriv ett meddelande (Ctrl/⌘+Enter skickar)",
     "ai.send": "Skicka",
     "ai.stop": "Stoppa",
-    "ai.unreachableHint": "Kontrollera API-adressen ({address}) i AI-inställningarna, att Ollama körs och att den tillåter den här sajten: starta den med OLLAMA_ORIGINS={origin}.",
+    "ai.unreachableHint": "Kontrollera API-adressen ({address}) i AI-inställningarna och att Ollama körs och nås från servern.",
     "ai.models.title": "AI-modeller",
     "ai.models.intro": "Modellerna varje leverantör erbjuder. Kryssa i de som chatten ska erbjuda; utan några ikryssade erbjuds alla.",
     "ai.models.otherProviders": "Används inte (se AI-inställningarna): {names}",
@@ -551,6 +552,7 @@ export const GONDOL_MESSAGES = {
     "ai.models.makeDefault": "Gör till standard",
     "ai.models.gone": "Sparade, men leverantören erbjuder dem inte längre:",
     "ai.models.forget": "Glöm",
+    "ai.serverDefault": "Serverns Ollama",
   },
 } as const;
 

@@ -71,7 +71,7 @@ function ProviderCard({ provider, settings }: { provider: AiProvider; settings: 
         <div className="panel-head">
           <div>
             <div className="panel-title">{provider.name}</div>
-            {provider.describe ? <div className="stat-note">{provider.describe(settings)}</div> : null}
+            {provider.describe ? <div className="stat-note">{provider.describe(settings) || t("ai.serverDefault")}</div> : null}
           </div>
           <Button type="button" variant="outline" size="sm" loading={live.isFetching} onClick={() => void live.refetch()}>
             {t("ai.models.refresh")}
@@ -81,7 +81,7 @@ function ProviderCard({ provider, settings }: { provider: AiProvider; settings: 
           <Alert tone="danger">
             {error.message}
             {error instanceof AiProviderError && error.kind === "unreachable"
-              ? ` ${t("ai.unreachableHint", { origin: typeof window === "undefined" ? "" : window.location.origin, address: provider.describe?.(settings) ?? "" })}`
+              ? ` ${t("ai.unreachableHint", { address: provider.describe?.(settings) || t("ai.serverDefault") })}`
               : ""}
           </Alert>
         ) : null}
