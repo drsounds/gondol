@@ -1,0 +1,180 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "ai",
+  "slug": "ai",
+  "name": { "en": "AI", "sv": "AI" },
+  "description": {
+    "en": "Chat with large language models: conversations kept per account, models from each provider (Ollama for now), and the provider's address in the app's settings.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från varje leverantör (än så länge Ollama) och leverantörens adress i appens inställningar."
+  },
+  "iconName": "sparkle",
+  "defaultFeatureId": "chat",
+  "dependencies": [],
+  "defaultActive": true,
+  "uuidPaths": ["/ai"],
+  "features": [
+    {
+      "id": "chat",
+      "name": { "en": "AI chat", "sv": "AI-chatt" },
+      "description": { "en": "Conversations with a language model", "sv": "Konversationer med en språkmodell" },
+      "path": "ai",
+      "iconName": "chat",
+      "actions": [
+        { "id": "ai.open", "title": "Open AI chat", "category": "AI", "iconName": "chat", "navigate": "/ai", "keywords": ["llm", "ollama", "assistant"], "aspects": ["view"] },
+        { "id": "ai.new", "title": "New AI conversation", "category": "AI", "iconName": "plus", "navigate": "/ai/new", "keywords": ["chat", "llm"], "aspects": ["create"] }
+      ]
+    },
+    {
+      "id": "models",
+      "name": { "en": "AI models", "sv": "AI-modeller" },
+      "description": { "en": "Providers and the models they serve", "sv": "Leverantörer och modellerna de erbjuder" },
+      "path": "ai-models",
+      "iconName": "chip",
+      "roles": ["admin", "operator"],
+      "aspects": ["configure"],
+      "actions": [
+        { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm"] }
+      ]
+    }
+  ],
+  "settings": {
+    "scope": ["user", "workspace", "site"],
+    "sections": [
+      {
+        "id": "chat",
+        "title": { "en": "Chat", "sv": "Chatt" },
+        "settings": [
+          {
+            "key": "defaultModel",
+            "type": "string",
+            "label": { "en": "Default model", "sv": "Standardmodell" },
+            "description": { "en": "New conversations start with it, e.g. llama3.2.", "sv": "Nya konversationer börjar med den, t.ex. llama3.2." },
+            "placeholder": "llama3.2",
+            "maxLength": 200
+          },
+          {
+            "key": "systemPrompt",
+            "type": "text",
+            "label": { "en": "Instructions (system prompt)", "sv": "Instruktioner (systemprompt)" },
+            "description": { "en": "Sent first in every new conversation.", "sv": "Skickas först i varje ny konversation." },
+            "rows": 4,
+            "maxLength": 8000
+          },
+          {
+            "key": "temperature",
+            "type": "number",
+            "label": { "en": "Temperature", "sv": "Temperatur" },
+            "description": { "en": "Lower is more focused, higher more creative. Empty: the model's own.", "sv": "Lägre är mer fokuserat, högre mer kreativt. Tomt: modellens egen." },
+            "min": 0,
+            "max": 2,
+            "step": 0.1
+          },
+          {
+            "key": "contextMessages",
+            "type": "number",
+            "label": { "en": "Earlier messages sent along", "sv": "Tidigare meddelanden som skickas med" },
+            "integer": true,
+            "min": 1,
+            "max": 200,
+            "default": 20
+          },
+          {
+            "key": "sendWith",
+            "type": "select",
+            "scope": "user",
+            "display": "radio",
+            "label": { "en": "Send a message with", "sv": "Skicka ett meddelande med" },
+            "options": [
+              { "value": "enter", "label": { "en": "Enter (Shift+Enter for a new line)", "sv": "Enter (Skift+Enter för ny rad)" } },
+              { "value": "modEnter", "label": { "en": "Ctrl/⌘+Enter", "sv": "Ctrl/⌘+Enter" } }
+            ],
+            "default": "enter"
+          },
+          {
+            "key": "showMetrics",
+            "type": "checkbox",
+            "scope": "user",
+            "label": { "en": "Show tokens and speed under answers", "sv": "Visa tokens och hastighet under svar" },
+            "default": false
+          }
+        ]
+      },
+      {
+        "id": "providers",
+        "title": { "en": "Providers", "sv": "Leverantörer" },
+        "settings": [
+          {
+            "key": "providers",
+            "type": "checkboxes",
+            "label": { "en": "Providers in use", "sv": "Leverantörer som används" },
+            "options": [{ "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } }],
+            "default": ["ollama"]
+          }
+        ]
+      }
+    ],
+    "submenus": [
+      {
+        "id": "ollama",
+        "title": { "en": "Ollama", "sv": "Ollama" },
+        "description": { "en": "API address and model options", "sv": "API-adress och modellalternativ" },
+        "iconName": "chip",
+        "sections": [
+          {
+            "id": "connection",
+            "title": { "en": "Connection", "sv": "Anslutning" },
+            "description": {
+              "en": "The browser talks to Ollama directly, so the address must be reachable from this device, and Ollama must allow this site's origin (OLLAMA_ORIGINS).",
+              "sv": "Webbläsaren pratar direkt med Ollama, så adressen måste nås från den här enheten, och Ollama måste tillåta sajtens ursprung (OLLAMA_ORIGINS)."
+            },
+            "settings": [
+              {
+                "key": "ollama.baseUrl",
+                "type": "string",
+                "format": "url",
+                "label": { "en": "API address", "sv": "API-adress" },
+                "placeholder": "http://localhost:11434",
+                "default": "http://localhost:11434",
+                "maxLength": 500
+              },
+              {
+                "key": "ollama.apiKey",
+                "type": "string",
+                "format": "password",
+                "scope": "user",
+                "label": { "en": "API key (optional)", "sv": "API-nyckel (valfri)" },
+                "description": { "en": "Sent as a bearer token, for an Ollama behind a proxy that asks for one.", "sv": "Skickas som bearer-token, för en Ollama bakom en proxy som kräver en." },
+                "maxLength": 500
+              }
+            ]
+          },
+          {
+            "id": "model",
+            "title": { "en": "Model options", "sv": "Modellalternativ" },
+            "settings": [
+              {
+                "key": "ollama.keepAlive",
+                "type": "string",
+                "label": { "en": "Keep the model loaded for", "sv": "Håll modellen laddad i" },
+                "description": { "en": "A duration such as 5m or 1h, or -1 for ever.", "sv": "En tid som 5m eller 1h, eller -1 för alltid." },
+                "placeholder": "5m",
+                "pattern": "-1|0|\\d+(\\.\\d+)?(ms|s|m|h)",
+                "maxLength": 20
+              },
+              {
+                "key": "ollama.numCtx",
+                "type": "number",
+                "label": { "en": "Context window", "sv": "Kontextfönster" },
+                "unit": "tokens",
+                "integer": true,
+                "min": 256,
+                "max": 1048576,
+                "step": 256
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

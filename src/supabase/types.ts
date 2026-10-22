@@ -8,6 +8,39 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type GondolDatabase = {
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          id: string;
+          app_id: string;
+          scope: string;
+          scope_id: string;
+          data: Json;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          app_id: string;
+          scope: string;
+          scope_id: string;
+          data?: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          app_id?: string;
+          scope?: string;
+          scope_id?: string;
+          data?: Json;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       public_entities: {
         Row: {
           id: string;

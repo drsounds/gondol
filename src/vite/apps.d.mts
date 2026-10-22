@@ -9,6 +9,8 @@ export interface GondolAppsOptions {
   include?: string[] | string;
   /** Apps to leave out (default: GONDOL_EXCLUDE_APPS). */
   exclude?: string[] | string;
+  /** Apps gondol ships to build in too, by id (e.g. `["ai"]`, src/builtin/ai). */
+  builtin?: string[];
 }
 
 export interface DiscoveredApp {
@@ -18,7 +20,8 @@ export interface DiscoveredApp {
   dependencies: string[];
 }
 
-export function discoverApps(dir: string): DiscoveredApp[];
+export function discoverApps(dir: string, builtin?: string[]): DiscoveredApp[];
+export function builtinApps(): DiscoveredApp[];
 export function selectApps(
   apps: DiscoveredApp[],
   options?: { include?: string[] | null; exclude?: string[] | null; order?: string[] },

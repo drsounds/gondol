@@ -10,11 +10,15 @@
 // bundle (defineApp). Which apps: `include` (or the GONDOL_APPS environment variable, a
 // comma-separated list of app ids; unset or "all" means every app), minus `exclude` (or
 // GONDOL_EXCLUDE_APPS). The apps they depend on (manifest `dependencies`) always come along.
+//
+// `builtin` adds apps gondol itself ships (src/builtin/<id>, e.g. "ai") to the ones in `dir`.
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadEnv } from "vite";
 
 const VIRTUAL = "virtual:gondol/apps";
+const BUILTIN_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "builtin");
 const RESOLVED = `\0${VIRTUAL}`;
 
 function list(value) {
@@ -25,9 +29,22 @@ function list(value) {
   return items.length === 0 || (items.length === 1 && items[0] === "all") ? null : items;
 }
 
-/** Every app under `dir`: { id, dir, entry, dependencies }. */
-export function discoverApps(dir) {
+/** The apps gondol ships (src/builtin): { id, dir, entry, dependencies }. */
+export function builtinApps() {
+  return discoverApps(BUILTIN_DIR);
+}
+
+/** Every app under `dir`: { id, dir, entry, dependencies }. `builtin`: ids of gondol's own apps to add. */
+export function discoverApps(dir, builtin = []) {
   const apps = [];
+  if (builtin.length) {
+    const shipped = discoverApps(BUILTIN_DIR);
+    for (const id of builtin) {
+      const app = shipped.find((a) => a.id === id);
+      if (!app) throw new Error(`gondol: no built-in app "${id}" (built-in apps: ${shipped.map((a) => a.id).join(", ")})`);
+      apps.push(app);
+    }
+  }
   for (const name of readdirSync(dir).sort()) {
     const appDir = join(dir, name);
     if (!statSync(appDir).isDirectory()) continue;
@@ -85,7 +102,7 @@ export function selectApps(apps, { include = null, exclude = null, order = [] } 
 
 /** The Vite plugin; see the top of this file. */
 export function gondolApps(options = {}) {
-  const { dir = "apps", order = [], include, exclude } = options;
+  const { dir = "apps", order = [], include, exclude, builtin = [] } = options;
   let selected = [];
   return {
     name: "gondol:apps",
@@ -93,7 +110,7 @@ export function gondolApps(options = {}) {
     configResolved(config) {
       const env = { ...loadEnv(config.mode, config.envDir ?? config.root, "GONDOL_"), ...process.env };
       const appsDir = resolve(config.root, dir);
-      const apps = discoverApps(appsDir);
+      const apps = discoverApps(appsDir, builtin);
       selected = selectApps(apps, {
         include: list(include) ?? list(env.GONDOL_APPS),
         exclude: list(exclude) ?? list(env.GONDOL_EXCLUDE_APPS),

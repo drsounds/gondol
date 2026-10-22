@@ -1,5 +1,7 @@
 import { z } from "zod/v4";
 import { SITE_ASPECTS, SITE_ROLES } from "../sites/capabilities";
+import { appSettingsSchema } from "../settings/schema";
+import { settingsProblems } from "../settings/tree";
 
 /**
  * The schema of an app's `manifest.json`: everything an app declares about itself as data, checked
@@ -9,8 +11,8 @@ import { SITE_ASPECTS, SITE_ROLES } from "../sites/capabilities";
  *
  * What a manifest declares, the shell reads without knowing any app (see ./contributions.ts): the
  * features and their paths, palette actions, the root navigation items, the create picker's items,
- * the search page's browse tiles, and the app's entity types (addresses, tile art, where their rows
- * live). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
+ * the search page's browse tiles, the app's entity types (addresses, tile art, where their rows
+ * live) and its settings (../settings/schema.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
  * index.ts with defineApp.
  */
 
@@ -182,6 +184,7 @@ export const appManifestSchema = z
       .record(z.string(), z.array(z.enum(SITE_ASPECTS)))
       .optional()
       .meta({ description: "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know." }),
+    settings: appSettingsSchema.optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -202,6 +205,9 @@ export const appManifestSchema = z
     }
     if (!features.has(manifest.defaultFeatureId)) {
       ctx.addIssue({ code: "custom", path: ["defaultFeatureId"], message: `no feature "${manifest.defaultFeatureId}"` });
+    }
+    for (const problem of manifest.settings ? settingsProblems(manifest.settings) : []) {
+      ctx.addIssue({ code: "custom", path: ["settings", ...problem.path], message: problem.message });
     }
     if (manifest.dependencies.includes(manifest.id)) {
       ctx.addIssue({ code: "custom", path: ["dependencies"], message: "an app can't depend on itself" });

@@ -12,6 +12,7 @@ interface GondolConfig {
   storageNamespace?: string;
   desktop?: { publicOrigin: string; bridge?: string };
   apps?: InternalAppBundle[];
+  settings?: { useWorkspaceId?: () => string | null };
   entities?: {
     routes?: Partial<Record<EntityType, EntityRoute>>;
     staticPaths?: Iterable<string>;
@@ -31,6 +32,7 @@ interface GondolConfig {
 | `desktop.publicOrigin` | `""` | The web app's public origin, for links that leave a desktop app. | [Platform](../guide/platform.md#desktop-apps) |
 | `desktop.bridge` | `"gondolDesktop"` | The `window` property the Electron preload script exposes. | [Platform](../guide/platform.md#desktop-apps) |
 | `apps` | `[]` | The app's bundles, in menu order. | [Building apps](../guide/apps.md) |
+| `settings.useWorkspaceId` | none | A hook returning the open workspace's id, for workspace-scoped app settings. | [App settings](../guide/settings.md#workspaces) |
 | `entities.routes` | `{}` | Each type's public addresses and edit sheet. | [Entities](../guide/entities.md#addresses) |
 | `entities.staticPaths` | none | Fixed sub-paths under lists that are never a row's key. | [Entities](../guide/entities.md#addresses) |
 | `entities.sources` | `{}` | Each type's table and label. | [Entities](../guide/entities.md#sources-where-rows-live) |
@@ -42,8 +44,8 @@ Each part can also be registered on its own, which is what `configureGondol()` d
 `configureEntityUris`, `registerEntityRoutes` and `registerShellSheetTypes` (`gondol/entities/uri`),
 `registerEntitySources` (`gondol/entities/lookup`), `registerEntityArt` (`gondol/entities/EntityArt`),
 `registerEntityExtensions` (`gondol/entities/extensions`), `registerApps` (`gondol/apps/registry`),
-`configureStorageNamespace` (`gondol/shell/storage`) and `configureDesktopApp`
-(`gondol/shell/desktopApp`). The `register*` functions merge with earlier registrations; the `configure*` ones replace.
+`configureStorageNamespace` (`gondol/shell/storage`), `configureDesktopApp`
+(`gondol/shell/desktopApp`) and `configureSettingsScopes` (`gondol/settings/settings`). The `register*` functions merge with earlier registrations; the `configure*` ones replace.
 
 ## `Register`
 

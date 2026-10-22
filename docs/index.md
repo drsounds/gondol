@@ -32,6 +32,9 @@ features:
   - title: Search and filters
     details: One entity search behind the search page, @ mentions and entity pickers, and a global type, condition and date filter carried in the URL.
     link: /guide/search-and-filters
+  - title: App settings and AI
+    details: Apps declare their settings (sections, submenus, six types) per user, workspace or site, and the built-in ai app adds an LLM chat on Ollama.
+    link: /guide/settings
   - title: Supabase base
     details: Shared browser and server clients, auth middleware for server functions, and the small schema the framework's queries expect.
     link: /guide/supabase

@@ -31,6 +31,24 @@ and assets are exported as they are: `gondol/styles/*`, `gondol/design-system/*`
 Guides: [Building apps](../guide/apps.md), [Features](../guide/features.md),
 [Actions](../guide/actions.md), [Widgets](../guide/widgets.md).
 
+## `settings/`
+
+| Module | Main exports |
+| --- | --- |
+| `settings/schema` | `appSettingsSchema`, `AppSettings`, `AppSetting`, `AppSettingType`, `AppSettingsSection`, `AppSettingsSubmenu`, `AppSettingValue`, `SettingScope`, `SETTING_SCOPES` |
+| `settings/settings` | `useAppSettings`, `useAppSetting`, `useSaveAppSetting`, `useScopeSettings`, `useSettingsScopeIds`, `configureSettingsScopes`, `appSettingsOf`, `appSettingDefinitions`, `resolveAppSettings`, `coerceSettingValue` |
+| `settings/tree` | `flattenSettings`, `scopesOf`, `settingsProblems` |
+| `settings/AppSettingsPanel` | `AppSettingsPanel`: the settings of every app at a scope |
+
+Guide: [App settings](../guide/settings.md).
+
+## `builtin/`
+
+| Module | Main exports |
+| --- | --- |
+| `builtin/ai` | `aiApp` (also the default export): the [ai app](../guide/ai.md) |
+| `builtin/ai/models` | `useAiSettings`, `useAiConversations`, `useAiMessages`, `useAiChat`, `useAiModelChoices`, `useProviderModels`, `useSavedAiModels`, `registerAiProvider`, `getAiProvider`, `getAiProviders`, `ollamaProvider`, `AiProvider`, `AiProviderError`, the row types |
+
 ## `entities/`
 
 | Module | Main exports |
@@ -129,7 +147,7 @@ Guide: [Theming](../guide/theming.md).
 | `supabase/types` | `GondolDatabase`, `Json` |
 | `supabase/fetch` | `createSupabaseFetch`, `requireEnv`, `lazy` |
 | `design-system/bungalow-79d923` | `Button`, `Input`, `Select`, `Checkbox`, `Card`, `Badge`, `Alert`, `Accordion`, `Toast`, `Icon`, `IconName` |
-| `styles/gondol.css` | Every stylesheet gondol needs, in one import |
+| `styles/gondol.css` | Every stylesheet gondol needs, in one import (`settings.css` and `ai.css` included) |
 
 Guides: [Sites](../guide/sites.md), [Internationalization](../guide/i18n.md),
 [Supabase](../guide/supabase.md).

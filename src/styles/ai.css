@@ -1,0 +1,205 @@
+/* The ai app's chat (builtin/ai/features/chat): conversations beside the open one, its messages
+ * and the box to write the next. On phones the list goes above. */
+.ai-chat {
+  display: grid;
+  gap: var(--bungalow-space-4);
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  min-height: min(70vh, 48rem);
+}
+
+.ai-chat__conversations {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+  min-width: 0;
+}
+
+.ai-chat__new {
+  align-self: flex-start;
+}
+
+.ai-chat__conversation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.ai-chat__conversation {
+  background: none;
+  border: 0;
+  border-radius: var(--bungalow-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  padding: var(--bungalow-space-2);
+  text-align: left;
+  width: 100%;
+}
+
+.ai-chat__conversation:hover,
+.ai-chat__conversation[aria-current="page"] {
+  background: var(--bungalow-color-surface);
+}
+
+.ai-chat__conversation[aria-current="page"] .ai-chat__conversation-title {
+  font-weight: 700;
+}
+
+.ai-chat__conversation-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat__conversation-model {
+  color: var(--bungalow-color-muted);
+  font-size: 0.75rem;
+}
+
+.ai-chat__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+  min-width: 0;
+}
+
+.ai-chat__head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-2);
+}
+
+.ai-chat__title {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.ai-chat__head .bungalow-field {
+  margin: 0;
+}
+
+.ai-chat__settings {
+  background: var(--bungalow-color-surface);
+  border-radius: var(--bungalow-radius-md, 0.5rem);
+  padding: var(--bungalow-space-4);
+}
+
+.ai-chat__messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: var(--bungalow-space-1);
+}
+
+.ai-chat__intro {
+  margin: auto;
+  max-width: 32rem;
+  text-align: center;
+}
+
+.ai-message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+  max-width: min(46rem, 88%);
+}
+
+.ai-message__body {
+  border-radius: 1rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  padding: var(--bungalow-space-2) var(--bungalow-space-3);
+  white-space: pre-wrap;
+}
+
+.ai-message--user {
+  align-self: flex-end;
+}
+
+.ai-message--user .ai-message__body {
+  background: var(--bungalow-color-primary-soft);
+}
+
+.ai-message--assistant {
+  align-self: flex-start;
+}
+
+.ai-message--assistant .ai-message__body {
+  background: var(--bungalow-color-surface);
+}
+
+.ai-message__typing {
+  color: var(--bungalow-color-muted);
+}
+
+.ai-message__meta,
+.ai-message__error {
+  color: var(--bungalow-color-muted);
+  font-size: 0.75rem;
+  padding: 0 var(--bungalow-space-3);
+}
+
+.ai-message__error {
+  color: var(--bungalow-color-danger);
+}
+
+.ai-chat__composer {
+  align-items: flex-end;
+  display: flex;
+  gap: var(--bungalow-space-2);
+}
+
+.ai-chat__input {
+  flex: 1;
+  min-height: 3rem;
+  resize: vertical;
+}
+
+.ai-models__table td {
+  vertical-align: middle;
+}
+
+/* The checkbox's label is for screen readers only: the column header says it. */
+.ai-models__keep > span {
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  width: 1px;
+}
+
+.ai-models__gone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-models__gone li {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-2);
+}
+
+@media (max-width: 720px) {
+  .ai-chat {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-chat__conversation-list {
+    max-height: 12rem;
+  }
+}

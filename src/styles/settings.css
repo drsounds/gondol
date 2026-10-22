@@ -1,0 +1,108 @@
+/* App settings (settings/AppSettingsPanel.tsx): a list of apps, each opening its sections and
+ * submenu rows, and submenus opening their own, like iPhone settings. */
+.app-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+}
+
+.app-settings__head {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-2);
+}
+
+.app-settings__back {
+  margin-left: calc(-1 * var(--bungalow-space-2));
+}
+
+.app-settings__status {
+  font-size: 0.8125rem;
+  margin-left: auto;
+}
+
+.app-settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+}
+
+.app-settings__menu {
+  background: var(--bungalow-color-surface);
+  border-radius: var(--bungalow-radius-md, 0.5rem);
+  list-style: none;
+  margin: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.app-settings__menu > li + li {
+  border-top: 1px solid color-mix(in srgb, var(--bungalow-color-ink) 8%, transparent);
+}
+
+.app-settings__row {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--bungalow-space-3);
+  padding: var(--bungalow-space-3);
+  text-align: left;
+  width: 100%;
+}
+
+.app-settings__row:hover,
+.app-settings__row:focus-visible {
+  background: var(--bungalow-color-surface-strong);
+}
+
+.app-settings__row-icon {
+  flex: none;
+}
+
+.app-settings__row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.app-settings__row-title {
+  font-weight: 600;
+}
+
+.app-settings__row-hint {
+  color: var(--bungalow-color-muted);
+  font-size: 0.8125rem;
+}
+
+.app-settings__chevron {
+  color: var(--bungalow-color-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.app-settings__field {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+}
+
+.app-settings__field > .bungalow-field {
+  width: 100%;
+}
+
+.app-settings__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+}
+
+.app-settings__reset {
+  margin-left: calc(-1 * var(--bungalow-space-2));
+}

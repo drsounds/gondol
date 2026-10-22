@@ -89,6 +89,7 @@ The migrations that create them live in the app; Spacify's `supabase/migrations/
 
 | Table | Columns | Used by |
 | --- | --- | --- |
+| `app_settings` | `id`, `app_id`, `scope`, `scope_id`, `data` (jsonb), `updated_by`, timestamps; unique `(app_id, scope, scope_id)` | [App settings](./settings.md#the-table). |
 | `public_entities` | `id`, `user_id`, `entity_type`, `entity_id`, `created_at`; unique `(user_id, entity_type, entity_id)` | "Make public" (`usePublicEntities`, `useSetEntityPublic`). |
 | `user_themes` | `id`, `user_id`, `mode`, `accent_color`, `engine`, `theme` (jsonb), `saved_themes` (jsonb), `slug`, `identifier`, timestamps | Cross-device appearance sync. |
 
@@ -105,6 +106,9 @@ The migrations that create them live in the app; Spacify's `supabase/migrations/
 
 Grant them to `authenticated` (and `site_for_domain` to `anon` as well, so the sign-in page can
 wear a site's theme).
+
+The [ai app](./ai.md#the-tables), if you build it in, has three tables of its own:
+`ai_conversations`, `ai_messages` and `ai_models`.
 
 ## Entity tables
 

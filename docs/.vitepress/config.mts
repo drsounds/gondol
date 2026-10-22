@@ -28,6 +28,7 @@ export default {
           { text: "Features", link: "/guide/features" },
           { text: "Actions and shortcuts", link: "/guide/actions" },
           { text: "Widgets", link: "/guide/widgets" },
+          { text: "App settings", link: "/guide/settings" },
           { text: "The application shell", link: "/guide/app-shell" },
         ],
       },
@@ -48,6 +49,10 @@ export default {
           { text: "Sites", link: "/guide/sites" },
           { text: "Platform services", link: "/guide/platform" },
         ],
+      },
+      {
+        text: "Built-in apps",
+        items: [{ text: "The ai app", link: "/guide/ai" }],
       },
       {
         text: "Tutorial",
