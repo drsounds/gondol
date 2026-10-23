@@ -42,6 +42,7 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **The ai app**: LLM support and an AI chat on Ollama, with conversations, messages, models and providers
 - ✅ **The streams app**: what the user does as streams (subject, predicate, object, context, motivation, start and end, quantity) with yin/yang entries
 - ✅ **The analytics app**: stream analytics filtered by period, time of day, entity type and conditions on subject, predicate, object, context, motivation and task
+- ✅ **App APIs and OAuth**: apps declare HTTP APIs in their manifests (OpenAPI), served by one gateway; the oauth app gives HTML5 and other apps credentials (secrets shown once, stored hashed) and a consent page
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
 - ✅ **English and Swedish** strings, merged with the app's own catalogue
@@ -183,7 +184,8 @@ and `useNavCollapsed`.
 | `entities/` | Entity URIs and public addresses, slugs, sources and labels, `EntitySheet`, `FormActions`, `ActionMenu`, `EntityPicker`, drag and drop, lifecycle |
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
-| `builtin/` | Apps gondol ships: `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries) and `analytics` (stream analytics) |
+| `api/` | Apps' HTTP APIs: the manifest's `api` (OpenAPI), the document builder and the gateway that serves it with OAuth 2 |
+| `builtin/` | Apps gondol ships: `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics) and `oauth` (credentials for apps, the consent page, connected apps) |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |

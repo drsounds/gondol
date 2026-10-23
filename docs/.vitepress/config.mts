@@ -48,6 +48,7 @@ export default {
           { text: "Supabase", link: "/guide/supabase" },
           { text: "Sites", link: "/guide/sites" },
           { text: "Platform services", link: "/guide/platform" },
+          { text: "App APIs (OpenAPI)", link: "/guide/api" },
         ],
       },
       {
@@ -56,6 +57,7 @@ export default {
           { text: "The ai app", link: "/guide/ai" },
           { text: "The streams app", link: "/guide/streams" },
           { text: "The analytics app", link: "/guide/analytics" },
+          { text: "The oauth app", link: "/guide/oauth" },
         ],
       },
       {

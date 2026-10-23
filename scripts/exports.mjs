@@ -18,6 +18,7 @@ const exports = { ".": "./src/index.ts" };
 for (const file of walk(src).sort()) {
   const rel = relative(src, file).split("\\").join("/");
   if (rel === "index.ts") continue;
+  if (/\.test\.tsx?$/.test(rel)) continue;
   if (/\.(tsx?)$/.test(rel) && !rel.endsWith(".d.ts")) {
     const subpath = rel.replace(/\.(tsx?)$/, "").replace(/\/index$/, "");
     exports[`./${subpath}`] = `./src/${rel}`;

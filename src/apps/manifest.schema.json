@@ -1366,6 +1366,734 @@
         }
       },
       "additionalProperties": false
+    },
+    "api": {
+      "description": "The app's HTTP API (OpenAPI subset), served by the gondol API gateway.",
+      "type": "object",
+      "properties": {
+        "scopes": {
+          "description": "Scopes this app introduces, with what granting one lets a client do.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "schemas": {
+          "description": "Shared schemas, as `#/components/schemas/<name>`.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z_]\\w*$"
+          },
+          "additionalProperties": {
+            "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "paths": {
+          "description": "Operations by path and method.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^\\/[\\w\\-./{}]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "get": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "put": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "post": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "delete": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

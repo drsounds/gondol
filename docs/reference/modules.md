@@ -42,11 +42,23 @@ Guides: [Building apps](../guide/apps.md), [Features](../guide/features.md),
 
 Guide: [App settings](../guide/settings.md).
 
+## `api/`
+
+| Module | Main exports |
+| --- | --- |
+| `api/openapi` | `appApiSchema` (a manifest's `api`), `buildOpenApiDocument`, `apiScopes`, `AppApi`, `ApiSource` |
+| `api/gateway` | `createApiGateway`, `validate`, `matchOperation`, `statusForDbError`, `rpcArgName`, `ApiDocument`, `ApiOperation`, `ApiCaller`, `TokenGrant`, `TokenResult` (no imports: copied into edge functions) |
+| `api/cli` | The `gondol-api` command: writes `openapi.json` and `gateway.ts` for the host's server |
+
+Guide: [App APIs](../guide/api.md).
+
 ## `builtin/`
 
 | Module | Main exports |
 | --- | --- |
 | `builtin/ai` | `aiApp` (also the default export): the [ai app](../guide/ai.md) |
+| `builtin/oauth` | `oauthApp` (also the default export): the [oauth app](../guide/oauth.md) |
+| `builtin/oauth/models/oauth` | `useOAuthClients`, `useCreateOAuthClient`, `useUpdateOAuthClient`, `useDeleteOAuthClient`, `useRegenerateOAuthSecret`, `useOAuthGrants`, `useRevokeOAuthGrant`, `parseAuthorizeRequest`, `authorizeOAuth`, `redirectWith` |
 | `builtin/ai/models` | `useAiSettings`, `useAiConversations`, `useAiMessages`, `useAiChat`, `useAiModelChoices`, `useProviderModels`, `useSavedAiModels`, `registerAiProvider`, `getAiProvider`, `getAiProviders`, `ollamaProvider`, `AiProvider`, `AiProviderError`, the row types |
 | `builtin/streams` | `streamsApp` (also the default export): the [streams app](../guide/streams.md) |
 | `builtin/streams/models` | `useStreams`, `useStreamEntries`, `useSaveStream`, `useDeleteStream`, `useSaveStreamEntry`, `useDeleteStreamEntry`, `streamsHostHook`, `formatDuration`, the row types |
