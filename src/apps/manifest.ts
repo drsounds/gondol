@@ -158,6 +158,42 @@ export const manifestEntitySchema = z
   })
   .strict();
 
+/** A third-party service the app uses (shellHooks' PrivacyService), listed in cookie consent and the privacy policy. */
+export const manifestServiceSchema = z
+  .object({
+    id,
+    name: z.string().min(1),
+    provider: z.string().optional().meta({ description: "The legal entity behind it, when it differs from `name`." }),
+    category: z.string().min(1).default("necessary").meta({ description: "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures." }),
+    countries: z
+      .array(z.string().regex(/^([A-Z]{2}|EU|EEA)$/, "an ISO 3166-1 alpha-2 code, EU or EEA"))
+      .min(1)
+      .meta({ description: "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA." }),
+    domains: z
+      .array(z.string().regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "a host name, optionally *.example.com"))
+      .optional()
+      .meta({ description: "Domains the app contacts for it." }),
+    purpose: localized,
+    data: localized.optional().meta({ description: "Which personal data it gets." }),
+    legalBasis: z.enum(["consent", "contract", "legitimateInterest", "legalObligation"]).optional(),
+    transfer: localized.optional().meta({ description: "How transfers outside the EU/EEA are safeguarded." }),
+    policyUrl: z.string().url().optional(),
+    storage: z
+      .array(
+        z
+          .object({
+            name: z.string().min(1),
+            kind: z.enum(["cookie", "localStorage", "sessionStorage", "indexedDB"]),
+            purpose: localized,
+            duration: localized,
+          })
+          .strict(),
+      )
+      .optional()
+      .meta({ description: "Cookies and storage it sets in the browser." }),
+  })
+  .strict();
+
 export const appManifestSchema = z
   .object({
     $schema: z.string().optional(),
@@ -185,6 +221,10 @@ export const appManifestSchema = z
       .optional()
       .meta({ description: "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know." }),
     settings: appSettingsSchema.optional(),
+    services: z
+      .array(manifestServiceSchema)
+      .optional()
+      .meta({ description: "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy." }),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -230,6 +270,7 @@ export type ManifestBrowseTile = z.infer<typeof manifestBrowseTileSchema>;
 export type ManifestNavItem = z.infer<typeof manifestNavItemSchema>;
 export type ManifestEntity = z.infer<typeof manifestEntitySchema>;
 export type ManifestEntitySource = z.infer<typeof manifestEntitySourceSchema>;
+export type ManifestService = z.infer<typeof manifestServiceSchema>;
 
 /** Validates a manifest.json, throwing an error that names the app and every problem. */
 export function parseManifest(json: unknown): AppManifest {

@@ -83,6 +83,7 @@ completion and checks in your editor:
 | `entities` | The entity types the app owns: public `slug`, `view`/`edit` path templates with `{key}`, `plural`, `sheet`, tile `art`, and the `source` table and label columns. |
 | `staticPaths`, `uuidPaths`, `menuAspects` | Routing facts: static sub-routes that are never a key, path prefixes whose uuids stay uuids, aspects of the app's own menu keys. |
 | `settings` | The app's settings: sections, settings of six types and submenus, each stored per user, workspace or site. See [App settings](./settings.md). |
+| `services` | Third-party services the app uses that store or process personal data: `id`, `name`, `provider`, consent `category`, `countries`, `domains`, `purpose`, `data`, `legalBasis`, `transfer`, `policyUrl` and the cookies or `storage` they set. The [consent app](./consent.md) lists them in the cookie notice and the privacy policy. |
 
 Every answer a manifest declares under a feature goes with that feature: when a site doesn't offer
 it (its roles and aspects) or the app is switched off, its nav item, create items and browse tile go
@@ -190,8 +191,9 @@ app needs fails the build. This is the build-time counterpart of a site's `enabl
 
 Gondol ships apps of its own under `src/builtin/`, which a host builds in by id:
 `gondolApps({ dir: "apps", builtin: ["ai"] })`, or imports and adds to `configureGondol({ apps })`
-by hand (`import { aiApp } from "gondol/builtin/ai"`). There are three: the [ai app](./ai.md),
-the [streams app](./streams.md) and the [analytics app](./analytics.md), which needs streams.
+by hand (`import { aiApp } from "gondol/builtin/ai"`). There are four: the [ai app](./ai.md),
+the [streams app](./streams.md), the [analytics app](./analytics.md), which needs streams, and the
+[consent app](./consent.md) (cookie consent and the privacy policy).
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`

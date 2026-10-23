@@ -56,6 +56,7 @@ export default {
           { text: "The ai app", link: "/guide/ai" },
           { text: "The streams app", link: "/guide/streams" },
           { text: "The analytics app", link: "/guide/analytics" },
+          { text: "The consent app", link: "/guide/consent" },
         ],
       },
       {
