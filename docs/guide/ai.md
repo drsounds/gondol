@@ -2,8 +2,8 @@
 
 Gondol ships one app of its own, `ai`: LLM support for an app built on gondol, and an AI chat.
 
-- **Providers** are what it talks to. [Ollama](https://ollama.com) is built in; more can be
-  registered in code.
+- **Providers** are what it talks to. [Ollama](https://ollama.com) and OpenAI-compatible APIs are
+  built in; more can be registered in code.
 - **Models** are what a provider serves. The user picks which ones the chat offers and a default.
 - **Conversations** and their **messages** are kept per account, and answers stream in as the
   model writes them.
@@ -56,6 +56,8 @@ The palette has "Open AI chat", "New AI conversation" and "AI models and provide
 | `sendWith` | select (radio) | user | Enter or Ctrl/⌘+Enter sends. |
 | `showMetrics` | checkbox | user | Tokens, speed and time under answers. |
 | `providers` | checkboxes | user, workspace, site | The providers in use (default: Ollama). |
+| `openai.baseUrl` | URL (submenu OpenAI-compatible API) | user, workspace, site | API base URL (default `https://api.openai.com/v1`). |
+| `openai.apiKey` | password (submenu OpenAI-compatible API) | user | Sent as a bearer token; empty for APIs that don't require one. |
 | `ollama.baseUrl` | URL (submenu Ollama) | user, workspace, site | Ollama's API address, as the server reaches it. Empty uses the function's `OLLAMA_BASE_URL`. |
 | `ollama.apiKey` | password (submenu Ollama) | user | A bearer token, for an Ollama behind a proxy that asks for one. |
 | `ollama.keepAlive` | string (submenu Ollama) | user, workspace, site | How long Ollama keeps the model loaded (`5m`, `1h`, `-1`). |
@@ -63,6 +65,12 @@ The palette has "Open AI chat", "New AI conversation" and "AI models and provide
 
 A site's owner can point everyone on the site at a shared Ollama by setting `ollama.baseUrl` in the
 site's settings; a user's own address still wins.
+
+The OpenAI-compatible provider calls the configured `/models` and `/chat/completions` endpoints
+directly from the browser, streaming chat completions as server-sent events. The API must allow
+requests from the site's origin (CORS). OpenAI uses `https://api.openai.com/v1` by default; set
+`openai.baseUrl` to the versioned base URL for another compatible service. OpenAI-compatible APIs
+are available when selected in the `providers` setting; Ollama remains the default.
 
 ## Ollama through the server
 
@@ -114,7 +122,7 @@ configureOllama({ functionName: "my-ollama" });
 | `useAiModelChoices(settings)` | The chat's model picker. |
 | `useProviderModels(providerId, settings)` | What a provider serves now. |
 | `useSavedAiModels()`, `useSaveAiModel()`, `useRemoveAiModel()` | The models kept in `ai_models`. |
-| `getAiProvider(id)`, `getAiProviders()`, `enabledAiProviders(settings)` | The provider registry. |
+| `getAiProvider(id)`, `getAiProviders()`, `enabledAiProviders(settings)` | The provider registry (Ollama and OpenAI-compatible APIs are built in). |
 
 To ask a model something without the chat:
 

@@ -81,6 +81,7 @@
     "./builtin/ai/models": "./src/builtin/ai/models/index.ts",
     "./builtin/ai/models/models": "./src/builtin/ai/models/models.ts",
     "./builtin/ai/models/ollama": "./src/builtin/ai/models/ollama.ts",
+    "./builtin/ai/models/openai": "./src/builtin/ai/models/openai.ts",
     "./builtin/ai/models/provider": "./src/builtin/ai/models/provider.ts",
     "./builtin/ai/models/providers": "./src/builtin/ai/models/providers.ts",
     "./builtin/ai/models/types": "./src/builtin/ai/models/types.ts",

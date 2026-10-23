@@ -1,4 +1,5 @@
 import { ollamaProvider } from "./ollama";
+import { openAiProvider } from "./openai";
 import type { AiProvider, AiSettings } from "./provider";
 
 export * from "./provider";
@@ -8,7 +9,10 @@ export * from "./provider";
  * `registerAiProvider()` before anything renders, and add their settings (and an option of the
  * `providers` setting) to the app's manifest.
  */
-const providers = new Map<string, AiProvider>([[ollamaProvider.id, ollamaProvider]]);
+const providers = new Map<string, AiProvider>([
+  [ollamaProvider.id, ollamaProvider],
+  [openAiProvider.id, openAiProvider],
+]);
 
 /** Adds (or replaces) a provider. */
 export function registerAiProvider(provider: AiProvider): void {
