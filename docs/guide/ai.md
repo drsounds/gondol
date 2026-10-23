@@ -229,7 +229,8 @@ service's key: `set_ai_mcp_server_headers(p_server_id, p_set, p_remove)` keeps t
 set. The app router (`userMcpServers` in `createAppRouter()`) adds each enabled one to `/mcp` and the
 catalogue for callers with their own session (never OAuth clients) as an app `mcp_<first 8 hex
 digits of its id>`, so its tools are `mcp_1a2b3c4d__<tool>`, and calls it server-side without
-following redirects. The function reads them with `SUPABASE_SERVICE_ROLE_KEY` and only calls public
+following redirects. With `toolApproval` at `changes`, the chat asks before any of their tools runs,
+whatever the server says about it. The function reads them with `SUPABASE_SERVICE_ROLE_KEY` and only calls public
 HTTPS hosts, unless `MCP_ALLOWED_HOSTS` lists the host or `MCP_ALLOW_PRIVATE=true`.
 
 | Setting | Type | Scope | |

@@ -372,7 +372,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     const lists = await Promise.all(
       scope.map(async (app) => {
         const own = app.tools.filter((tool) => mayCall(caller, tool.scopes)).map((tool) => describeTool(app, tool, qualified));
-        if (!app.endpoint) return own;
+        if (!app.endpoint || app.user?.error) return own;
         try {
           return [...own, ...(await remoteTools(app, qualified))];
         } catch (error) {
