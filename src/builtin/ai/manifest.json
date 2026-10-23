@@ -127,8 +127,8 @@
             "id": "connection",
             "title": { "en": "Connection", "sv": "Anslutning" },
             "description": {
-              "en": "Calls the API directly from your browser. The server must allow requests from this site's origin (CORS).",
-              "sv": "Anropar API:et direkt från din webbläsare. Servern måste tillåta anrop från webbplatsens ursprung (CORS)."
+              "en": "The ai-openai function calls the API for you, so its address must be reachable from the server.",
+              "sv": "Funktionen ai-openai anropar API:et åt dig, så adressen måste nås från servern."
             },
             "settings": [
               {
@@ -146,7 +146,7 @@
                 "format": "password",
                 "scope": "user",
                 "label": { "en": "API key (optional)", "sv": "API-nyckel (valfri)" },
-                "description": { "en": "Sent as a bearer token. Leave empty for APIs that do not require a key.", "sv": "Skickas som bearer-token. Lämna tomt för API:er som inte kräver en nyckel." },
+                "description": { "en": "The ai-openai function reads this from your settings and sends it as a bearer token. Leave empty for APIs that do not require a key.", "sv": "Funktionen ai-openai hämtar detta från dina inställningar och skickar det som bearer-token. Lämna tomt för API:er som inte kräver en nyckel." },
                 "maxLength": 500
               }
             ]

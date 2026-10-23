@@ -30,7 +30,7 @@ or, with the [Vite plugin](./apps.md#building-a-subset), build it in with your o
 gondolApps({ dir: "apps", builtin: ["ai"] });
 ```
 
-Then create [its tables](#the-tables), deploy [the `ai-ollama` edge function](#ollama-through-the-server)
+Then create [its tables](#the-tables), deploy the [AI edge functions](#calling-compatible-apis-through-the-server)
 to your Supabase project, and show the [settings panel](./settings.md#showing-the-settings)
 somewhere (Account) so users can set the address. Like any app, users can switch it off, and a site
 can leave it out.
@@ -56,8 +56,8 @@ The palette has "Open AI chat", "New AI conversation" and "AI models and provide
 | `sendWith` | select (radio) | user | Enter or Ctrl/⌘+Enter sends. |
 | `showMetrics` | checkbox | user | Tokens, speed and time under answers. |
 | `providers` | checkboxes | user, workspace, site | The providers in use (default: Ollama). |
-| `openai.baseUrl` | URL (submenu OpenAI-compatible API) | user, workspace, site | API base URL (default `https://api.openai.com/v1`). |
-| `openai.apiKey` | password (submenu OpenAI-compatible API) | user | Sent as a bearer token; empty for APIs that don't require one. |
+| `openai.baseUrl` | URL (submenu OpenAI-compatible API) | user, workspace, site | API base URL (default `https://api.openai.com/v1`), as the server reaches it. |
+| `openai.apiKey` | password (submenu OpenAI-compatible API) | user | Read by the server function and sent as a bearer token; empty for APIs that don't require one. |
 | `ollama.baseUrl` | URL (submenu Ollama) | user, workspace, site | Ollama's API address, as the server reaches it. Empty uses the function's `OLLAMA_BASE_URL`. |
 | `ollama.apiKey` | password (submenu Ollama) | user | A bearer token, for an Ollama behind a proxy that asks for one. |
 | `ollama.keepAlive` | string (submenu Ollama) | user, workspace, site | How long Ollama keeps the model loaded (`5m`, `1h`, `-1`). |
@@ -67,29 +67,41 @@ A site's owner can point everyone on the site at a shared Ollama by setting `oll
 site's settings; a user's own address still wins.
 
 The OpenAI-compatible provider calls the configured `/models` and `/chat/completions` endpoints
-directly from the browser, streaming chat completions as server-sent events. The API must allow
-requests from the site's origin (CORS). OpenAI uses `https://api.openai.com/v1` by default; set
-`openai.baseUrl` to the versioned base URL for another compatible service. OpenAI-compatible APIs
-are available when selected in the `providers` setting; Ollama remains the default.
+through a Supabase edge function, streaming chat completions as server-sent events. The API address
+must be reachable from the server; no CORS setup is needed. OpenAI uses
+`https://api.openai.com/v1` by default; set `openai.baseUrl` to the versioned base URL for another
+compatible service. OpenAI-compatible APIs are available when selected in the `providers` setting;
+Ollama remains the default.
 
-## Ollama through the server
+## Calling compatible APIs through the server
 
-The browser never calls Ollama itself. It asks a Supabase edge function (`ai-ollama` by default),
-which calls Ollama's API (`GET /api/tags`, `POST /api/chat`) for the signed-in user and streams the
-answer back. So the address has to be reachable **from the server**, not from the user's device, and
-Ollama needs no CORS setup (`OLLAMA_ORIGINS`).
+The browser never calls either API itself. It asks a Supabase edge function, which calls the API for
+the signed-in user and streams the answer back. So the address has to be reachable **from the
+server**, not from the user's device, and the APIs need no CORS setup.
 
-The function is the host app's to deploy (Spacify's is `supabase/functions/ai-ollama`), with
-`verify_jwt` on. Its contract:
+The functions are the host app's to deploy, with `verify_jwt` on. `ai-openai` is the default
+OpenAI-compatible function name and `ai-ollama` is the default Ollama function name. `ai-openai`'s
+contract:
+
+| Request (POST, JSON) | Answer |
+| --- | --- |
+| `{ action: "models", baseUrl }` | The API's `/models` JSON response (`{ data: [...] }`). |
+| `{ action: "chat", baseUrl, model, messages, temperature? }` | The API's streaming `/chat/completions` response as server-sent events. |
+
+The function reads the signed-in user's `openai.apiKey` from `app_settings` and sends it as a bearer
+token; do not accept the key in the request body. Validate the base URL and restrict hosts the
+function may call to avoid using it to reach private services.
+
+Both functions return errors as JSON `{ error, kind }`, with `kind` one of `config`, `forbidden`,
+`unreachable`, `http` or `invalid`; the chat and models page show the message and what to check.
+
+`ai-ollama` calls Ollama's API (`GET /api/tags`, `POST /api/chat`) and streams the answer back. Its
+contract:
 
 | Request (POST, JSON) | Answer |
 | --- | --- |
 | `{ action: "models", baseUrl? }` | `{ models: [{ name, model, size, modified_at, details }] }`, Ollama's `/api/tags` |
 | `{ action: "chat", baseUrl?, model, messages: [{ role, content }], options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece, the last with `done: true`, or `data: {"error": "…"}` |
-
-Errors are JSON `{ error, kind }` with `kind` one of `config` (no address, or not a URL),
-`forbidden` (an address the server won't call), `unreachable`, `http` (Ollama answered with an
-error) or `invalid` (a bad request); the chat and the models page show the message and what to check.
 
 `baseUrl` is the `ollama.baseUrl` setting in effect; when it's empty the function uses its own
 `OLLAMA_BASE_URL`. The API key isn't sent along: the function reads the user's own `ollama.apiKey`
@@ -102,12 +114,15 @@ except for:
 | `OLLAMA_ALLOWED_HOSTS` | Comma-separated host names or `host:port` that may be internal (an Ollama on the LAN). |
 | `OLLAMA_ALLOW_PRIVATE` | `true` lets every address through (a single-user install). |
 
+For the OpenAI-compatible function, use an equivalent allowlist for any internal API hosts.
+
 A host whose function has another name sets it once, before anything renders:
 
 ```ts
-import { configureOllama } from "gondol/builtin/ai/models";
+import { configureOllama, configureOpenAi } from "gondol/builtin/ai/models";
 
 configureOllama({ functionName: "my-ollama" });
+configureOpenAi({ functionName: "my-openai" });
 ```
 
 ## Using it from code
