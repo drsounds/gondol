@@ -1,10 +1,8 @@
 import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
-import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import type { AppSidebarWidgetProps, DynamicMenuSection } from "../apps/types";
 import { Widgets } from "../apps/navigation";
-import { NavItem } from "./NavItem";
-import { AppInset, AppRows, useOpenApp } from "./AppMenu";
+import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
 
 /**
  * Phone-only left drawer with the same dynamic navigation as the desktop sidebar: the app's
@@ -78,15 +76,7 @@ export function MobileNavDrawer({
           ) : navSections.map((section) => (
             <div key={section.id} className="nav-group">
               <div className="nav-group__label">{section.title}</div>
-              {section.items.map((item) => (
-                <NavItem
-                  key={item.id}
-                  icon={<Icon name={item.iconName} />}
-                  label={item.name}
-                  active={currentPath === item.path || currentPath.startsWith(item.path + "/")}
-                  onClick={() => onNavigate(item.path)}
-                />
-              ))}
+              <AppPages section={section} pathname={currentPath} onNavigate={onNavigate} />
             </div>
           ))}
         </div>

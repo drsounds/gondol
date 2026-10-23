@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import { useActiveAppWidgets, useAppNavigation, Widgets } from "../apps/navigation";
 import { ActionsPalette } from "../apps/components/ActionsPalette";
 import { KeyboardShortcutsDialog } from "../apps/components/KeyboardShortcutsDialog";
 import { ChromeSearchForm, type ChromeSearchState } from "./ChromeSearch";
 import { ChevronIcon, HamburgerIcon } from "./icons";
-import { FeatureDotContext, NavItem, type FeatureDot } from "./NavItem";
+import { FeatureDotContext, type FeatureDot } from "./NavItem";
 import { MobileNavDrawer } from "./MobileNavDrawer";
-import { AppInset, AppPages, AppRows, isPathActive, useOpenApp } from "./AppMenu";
+import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
 import { useSiteOffers } from "../sites/capabilities";
 import { useOptionalUserTheme } from "../theme/userTheme";
 
@@ -313,16 +312,7 @@ export function AppShell({
           ? navSections.map((section) => (
               <div key={section.id} className="nav-group bottom-nav__group">
                 <div className="nav-group__label">{section.title}</div>
-                {section.items.map((item) => (
-                  <NavItem
-                    key={item.id}
-                    icon={<Icon name={item.iconName} />}
-                    label={item.name}
-                    extra
-                    active={isPathActive(pathname, item.path)}
-                    onClick={() => onNavigate(item.path)}
-                  />
-                ))}
+                <AppPages section={section} pathname={pathname} onNavigate={onNavigate} extra collapsed={navCollapsed} />
               </div>
             ))
           : <AppRows sections={appSections} pathname={pathname} openId={openApp?.id ?? null} onOpen={setOpenApp} onNavigate={onNavigate} extra />}

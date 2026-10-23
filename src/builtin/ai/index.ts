@@ -1,4 +1,4 @@
-import { defineApp } from "../../apps/defineApp";
+import { defineApp, lazyWidget } from "../../apps/defineApp";
 import manifest from "./manifest.json";
 
 /**
@@ -14,6 +14,10 @@ export const aiApp = defineApp({
   pages: {
     chat: () => import("./features/chat/src/pages/AiChatPage").then((m) => m.AiChatPage),
     models: () => import("./features/models/src/pages/AiModelsPage").then((m) => m.AiModelsPage),
+  },
+  widgets: {
+    // "New conversation" and the recent conversations, below the app's pages in the menu.
+    menuWidgets: [lazyWidget(() => import("./features/chat/src/widgets/AiMenuConversations").then((m) => m.AiMenuConversations))],
   },
 });
 
