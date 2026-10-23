@@ -23,6 +23,7 @@ export const planningApp: InternalAppBundle = {
 | `overviewHeadWidgets` | Top of the home view, above every app's `overviewWidgets`. | `AppOverviewWidgetProps` |
 | `overviewWidgets` | The home view. | `AppOverviewWidgetProps` |
 | `sidebarNavWidgets` | Inside the navigation, after your own nav items (also in the phone menu drawer). | `AppSidebarWidgetProps` |
+| `menuWidgets` | Inside your app's own menu section, below its pages (sidebar, apps submenu or inset, phone menu drawer). | `AppMenuWidgetProps` |
 | `sidebarPanelWidgets` | Below the navigation, filling the sidebar column (desktop only). | `AppSidebarWidgetProps` |
 | `sidebarWidgets` | Collected for shells that render them; `AppShell` doesn't. | `AppSidebarWidgetProps` |
 | `bottomWidgets` | After the content, for fixed bars along the bottom. | `AppBottomWidgetProps` |

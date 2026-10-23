@@ -85,6 +85,7 @@
     "./apps/shellHooks": "./src/apps/shellHooks.ts",
     "./apps/types": "./src/apps/types.ts",
     "./builtin/ai/features/chat/src/pages/AiChatPage": "./src/builtin/ai/features/chat/src/pages/AiChatPage.tsx",
+    "./builtin/ai/features/chat/src/widgets/AiMenuConversations": "./src/builtin/ai/features/chat/src/widgets/AiMenuConversations.tsx",
     "./builtin/ai/features/models/src/components/AiServices": "./src/builtin/ai/features/models/src/components/AiServices.tsx",
     "./builtin/ai/features/models/src/pages/AiModelsPage": "./src/builtin/ai/features/models/src/pages/AiModelsPage.tsx",
     "./builtin/ai": "./src/builtin/ai/index.ts",

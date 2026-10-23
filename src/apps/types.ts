@@ -101,6 +101,16 @@ export interface AppSidebarWidgetProps {
   [key: string]: unknown;
 }
 
+/** Props of `menuWidgets`: what the menu section they sit in navigates with. */
+export interface AppMenuWidgetProps {
+  pathname: string;
+  onNavigate: (path: string) => void;
+  /** Desktop sidebar only (NavItem's `extra`): left out of the phone tab bar. */
+  extra?: boolean;
+  /** The desktop sidebar is collapsed to its icons. */
+  collapsed?: boolean;
+}
+
 export interface AppBottomWidgetProps {
   className?: string;
   /** False: show only while something plays or is queued (the player setting "auto"). */
@@ -114,6 +124,8 @@ export interface AppWidgets {
   overviewWidgets?: ComponentType<AppOverviewWidgetProps>[];
   sidebarNavWidgets?: ComponentType<AppSidebarWidgetProps>[];
   sidebarPanelWidgets?: ComponentType<AppSidebarWidgetProps>[];
+  /** Inside the app's own menu section, below its pages (sidebar, apps submenu and menu drawer). */
+  menuWidgets?: ComponentType<AppMenuWidgetProps>[];
   sidebarWidgets?: ComponentType<AppSidebarWidgetProps>[];
   bottomWidgets?: ComponentType<AppBottomWidgetProps>[];
   /** Sheets and dialogs the app owns, rendered over everything (the shell's `overlays`). */
@@ -171,6 +183,8 @@ export interface DynamicMenuSection {
   title: string;
   iconName?: IconName;
   items: DynamicMenuItem[];
+  /** The app's `menuWidgets`, rendered below its items. */
+  widgets?: ComponentType<AppMenuWidgetProps>[];
 }
 
 export interface DynamicRouteMatch {

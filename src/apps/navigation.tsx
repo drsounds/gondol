@@ -54,6 +54,7 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
         title: bundle.name,
         iconName: bundle.iconName as IconName,
         items,
+        widgets: bundle.widgets?.menuWidgets,
       });
     }
 
