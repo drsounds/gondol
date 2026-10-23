@@ -1366,6 +1366,179 @@
         }
       },
       "additionalProperties": false
+    },
+    "services": {
+      "description": "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][\\w.-]*$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provider": {
+            "description": "The legal entity behind it, when it differs from `name`.",
+            "type": "string"
+          },
+          "category": {
+            "description": "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures.",
+            "default": "necessary",
+            "type": "string",
+            "minLength": 1
+          },
+          "countries": {
+            "description": "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA.",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^([A-Z]{2}|EU|EEA)$"
+            }
+          },
+          "domains": {
+            "description": "Domains the app contacts for it.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$"
+            }
+          },
+          "purpose": {
+            "description": "Text per locale (`en` required, e.g. `sv`).",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "data": {
+            "description": "Which personal data it gets.",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "legalBasis": {
+            "type": "string",
+            "enum": [
+              "consent",
+              "contract",
+              "legitimateInterest",
+              "legalObligation"
+            ]
+          },
+          "transfer": {
+            "description": "How transfers outside the EU/EEA are safeguarded.",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "policyUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "storage": {
+            "description": "Cookies and storage it sets in the browser.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "cookie",
+                    "localStorage",
+                    "sessionStorage",
+                    "indexedDB"
+                  ]
+                },
+                "purpose": {
+                  "description": "Text per locale (`en` required, e.g. `sv`).",
+                  "type": "object",
+                  "properties": {
+                    "en": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "en"
+                  ],
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                },
+                "duration": {
+                  "description": "Text per locale (`en` required, e.g. `sv`).",
+                  "type": "object",
+                  "properties": {
+                    "en": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "en"
+                  ],
+                  "additionalProperties": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "kind",
+                "purpose",
+                "duration"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "countries",
+          "purpose"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

@@ -5,6 +5,7 @@ import {
   createItemsHook,
   entityTypesHook,
   navItemsHook,
+  privacyServicesHook,
   routingHook,
   searchBrowseHook,
   type EntityTypeContribution,
@@ -199,6 +200,7 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     if (manifest.entities?.[type]) continue;
     resolutions.push(answer(entityTypesHook, { type: type as EntityType, source }));
   }
+  for (const service of manifest.services ?? []) resolutions.push(answer(privacyServicesHook, service));
   if (manifest.staticPaths || manifest.uuidPaths || manifest.menuAspects) {
     resolutions.push(answer(routingHook, { staticPaths: manifest.staticPaths, uuidPaths: manifest.uuidPaths, menuAspects: manifest.menuAspects }));
   }

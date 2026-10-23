@@ -52,6 +52,9 @@ Guide: [App settings](../guide/settings.md).
 | `builtin/streams/models` | `useStreams`, `useStreamEntries`, `useSaveStream`, `useDeleteStream`, `useSaveStreamEntry`, `useDeleteStreamEntry`, `streamsHostHook`, `formatDuration`, the row types |
 | `builtin/analytics` | `analyticsApp` (also the default export): the [analytics app](../guide/analytics.md) |
 | `builtin/analytics/models` | `useStreamsInSpan`, `streamMatches`, `totalsOf`, `bucketize`, `groupStreams`, `StreamFilter`, `StreamCondition` |
+| `builtin/consent` | `consentApp` (also the default export): the [consent app](../guide/consent.md) |
+| `builtin/consent/models` | `hasConsent`, `onConsent`, `useConsent`, `getConsent`, `setConsent`, `acceptAllConsent`, `rejectAllConsent`, `resetConsent`, `subscribeConsent`, `hasServiceConsent`, `onServiceConsent`, `getServices`, `configureConsent`, `configurePolicy`, `privacyPolicy`, `DEFAULT_SERVICES`, `ANALYTICS`, `NECESSARY` |
+| `builtin/consent/components/*` | `ConsentBanner`, `CookieSettings`, `PrivacyPolicy`, for screens outside the shell |
 
 ## `entities/`
 
