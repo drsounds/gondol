@@ -48,6 +48,10 @@ Guide: [App settings](../guide/settings.md).
 | --- | --- |
 | `builtin/ai` | `aiApp` (also the default export): the [ai app](../guide/ai.md) |
 | `builtin/ai/models` | `useAiSettings`, `useAiConversations`, `useAiMessages`, `useAiChat`, `useAiModelChoices`, `useProviderModels`, `useSavedAiModels`, `registerAiProvider`, `getAiProvider`, `getAiProviders`, `ollamaProvider`, `AiProvider`, `AiProviderError`, the row types |
+| `builtin/streams` | `streamsApp` (also the default export): the [streams app](../guide/streams.md) |
+| `builtin/streams/models` | `useStreams`, `useStreamEntries`, `useSaveStream`, `useDeleteStream`, `useSaveStreamEntry`, `useDeleteStreamEntry`, `streamsHostHook`, `formatDuration`, the row types |
+| `builtin/analytics` | `analyticsApp` (also the default export): the [analytics app](../guide/analytics.md) |
+| `builtin/analytics/models` | `useStreamsInSpan`, `streamMatches`, `totalsOf`, `bucketize`, `groupStreams`, `StreamFilter`, `StreamCondition` |
 
 ## `entities/`
 

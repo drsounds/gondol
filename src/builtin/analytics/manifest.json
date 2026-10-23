@@ -1,0 +1,29 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "analytics",
+  "slug": "analytics",
+  "name": { "en": "Analytics", "sv": "Analys" },
+  "description": {
+    "en": "Analyses of what you record: streams by period, time of day, entity type, subject, predicate, object, context, motivation and task.",
+    "sv": "Analyser av det du registrerar: strömmar per period, tid på dygnet, objekttyp, subjekt, predikat, objekt, sammanhang, motivation och uppgift."
+  },
+  "iconName": "chart",
+  "defaultFeatureId": "streams",
+  "dependencies": ["streams"],
+  "defaultActive": true,
+  "roles": ["analytics", "admin", "operator"],
+  "aspects": ["analyze", "view"],
+  "features": [
+    {
+      "id": "streams",
+      "name": { "en": "Stream analytics", "sv": "Strömanalys" },
+      "description": { "en": "Totals, a chart over time and breakdowns of your streams", "sv": "Summor, diagram över tid och uppdelningar av dina strömmar" },
+      "path": "analytics",
+      "iconName": "chart",
+      "actions": [
+        { "id": "analytics.streams", "title": "Stream analytics", "category": "Analytics", "iconName": "chart", "navigate": "/analytics", "keywords": ["streams", "statistics", "report"] }
+      ],
+      "browse": { "label": "nav.analytics", "iconName": "chart", "hue": 260 }
+    }
+  ]
+}

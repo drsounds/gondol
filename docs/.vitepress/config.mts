@@ -52,7 +52,11 @@ export default {
       },
       {
         text: "Built-in apps",
-        items: [{ text: "The ai app", link: "/guide/ai" }],
+        items: [
+          { text: "The ai app", link: "/guide/ai" },
+          { text: "The streams app", link: "/guide/streams" },
+          { text: "The analytics app", link: "/guide/analytics" },
+        ],
       },
       {
         text: "Tutorial",

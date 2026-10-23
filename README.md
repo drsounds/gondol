@@ -40,6 +40,8 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **Theming engine**: light and dark, any accent, palettes, the Aero and TUI (DOS and mainframe text mode) engines, neon glow, high contrast, synced to the user's account
 - ✅ **App settings**: apps declare settings in their manifest (sections, submenus, choices, checkboxes, text, strings, numbers), stored per user, workspace or site and edited in one panel
 - ✅ **The ai app**: LLM support and an AI chat on Ollama, with conversations, messages, models and providers
+- ✅ **The streams app**: what the user does as streams (subject, predicate, object, context, motivation, start and end, quantity) with yin/yang entries
+- ✅ **The analytics app**: stream analytics filtered by period, time of day, entity type and conditions on subject, predicate, object, context, motivation and task
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
 - ✅ **English and Swedish** strings, merged with the app's own catalogue
@@ -181,7 +183,7 @@ and `useNavCollapsed`.
 | `entities/` | Entity URIs and public addresses, slugs, sources and labels, `EntitySheet`, `FormActions`, `ActionMenu`, `EntityPicker`, drag and drop, lifecycle |
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
-| `builtin/` | Apps gondol ships: `ai` (LLM providers, models, conversations and an AI chat on Ollama) |
+| `builtin/` | Apps gondol ships: `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries) and `analytics` (stream analytics) |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |
@@ -196,7 +198,7 @@ and `useNavCollapsed`.
 
 Gondol's queries expect these in the app's Supabase project (typed in `src/supabase/types.ts`):
 
-- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`).
+- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`; with the streams app, `streams` and `stream_entries`).
 - Functions: `entity_lifecycle_states()`, `entity_slugs()`, `global_filter_excluded()`,
   `search_entities()`, `set_entity_soft_deleted_at()` and `site_for_domain()`.
 
