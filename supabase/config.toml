@@ -1,2 +1,6 @@
 [functions.ai-openai]
 verify_jwt = true
+
+# Takes WebSockets, which carry no Authorization header: the function checks the token itself.
+[functions.ai-deepagents]
+verify_jwt = false

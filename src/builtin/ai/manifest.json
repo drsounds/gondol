@@ -4,8 +4,8 @@
   "slug": "ai",
   "name": { "en": "AI", "sv": "AI" },
   "description": {
-    "en": "Chat with large language models: conversations kept per account, AI services of your own (OpenAI, Berget AI, a local Ollama, …) each on a provider, or the provider's address in the app's settings, and the tools other apps offer over MCP.",
-    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, egna AI-tjänster (OpenAI, Berget AI, en lokal Ollama, …) kopplade till en leverantör, eller leverantörens adress i appens inställningar, och verktygen andra appar erbjuder via MCP."
+    "en": "Chat with large language models: conversations kept per account, AI services of your own (OpenAI, Berget AI, a local Ollama, a LangChain Deep Agent, …) each on a provider, or the provider's address in the app's settings, and the tools other apps offer over MCP.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, egna AI-tjänster (OpenAI, Berget AI, en lokal Ollama, en LangChain Deep Agent, …) kopplade till en leverantör, eller leverantörens adress i appens inställningar, och verktygen andra appar erbjuder via MCP."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "chat",
@@ -139,7 +139,8 @@
             "label": { "en": "Providers in use", "sv": "Leverantörer som används" },
             "options": [
               { "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } },
-              { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } }
+              { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } },
+              { "value": "deepagents", "label": { "en": "LangChain Deep Agents", "sv": "LangChain Deep Agents" } }
             ],
             "default": ["ollama"]
           }
@@ -147,6 +148,44 @@
       }
     ],
     "submenus": [
+      {
+        "id": "deepagents",
+        "title": { "en": "LangChain Deep Agents", "sv": "LangChain Deep Agents" },
+        "description": { "en": "The agent's model and how far it may go", "sv": "Agentens modell och hur långt den får gå" },
+        "iconName": "chip",
+        "sections": [
+          {
+            "id": "agent",
+            "title": { "en": "Agent", "sv": "Agent" },
+            "description": {
+              "en": "A Deep Agent plans, keeps notes, hands work to sub-agents and uses the apps' tools until it has an answer. It runs on the server (the ai-deepagents function) on a model of an Ollama or an OpenAI-compatible API, with that provider's address and key.",
+              "sv": "En Deep Agent planerar, för anteckningar, lämnar över arbete till underagenter och använder apparnas verktyg tills den har ett svar. Den körs på servern (funktionen ai-deepagents) på en modell från en Ollama eller ett OpenAI-kompatibelt API, med den leverantörens adress och nyckel."
+            },
+            "settings": [
+              {
+                "key": "deepagents.backend",
+                "type": "select",
+                "display": "radio",
+                "label": { "en": "The agent's model runs on", "sv": "Agentens modell körs på" },
+                "options": [
+                  { "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } },
+                  { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } }
+                ],
+                "default": "ollama"
+              },
+              {
+                "key": "deepagents.maxSteps",
+                "type": "number",
+                "label": { "en": "Most steps per answer", "sv": "Flest steg per svar" },
+                "description": { "en": "Model calls and tool calls together. Empty: 100.", "sv": "Modellanrop och verktygsanrop tillsammans. Tomt: 100." },
+                "integer": true,
+                "min": 5,
+                "max": 1000
+              }
+            ]
+          }
+        ]
+      },
       {
         "id": "openai",
         "title": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" },
@@ -213,6 +252,21 @@
                 "label": { "en": "API key (optional)", "sv": "API-nyckel (valfri)" },
                 "description": { "en": "Sent as a bearer token, for an Ollama behind a proxy that asks for one.", "sv": "Skickas som bearer-token, för en Ollama bakom en proxy som kräver en." },
                 "maxLength": 500
+              },
+              {
+                "key": "ollama.transport",
+                "type": "select",
+                "display": "radio",
+                "label": { "en": "Answers travel over", "sv": "Svar skickas via" },
+                "description": {
+                  "en": "A WebSocket keeps the connection alive while a model loads or writes a long answer, so it isn't cut off. It falls back to HTTP when the server can't take one.",
+                  "sv": "En WebSocket håller anslutningen vid liv medan en modell laddas eller skriver ett långt svar, så att den inte bryts. Den faller tillbaka på HTTP när servern inte tar emot en."
+                },
+                "options": [
+                  { "value": "websocket", "label": { "en": "WebSocket", "sv": "WebSocket" } },
+                  { "value": "http", "label": { "en": "HTTP (server-sent events)", "sv": "HTTP (server-sent events)" } }
+                ],
+                "default": "websocket"
               }
             ]
           },

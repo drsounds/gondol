@@ -11,8 +11,9 @@
 //
 // `--functions <dir>` also writes gondol's Supabase edge function for the router to
 // <dir>/app-router/index.ts (from supabase/functions/app-router), importing the files above, and,
-// when the built-in ai app is among `--builtin`, its function for OpenAI-compatible APIs to
-// <dir>/ai-openai/index.ts (from supabase/functions/ai-openai).
+// when the built-in ai app is among `--builtin`, its functions for OpenAI-compatible APIs and
+// LangChain Deep Agents to <dir>/ai-openai/index.ts and <dir>/ai-deepagents/index.ts (from
+// supabase/functions/).
 //
 // `--check` writes nothing and fails when the files are out of date (for CI). `--title` and
 // `--version` set the document's info.
@@ -59,8 +60,10 @@ if (functionsDir) {
   const shared = relative(target, out).split("\\").join("/");
   files[join(target, "index.ts")] = `${generated("supabase/functions/app-router/index.ts")}${fn.replaceAll("../_shared/gondol-api/", `${shared}/`)}`;
   if (builtin.includes("ai")) {
-    const ai = readFileSync(join(here, "../../supabase/functions/ai-openai/index.ts"), "utf8");
-    files[join(resolve(functionsDir), "ai-openai", "index.ts")] = `${generated("supabase/functions/ai-openai/index.ts")}${ai}`;
+    for (const name of ["ai-openai", "ai-deepagents"]) {
+      const ai = readFileSync(join(here, `../../supabase/functions/${name}/index.ts`), "utf8");
+      files[join(resolve(functionsDir), name, "index.ts")] = `${generated(`supabase/functions/${name}/index.ts`)}${ai}`;
+    }
   }
 }
 

@@ -82,12 +82,20 @@ export type AiService = {
   has_api_key: boolean;
   enabled: boolean;
   position: number;
+  /** What its provider needs besides an address, e.g. `{ backend: "ollama" }` for a Deep Agent. */
+  options: AiServiceOptions;
   created_at: string;
   updated_at: string;
 };
 
+/** A service's provider-specific options (`ai_services.options`). */
+export type AiServiceOptions = {
+  /** For a Deep Agent (provider `deepagents`): the API its model runs on, `ollama` or `openai`. */
+  backend?: "ollama" | "openai";
+};
+
 /** What the client writes to ai_services. */
-export type AiServiceWrite = Partial<Pick<AiService, "name" | "provider" | "base_url" | "enabled" | "position">>;
+export type AiServiceWrite = Partial<Pick<AiService, "name" | "provider" | "base_url" | "enabled" | "position" | "options">>;
 
 type Table<Row, Required extends keyof Row> = {
   Row: Row;
@@ -106,9 +114,9 @@ export type AiDatabase = {
       ai_messages: Table<Stored<AiMessage>, "conversation_id" | "role" | "content">;
       ai_models: Table<Stored<AiModel>, "provider" | "name">;
       ai_services: {
-        Row: AiService;
-        Insert: AiServiceWrite & Pick<AiService, "name" | "provider">;
-        Update: AiServiceWrite;
+        Row: Omit<AiService, "options"> & { options: Json };
+        Insert: Omit<AiServiceWrite, "options"> & Pick<AiService, "name" | "provider"> & { options?: Json };
+        Update: Omit<AiServiceWrite, "options"> & { options?: Json };
         Relationships: [];
       };
     };

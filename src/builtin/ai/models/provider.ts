@@ -9,7 +9,7 @@ import type { AiMetrics, AiRole, AiService } from "./types";
  */
 
 /** What a provider needs of a service: which one (the server reads its key) and its address. */
-export type AiServiceRef = Pick<AiService, "id" | "base_url">;
+export type AiServiceRef = Pick<AiService, "id" | "base_url"> & Partial<Pick<AiService, "options">>;
 
 /** The ai app's settings in effect (useAppSettings("ai").values). */
 export type AiSettings = Record<string, AppSettingValue | undefined>;
@@ -62,6 +62,13 @@ export interface AiChatRequest {
   tools?: AiTool[];
   /** The service to ask instead of the provider's settings. */
   service?: AiServiceRef | null;
+  /**
+   * For providers that run their own agent loop (`runsTools`): runs one of `tools` the agent called
+   * (asking the user first when the settings say so) and resolves with what to tell the agent.
+   */
+  runTool?: (call: AiToolCall) => Promise<string>;
+  /** What an agent is doing now (planning, a step of its own, a sub-agent), for the chat to show. */
+  onStatus?: (status: string) => void;
 }
 
 export interface AiChatResult {
@@ -81,6 +88,11 @@ export interface AiProvider {
   describe?: (settings: AiSettings, service?: AiServiceRef | null) => string;
   /** Whether it can hand the model tools (function calling). */
   supportsTools?: boolean;
+  /**
+   * Whether it runs the tool loop itself (an agent on the server): it calls `runTool` for the apps'
+   * tools while it works and never hands back `toolCalls`.
+   */
+  runsTools?: boolean;
   /** Whether it can be added as a service (an address and key of its own, in ai_services). */
   supportsServices?: boolean;
   /** The address a new service of it starts with, as a placeholder. */
