@@ -92,6 +92,10 @@ The function reads the signed-in user's `openai.apiKey` from `app_settings` and 
 token; do not accept the key in the request body. Validate the base URL and restrict hosts the
 function may call to avoid using it to reach private services.
 
+By default, the function only calls public HTTPS hosts. Set `OPENAI_ALLOWED_HOSTS` to a comma-separated
+list of host names or `host:port` values to allow internal APIs, or set `OPENAI_ALLOW_PRIVATE=true`
+to allow any address in a single-user installation.
+
 Both functions return errors as JSON `{ error, kind }`, with `kind` one of `config`, `forbidden`,
 `unreachable`, `http` or `invalid`; the chat and models page show the message and what to check.
 
