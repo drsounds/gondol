@@ -39,7 +39,8 @@
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
-.analytics-chart { margin: 0; }
+.analytics-chart { margin: 0; min-inline-size: 0; }
+.analytics__hint { font-size: 0.75rem; margin: 0; }
 .analytics-chart__readout {
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;

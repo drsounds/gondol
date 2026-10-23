@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, Card, Input, Select } from "../../../../../../design-system/bungalow-79d923";
 import { ActionMenu } from "../../../../../../entities/ActionMenu";
 import { EntityPicker } from "../../../../../../entities/EntityPicker";
 import { entityTypeLabel, labelFor, useEntityLabels } from "../../../../../../entities/lookup";
 import { entityKey } from "../../../../../../entities/slugs";
-import { isEntityUri, parseEntityUri, toEntityUri } from "../../../../../../entities/uri";
+import { isEntityUri, parseEntityUri, toEntityUri, type EntityType } from "../../../../../../entities/uri";
 import { useI18n, type MessageKey } from "../../../../../../i18n/i18n";
 import type { DateRangeSearch } from "../../../../../../navigation/dateRangeSearch";
 import { EmptyState } from "../../../../../../shell/EmptyState";
@@ -107,8 +107,8 @@ export function StreamAnalyticsPanel() {
   const metricValue = (x: StreamTotals) => x[metric];
   const metricText = (value: number) => (metric === "duration" ? formatDuration(value) : num(value));
   const when = new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium", timeStyle: "short" });
-  const typeName = (type: string) => entityTypeLabel(t, toEntityUri(type, "x"));
-  const subjectLabel = (uri: string) => (parseEntityUri(uri)?.entityType === "user" ? t("analytics.you") : uriLabel(uri));
+  const typeName = (type: string) => entityTypeLabel(t, toEntityUri(type as EntityType, "x"));
+  const subjectLabel = (uri: string) => ((parseEntityUri(uri)?.entityType as string | undefined) === "user" ? t("analytics.you") : uriLabel(uri));
 
   function choosePreset(next: Preset) {
     setPreset(next);
@@ -174,9 +174,10 @@ export function StreamAnalyticsPanel() {
                 setSpan((s) => ({ ...s, to: e.target.value }));
               }}
             />
-            <Input label={t("analytics.timeFrom")} type="time" hint={t("analytics.timeHint")} value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} />
+            <Input label={t("analytics.timeFrom")} type="time" value={timeFrom} onChange={(e) => setTimeFrom(e.target.value)} />
             <Input label={t("analytics.timeTo")} type="time" value={timeTo} onChange={(e) => setTimeTo(e.target.value)} />
           </div>
+          <p className="muted analytics__hint">{t("analytics.timeHint")}</p>
 
           {objectTypes.length > 0 ? (
             <div className="stack analytics__types">
@@ -248,7 +249,7 @@ export function StreamAnalyticsPanel() {
                         c.field === "subject_uri"
                           ? subjects.map((uri) => {
                               const ref = parseEntityUri(uri);
-                              return { type: ref?.entityType ?? "user", id: ref?.entityId ?? uri, title: subjectLabel(uri) };
+                              return { type: ref?.entityType ?? ("user" as EntityType), id: ref?.entityId ?? uri, title: subjectLabel(uri) };
                             })
                           : undefined
                       }
@@ -448,7 +449,7 @@ function bucketLabel(start: Date, granularity: Granularity, locale: string): str
       ? { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
       : granularity === "month"
         ? { month: "short", year: "numeric" }
-        : { day: "numeric", month: "short", year: "numeric" };
+        : { day: "numeric", month: "short" };
   return new Intl.DateTimeFormat(locale, options).format(start);
 }
 
@@ -458,8 +459,17 @@ function bucketLabel(start: Date, granularity: Granularity, locale: string): str
  */
 function BarChart({ bars, format, label }: { bars: { key: number; value: number; label: string }[]; format: (value: number) => string; label: string }) {
   const [active, setActive] = useState<number | null>(null);
+  // Drawn at the figure's own width in pixels, so the text stays its size on phones and wide screens.
+  const ref = useRef<HTMLElement>(null);
+  const [width, setWidth] = useState(720);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(240, Math.round(entry.contentRect.width))));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const max = Math.max(0, ...bars.map((b) => b.value));
-  const width = 720;
   const height = 220;
   const pad = { top: 12, right: 8, bottom: 28, left: 8 };
   const plotW = width - pad.left - pad.right;
@@ -468,11 +478,11 @@ function BarChart({ bars, format, label }: { bars: { key: number; value: number;
   const barW = Math.max(1, step - 2);
   const y = (v: number) => (max > 0 ? (v / max) * plotH : 0);
   const ticks = [0.5, 1].map((f) => f * max);
-  const labelEvery = Math.max(1, Math.ceil(bars.length / 8));
+  const labelEvery = Math.max(1, Math.ceil(bars.length / Math.max(2, Math.floor(width / 110))));
   const hovered = active != null ? bars[active] : null;
 
   return (
-    <figure className="analytics-chart" aria-label={label}>
+    <figure ref={ref} className="analytics-chart" aria-label={label}>
       <div className="analytics-chart__readout" aria-live="polite">
         {hovered ? (
           <>
@@ -512,7 +522,7 @@ function BarChart({ bars, format, label }: { bars: { key: number; value: number;
               ) : null}
               <title>{`${b.label}: ${format(b.value)}`}</title>
               {i % labelEvery === 0 ? (
-                <text x={x + barW / 2} y={height - 8} textAnchor="middle" className="analytics-chart__tick">
+                <text x={i === 0 ? x : x + barW / 2} y={height - 8} textAnchor={i === 0 ? "start" : "middle"} className="analytics-chart__tick">
                   {b.label}
                 </text>
               ) : null}
