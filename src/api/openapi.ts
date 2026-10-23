@@ -94,7 +94,7 @@ export function apiScopes(sources: readonly ApiSource[]): ApiScope[] {
   return sources.flatMap((source) => Object.entries(source.api?.scopes ?? {}).map(([name, description]) => ({ name, description, appId: source.id })));
 }
 
-const reservedPaths = ["/openapi.json", "/oauth/authorize", "/oauth/token", "/oauth/revoke"];
+const reservedPaths = ["/openapi.json", "/oauth/authorize", "/oauth/token", "/oauth/revoke", "/.well-known/oauth-authorization-server"];
 
 function toOperation(appId: string, operation: AppApiOperation): ApiOperation {
   const { rpc, scopes, requestBody, responses, parameters, ...rest } = operation;

@@ -2094,6 +2094,160 @@
         "paths"
       ],
       "additionalProperties": false
+    },
+    "functions": {
+      "description": "Server functions other apps, scripts and AI can call through the app router.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "description": "What it does, for developers and AI models (English).",
+            "type": "string",
+            "minLength": 1
+          },
+          "rpc": {
+            "description": "The Postgres function that answers it, called as the user with `p_<field>` arguments.",
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "function": {
+            "description": "An edge function that answers it instead: it gets the input as its JSON body and the caller's token.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "input": {
+            "description": "The input, an object schema (default: any object).",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "output": {
+            "description": "What it answers with.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "scopes": {
+            "description": "OAuth scopes a token needs (all of them; the app API's `scopes`). Omitted: any signed-in caller; []: anyone, also signed out.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.:-]*$"
+            }
+          },
+          "readOnly": {
+            "description": "It only reads: an AI may call it without asking.",
+            "type": "boolean"
+          },
+          "destructive": {
+            "description": "It deletes or overwrites: an AI always asks first.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "mcp": {
+      "description": "What the app offers AI models over the Model Context Protocol.",
+      "type": "object",
+      "properties": {
+        "instructions": {
+          "description": "What the app is for and when to use its tools, told to AI models (English).",
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "The tool's name, unique in the app; the router serves it as `<app>__<name>`.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "description": "Default: the function's or operation's.",
+                "type": "string"
+              },
+              "function": {
+                "description": "One of the app's `functions` that the tool runs.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "operation": {
+                "description": "Or an `operationId` of the app's `api`: its parameters and body become the tool's input.",
+                "type": "string",
+                "pattern": "^[A-Za-z_]\\w*$"
+              },
+              "inputSchema": {
+                "description": "Default: the function's input, or the operation's parameters and body.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "readOnly": {
+                "description": "It only reads: an AI may call it without asking.",
+                "type": "boolean"
+              },
+              "destructive": {
+                "description": "It deletes or overwrites: an AI always asks first.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "endpoint": {
+          "description": "An MCP server of the app's own (Streamable HTTP), proxied by the router.",
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https:\\/\\/[^\\s]+$"
+            },
+            "headers": {
+              "description": "Headers to send, by name, each read from the server secret named (e.g. `{ \"Authorization\": \"MYAPP_MCP_TOKEN\" }`).",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]+$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

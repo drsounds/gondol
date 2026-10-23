@@ -152,10 +152,53 @@ async function validateBaseUrl(value: unknown): Promise<URL> {
   return url;
 }
 
+type ChatMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+const TOOL_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
+
+function validateToolCalls(value: unknown): { id: string; type: "function"; function: { name: string; arguments: string } }[] {
+  if (!Array.isArray(value) || value.length > 64) throw new FunctionError("The tool calls are invalid", "invalid", 400);
+  return value.map((call) => {
+    const item = call as { id?: unknown; function?: { name?: unknown; arguments?: unknown } } | null;
+    if (!item || typeof item.id !== "string" || typeof item.function?.name !== "string" || !TOOL_NAME.test(item.function.name) || typeof item.function.arguments !== "string") {
+      throw new FunctionError("The tool calls are invalid", "invalid", 400);
+    }
+    return { id: item.id, type: "function" as const, function: { name: item.function.name, arguments: item.function.arguments } };
+  });
+}
+
+function validateTools(value: unknown): { type: "function"; function: { name: string; description?: string; parameters: Record<string, unknown> } }[] {
+  if (!Array.isArray(value) || value.length > 128) throw new FunctionError("The tools are invalid", "invalid", 400);
+  return value.map((tool) => {
+    const item = tool as { type?: unknown; function?: { name?: unknown; description?: unknown; parameters?: unknown } } | null;
+    const fn = item?.function;
+    if (
+      !item ||
+      item.type !== "function" ||
+      typeof fn?.name !== "string" ||
+      !TOOL_NAME.test(fn.name) ||
+      (fn.description !== undefined && typeof fn.description !== "string") ||
+      !fn.parameters ||
+      typeof fn.parameters !== "object" ||
+      Array.isArray(fn.parameters)
+    ) {
+      throw new FunctionError("The tools are invalid", "invalid", 400);
+    }
+    return {
+      type: "function" as const,
+      function: { name: fn.name, ...(typeof fn.description === "string" ? { description: fn.description } : {}), parameters: fn.parameters as Record<string, unknown> },
+    };
+  });
+}
+
 function validateChat(body: Record<string, unknown>): {
   model: string;
-  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  messages: ChatMessage[];
   temperature?: number;
+  tools?: ReturnType<typeof validateTools>;
 } {
   if (typeof body.model !== "string" || !body.model.trim() || body.model.length > 200) {
     throw new FunctionError("A valid model is required", "invalid", 400);
@@ -165,28 +208,35 @@ function validateChat(body: Record<string, unknown>): {
   }
 
   let totalLength = 0;
-  const messages = body.messages.map((message) => {
+  const messages = body.messages.map((message): ChatMessage => {
     const item = message as Record<string, unknown> | null;
-    if (
-      !item ||
-      typeof item !== "object" ||
-      typeof item.role !== "string" ||
-      !["system", "user", "assistant"].includes(item.role) ||
-      typeof item.content !== "string"
-    ) {
-      throw new FunctionError("The chat messages are invalid", "invalid", 400);
+    if (!item || typeof item !== "object" || typeof item.role !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
+    if (item.role === "assistant" && item.tool_calls !== undefined) {
+      if (item.content !== null && typeof item.content !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
+      const toolCalls = validateToolCalls(item.tool_calls);
+      totalLength += (typeof item.content === "string" ? item.content.length : 0) + toolCalls.reduce((sum, call) => sum + call.function.arguments.length, 0);
+      return { role: "assistant", content: (item.content as string | null) ?? null, tool_calls: toolCalls };
     }
+    if (typeof item.content !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
     totalLength += item.content.length;
+    if (item.role === "tool") {
+      if (typeof item.tool_call_id !== "string" || !item.tool_call_id) throw new FunctionError("The chat messages are invalid", "invalid", 400);
+      return { role: "tool", tool_call_id: item.tool_call_id, content: item.content };
+    }
+    if (!["system", "user", "assistant"].includes(item.role)) throw new FunctionError("The chat messages are invalid", "invalid", 400);
     return { role: item.role as "system" | "user" | "assistant", content: item.content };
   });
   if (totalLength > 1_000_000) throw new FunctionError("The chat messages are too large", "invalid", 413);
   if (body.temperature !== undefined && (typeof body.temperature !== "number" || !Number.isFinite(body.temperature) || body.temperature < 0 || body.temperature > 2)) {
     throw new FunctionError("Temperature must be between 0 and 2", "invalid", 400);
   }
+  const tools = body.tools !== undefined ? validateTools(body.tools) : undefined;
+  if (tools && JSON.stringify(tools).length > 500_000) throw new FunctionError("The tools are too large", "invalid", 413);
   return {
     model: body.model,
     messages,
     ...(body.temperature !== undefined ? { temperature: body.temperature as number } : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 }
 

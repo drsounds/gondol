@@ -1,6 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
-import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
+import { AiProviderError, type AiChatMessage, type AiProvider, type AiSettings, type AiTool, type AiToolCall } from "./provider";
 
 let functionName = "ai-openai";
 
@@ -45,16 +45,54 @@ interface OpenAiModel {
   owned_by?: string;
 }
 
+interface OpenAiToolCallDelta {
+  index?: number;
+  id?: string;
+  function?: { name?: string; arguments?: string };
+}
+
 interface OpenAiChunk {
-  choices?: { delta?: { content?: string }; finish_reason?: string | null }[];
+  choices?: { delta?: { content?: string; tool_calls?: OpenAiToolCallDelta[] }; finish_reason?: string | null }[];
   usage?: { prompt_tokens?: number; completion_tokens?: number };
   error?: string | { message?: string };
+}
+
+/** Messages in the chat completions shape, tool calls and results included. */
+export function openAiMessages(messages: AiChatMessage[]): Record<string, unknown>[] {
+  return messages.map((message) => {
+    if (message.role === "tool") return { role: "tool", tool_call_id: message.toolCallId ?? "", content: message.content };
+    if (message.toolCalls?.length) {
+      return {
+        role: "assistant",
+        content: message.content || null,
+        tool_calls: message.toolCalls.map((call) => ({ id: call.id, type: "function", function: { name: call.name, arguments: JSON.stringify(call.arguments) } })),
+      };
+    }
+    return { role: message.role, content: message.content };
+  });
+}
+
+export function openAiTools(tools: AiTool[]): Record<string, unknown>[] {
+  return tools.map((tool) => ({ type: "function", function: { name: tool.name, ...(tool.description ? { description: tool.description } : {}), parameters: tool.parameters } }));
+}
+
+/** Parses a tool call's JSON arguments; anything but an object becomes {}. */
+export function parseToolArguments(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw !== "string" || !raw.trim()) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 
 export const openAiProvider: AiProvider = {
   id: "openai",
   name: "OpenAI-compatible API",
   addressSetting: "openai.baseUrl",
+  supportsTools: true,
   describe: (settings) => openAiBaseUrl(settings),
 
   async listModels(settings, signal) {
@@ -68,14 +106,15 @@ export const openAiProvider: AiProvider = {
       }));
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools }) {
     const startedAt = Date.now();
     const response = await invoke(
       {
         action: "chat",
         baseUrl: openAiBaseUrl(settings),
         model,
-        messages,
+        messages: openAiMessages(messages),
+        ...(tools?.length ? { tools: openAiTools(tools) } : {}),
         ...(temperature !== undefined ? { temperature } : {}),
       },
       signal,
@@ -87,6 +126,8 @@ export const openAiProvider: AiProvider = {
     let buffer = "";
     let content = "";
     let usage: OpenAiChunk["usage"];
+    // Tool calls stream in pieces, by index: the id and name first, the arguments in parts.
+    const calls: { id: string; name: string; arguments: string }[] = [];
     const handle = (event: string) => {
       const data = event
         .replace(/\r/g, "")
@@ -107,6 +148,13 @@ export const openAiProvider: AiProvider = {
         throw new AiProviderError(message || "The AI API returned an error", "http");
       }
       usage = chunk.usage ?? usage;
+      for (const delta of chunk.choices?.[0]?.delta?.tool_calls ?? []) {
+        const index = typeof delta.index === "number" ? delta.index : calls.length;
+        const call = (calls[index] ??= { id: "", name: "", arguments: "" });
+        if (delta.id) call.id = delta.id;
+        if (delta.function?.name) call.name += delta.function.name;
+        if (delta.function?.arguments) call.arguments += delta.function.arguments;
+      }
       const piece = chunk.choices?.[0]?.delta?.content;
       if (typeof piece === "string" && piece) {
         content += piece;
@@ -139,8 +187,12 @@ export const openAiProvider: AiProvider = {
 
     const durationMs = Date.now() - startedAt;
     const completionTokens = usage?.completion_tokens;
+    const toolCalls: AiToolCall[] = calls
+      .filter((call) => call && call.name)
+      .map((call, index) => ({ id: call.id || `call_${index}`, name: call.name, arguments: parseToolArguments(call.arguments) }));
     return {
       content,
+      ...(toolCalls.length ? { toolCalls } : {}),
       metrics: {
         promptTokens: usage?.prompt_tokens,
         completionTokens,

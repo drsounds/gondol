@@ -4,8 +4,8 @@
   "slug": "ai",
   "name": { "en": "AI", "sv": "AI" },
   "description": {
-    "en": "Chat with large language models: conversations kept per account, models from Ollama or OpenAI-compatible APIs, and the provider's address in the app's settings.",
-    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från Ollama eller OpenAI-kompatibla API:er och leverantörens adress i appens inställningar."
+    "en": "Chat with large language models: conversations kept per account, models from Ollama or OpenAI-compatible APIs, the provider's address in the app's settings, and the tools other apps offer over MCP.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från Ollama eller OpenAI-kompatibla API:er, leverantörens adress i appens inställningar och verktygen andra appar erbjuder via MCP."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "chat",
@@ -96,6 +96,35 @@
             "scope": "user",
             "label": { "en": "Show tokens and speed under answers", "sv": "Visa tokens och hastighet under svar" },
             "default": false
+          }
+        ]
+      },
+      {
+        "id": "apps",
+        "title": { "en": "Apps", "sv": "Appar" },
+        "description": {
+          "en": "Apps can offer the AI tools (MCP) through the app router, e.g. to start a stream or note an idea.",
+          "sv": "Appar kan erbjuda AI:n verktyg (MCP) via approutern, t.ex. för att starta ett flöde eller anteckna en idé."
+        },
+        "settings": [
+          {
+            "key": "appTools",
+            "type": "checkbox",
+            "label": { "en": "Let the AI use the apps' tools", "sv": "Låt AI:n använda apparnas verktyg" },
+            "default": true
+          },
+          {
+            "key": "toolApproval",
+            "type": "select",
+            "scope": "user",
+            "display": "radio",
+            "label": { "en": "Ask before a tool runs", "sv": "Fråga innan ett verktyg körs" },
+            "options": [
+              { "value": "changes", "label": { "en": "When it changes something", "sv": "När det ändrar något" } },
+              { "value": "always", "label": { "en": "Always", "sv": "Alltid" } },
+              { "value": "never", "label": { "en": "Never", "sv": "Aldrig" } }
+            ],
+            "default": "changes"
           }
         ]
       },

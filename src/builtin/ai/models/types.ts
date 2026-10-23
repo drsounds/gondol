@@ -26,6 +26,8 @@ export type AiMetrics = {
   durationMs?: number;
   /** Completion tokens per second. */
   tokensPerSecond?: number;
+  /** The apps' tools the model called for the answer, in order. */
+  tools?: { name: string; title?: string; ok: boolean }[];
 };
 
 /** A message of a conversation (`ai_messages`). */

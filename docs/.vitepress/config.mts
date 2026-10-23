@@ -49,6 +49,7 @@ export default {
           { text: "Sites", link: "/guide/sites" },
           { text: "Platform services", link: "/guide/platform" },
           { text: "App APIs (OpenAPI)", link: "/guide/api" },
+          { text: "App functions and MCP", link: "/guide/functions" },
         ],
       },
       {

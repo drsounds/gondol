@@ -163,3 +163,22 @@ describe("buildOpenApiDocument", () => {
     expect(() => buildOpenApiDocument([{ id: "x", api: { paths: { "/oauth/token": { post: plain } } } }])).toThrow(/gateway's own/);
   });
 });
+
+describe("authorization server metadata", () => {
+  test("names the endpoints and scopes", async () => {
+    const handler = createApiGateway({
+      document,
+      basePath: "/app-api",
+      authorizeUrl: "https://app.example.com/oauth/authorize",
+      authenticate: async () => null,
+      token: async () => ({ error: "invalid_grant" }),
+      invoke: async () => ({ data: null }),
+    });
+    const response = await handler(new Request("https://x.example/functions/v1/app-api/.well-known/oauth-authorization-server"));
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body.issuer).toBe("https://x.example/functions/v1/app-api");
+    expect(body.authorization_endpoint).toBe("https://app.example.com/oauth/authorize");
+    expect(body.token_endpoint).toBe("https://x.example/functions/v1/app-api/oauth/token");
+    expect(body.scopes_supported).toEqual(["streams:write"]);
+  });
+});

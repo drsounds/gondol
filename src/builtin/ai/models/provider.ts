@@ -11,8 +11,28 @@ import type { AiMetrics, AiRole } from "./types";
 export type AiSettings = Record<string, AppSettingValue | undefined>;
 
 export interface AiChatMessage {
-  role: AiRole;
+  /** `tool`: what a tool the model called answered. */
+  role: AiRole | "tool";
   content: string;
+  /** The tools an assistant message asked to call. */
+  toolCalls?: AiToolCall[];
+  /** For a `tool` message: the call it answers, and the tool's name. */
+  toolCallId?: string;
+  toolName?: string;
+}
+
+/** A tool the model may call (an app's MCP tool), with a JSON Schema for its arguments. */
+export interface AiTool {
+  name: string;
+  description?: string;
+  parameters: Record<string, unknown>;
+}
+
+/** A call of a tool the model asked for. */
+export interface AiToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
 }
 
 /** A model as its provider describes it. */
@@ -34,11 +54,15 @@ export interface AiChatRequest {
   signal?: AbortSignal;
   /** Called with each piece of the answer as it streams in. */
   onToken: (text: string) => void;
+  /** Tools the model may call (only sent to providers with `supportsTools`). */
+  tools?: AiTool[];
 }
 
 export interface AiChatResult {
   content: string;
   metrics?: AiMetrics;
+  /** The tools the model wants called before it answers; the chat runs them and asks again. */
+  toolCalls?: AiToolCall[];
 }
 
 export interface AiProvider {
@@ -49,6 +73,8 @@ export interface AiProvider {
   addressSetting?: string;
   /** Its address with the settings in effect, for messages. */
   describe?: (settings: AiSettings) => string;
+  /** Whether it can hand the model tools (function calling). */
+  supportsTools?: boolean;
   listModels: (settings: AiSettings, signal?: AbortSignal) => Promise<AiProviderModel[]>;
   chat: (settings: AiSettings, request: AiChatRequest) => Promise<AiChatResult>;
 }

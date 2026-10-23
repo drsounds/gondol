@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
-import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
+import { openAiTools, parseToolArguments } from "./openai";
+import { AiProviderError, type AiChatMessage, type AiProvider, type AiSettings, type AiToolCall } from "./provider";
 
 /**
  * Ollama (https://ollama.com), reached through a Supabase edge function rather than from the
@@ -56,8 +57,13 @@ interface OllamaTag {
   details?: Record<string, unknown>;
 }
 
+interface OllamaToolCall {
+  id?: string;
+  function?: { name?: string; arguments?: unknown };
+}
+
 interface OllamaChunk {
-  message?: { role?: string; content?: string };
+  message?: { role?: string; content?: string; tool_calls?: OllamaToolCall[] };
   done?: boolean;
   error?: string;
   prompt_eval_count?: number;
@@ -71,10 +77,22 @@ function option(settings: AiSettings, key: string): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+/** Messages in /api/chat's shape: tool calls carry their arguments as objects, results the tool's name. */
+export function ollamaMessages(messages: AiChatMessage[]): Record<string, unknown>[] {
+  return messages.map((message) => {
+    if (message.role === "tool") return { role: "tool", content: message.content, ...(message.toolName ? { tool_name: message.toolName } : {}) };
+    if (message.toolCalls?.length) {
+      return { role: "assistant", content: message.content, tool_calls: message.toolCalls.map((call) => ({ function: { name: call.name, arguments: call.arguments } })) };
+    }
+    return { role: message.role, content: message.content };
+  });
+}
+
 export const ollamaProvider: AiProvider = {
   id: "ollama",
   name: "Ollama",
   addressSetting: "ollama.baseUrl",
+  supportsTools: true,
   describe: (settings) => ollamaBaseUrl(settings),
 
   async listModels(settings, signal) {
@@ -89,7 +107,7 @@ export const ollamaProvider: AiProvider = {
       .filter((m) => m.name);
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools }) {
     const options: Record<string, number> = {};
     if (temperature !== undefined) options.temperature = temperature;
     const numCtx = option(settings, "ollama.numCtx");
@@ -100,7 +118,8 @@ export const ollamaProvider: AiProvider = {
         action: "chat",
         baseUrl: ollamaBaseUrl(settings) || undefined,
         model,
-        messages,
+        messages: ollamaMessages(messages),
+        ...(tools?.length ? { tools: openAiTools(tools) } : {}),
         ...(Object.keys(options).length ? { options } : {}),
         ...(keepAlive ? { keep_alive: /^-?\d+$/.test(keepAlive) ? Number(keepAlive) : keepAlive } : {}),
       },
@@ -114,6 +133,7 @@ export const ollamaProvider: AiProvider = {
     let buffer = "";
     let content = "";
     let last: OllamaChunk | null = null;
+    const toolCalls: AiToolCall[] = [];
     const handle = (event: string) => {
       const data = event
         .split("\n")
@@ -128,6 +148,10 @@ export const ollamaProvider: AiProvider = {
         return;
       }
       if (chunk.error) throw new AiProviderError(chunk.error, "http");
+      for (const call of chunk.message?.tool_calls ?? []) {
+        if (!call.function?.name) continue;
+        toolCalls.push({ id: call.id || `call_${toolCalls.length}`, name: call.function.name, arguments: parseToolArguments(call.function.arguments) });
+      }
       const piece = chunk.message?.content ?? "";
       if (piece) {
         content += piece;
@@ -154,6 +178,7 @@ export const ollamaProvider: AiProvider = {
     const evalSeconds = done?.eval_duration ? done.eval_duration / 1e9 : undefined;
     return {
       content,
+      ...(toolCalls.length ? { toolCalls } : {}),
       metrics: done
         ? {
             promptTokens: done.prompt_eval_count,
