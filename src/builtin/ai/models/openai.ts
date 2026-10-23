@@ -1,4 +1,13 @@
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { supabase } from "../../../supabase/client";
 import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
+
+let functionName = "ai-openai";
+
+/** Names the edge function that calls an OpenAI-compatible API (default `ai-openai`). */
+export function configureOpenAi(options: { functionName?: string }): void {
+  if (options.functionName) functionName = options.functionName;
+}
 
 /** The configured API address, defaulting to the OpenAI API's versioned base URL. */
 export function openAiBaseUrl(settings: AiSettings): string {
@@ -9,38 +18,26 @@ export function openAiBaseUrl(settings: AiSettings): string {
   return baseUrl.slice(0, end);
 }
 
-function apiKey(settings: AiSettings): string {
-  return typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
-}
+type ErrorKind = "config" | "forbidden" | "unreachable" | "http" | "invalid";
 
-function headers(settings: AiSettings): HeadersInit {
-  const key = apiKey(settings);
-  return {
-    "Content-Type": "application/json",
-    ...(key ? { Authorization: ["Bearer", key].join(" ") } : {}),
-  };
-}
-
-async function request(url: string, init: RequestInit, signal?: AbortSignal): Promise<Response> {
-  let response: Response;
-  try {
-    response = await fetch(url, { ...init, signal });
-  } catch (error) {
-    if (signal?.aborted) throw new AiProviderError("Stopped", "aborted");
-    throw new AiProviderError(`Couldn't reach the OpenAI-compatible API (${error instanceof Error ? error.message : String(error)})`, "unreachable");
-  }
-  if (!response.ok) {
-    let message = `The AI API answered ${response.status}`;
+async function invoke(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
+  const { data, error } = await supabase.functions.invoke(functionName, { body, signal });
+  if (!error) return data;
+  if (signal?.aborted) throw new AiProviderError("Stopped", "aborted");
+  if (error instanceof FunctionsHttpError) {
+    const response = error.context as Response;
+    let message = `The AI service answered ${response.status}`;
+    let kind: ErrorKind = "http";
     try {
-      const payload = (await response.json()) as { error?: string | { message?: string } };
-      const detail = typeof payload.error === "string" ? payload.error : payload.error?.message;
-      if (detail) message = detail;
+      const payload = (await response.json()) as { error?: string; kind?: ErrorKind };
+      if (payload?.error) message = payload.error;
+      if (payload?.kind) kind = payload.kind;
     } catch {
-      // The response body was not JSON.
+      // not JSON
     }
-    throw new AiProviderError(message, "http", response.status);
+    throw new AiProviderError(message, kind, response.status);
   }
-  return response;
+  throw new AiProviderError(`Couldn't reach the AI service (${error instanceof Error ? error.message : String(error)})`, "unreachable");
 }
 
 interface OpenAiModel {
@@ -61,13 +58,7 @@ export const openAiProvider: AiProvider = {
   describe: (settings) => openAiBaseUrl(settings),
 
   async listModels(settings, signal) {
-    const response = await request(`${openAiBaseUrl(settings)}/models`, { headers: headers(settings) }, signal);
-    let data: { data?: OpenAiModel[] };
-    try {
-      data = (await response.json()) as { data?: OpenAiModel[] };
-    } catch {
-      throw new AiProviderError("The AI API sent an invalid models response", "invalid");
-    }
+    const data = (await invoke({ action: "models", baseUrl: openAiBaseUrl(settings) }, signal)) as { data?: OpenAiModel[] } | null;
     if (!data || !Array.isArray(data.data)) throw new AiProviderError("The AI API sent an invalid models response", "invalid");
     return data.data
       .filter((model): model is OpenAiModel & { id: string } => !!model && typeof model.id === "string" && !!model.id)
@@ -79,21 +70,17 @@ export const openAiProvider: AiProvider = {
 
   async chat(settings, { model, messages, temperature, signal, onToken }) {
     const startedAt = Date.now();
-    const response = await request(
-      `${openAiBaseUrl(settings)}/chat/completions`,
+    const response = await invoke(
       {
-        method: "POST",
-        headers: headers(settings),
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: true,
-          ...(temperature !== undefined ? { temperature } : {}),
-        }),
+        action: "chat",
+        baseUrl: openAiBaseUrl(settings),
+        model,
+        messages,
+        ...(temperature !== undefined ? { temperature } : {}),
       },
       signal,
     );
-    if (!response.body) throw new AiProviderError("The AI API sent no answer", "invalid");
+    if (!(response instanceof Response) || !response.body) throw new AiProviderError("The AI API sent no answer", "invalid");
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
