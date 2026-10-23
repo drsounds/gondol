@@ -19,9 +19,10 @@ import {
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
 /** A service's address as shown: its own, or what its provider uses without one. */
-function addressOf(service: Pick<AiService, "provider" | "base_url">, serverDefault: string): string {
+function addressOf(service: Pick<AiService, "provider" | "base_url" | "options">, serverDefault: string): string {
   if (service.base_url) return service.base_url;
-  return service.provider === "ollama" ? serverDefault : (getAiProvider(service.provider)?.defaultBaseUrl ?? "");
+  const backend = service.provider === "deepagents" ? (service.options?.backend ?? "ollama") : service.provider;
+  return backend === "ollama" ? serverDefault : (getAiProvider(backend)?.defaultBaseUrl ?? "");
 }
 
 /**
@@ -116,6 +117,8 @@ interface ServiceValues {
   name: string;
   provider: string;
   base_url: string;
+  /** For a Deep Agent: the API its model runs on. */
+  backend: "ollama" | "openai";
   enabled: boolean;
   /** A new key; "" keeps the saved one. */
   apiKey: string;
@@ -143,6 +146,7 @@ function ServiceSheet({
     name: from?.name ?? AI_SERVICE_PRESETS[0].name,
     provider: from?.provider ?? AI_SERVICE_PRESETS[0].provider,
     base_url: from?.base_url ?? AI_SERVICE_PRESETS[0].baseUrl,
+    backend: from?.options?.backend ?? AI_SERVICE_PRESETS[0].options?.backend ?? "ollama",
     enabled: from?.enabled ?? true,
     apiKey: "",
     removeKey: false,
@@ -158,7 +162,7 @@ function ServiceSheet({
   function pickPreset(id: string) {
     const next = AI_SERVICE_PRESETS.find((p) => p.id === id);
     if (!next) return;
-    setValues((v) => ({ ...v, preset: id, provider: next.provider, base_url: next.baseUrl, name: next.name || v.name }));
+    setValues((v) => ({ ...v, preset: id, provider: next.provider, base_url: next.baseUrl, backend: next.options?.backend ?? v.backend, name: next.name || v.name }));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -169,6 +173,7 @@ function ServiceSheet({
       name: values.name.trim(),
       provider: values.provider,
       base_url: values.base_url.trim().replace(/\/+$/, "") || null,
+      options: values.provider === "deepagents" ? { ...service?.options, backend: values.backend } : (service?.options ?? {}),
       enabled: values.enabled,
       ...(apiKey !== undefined ? { apiKey } : {}),
     });
@@ -199,9 +204,15 @@ function ServiceSheet({
               <dt>{t("ai.services.provider")}</dt>
               <dd>{provider?.name ?? values.provider}</dd>
             </div>
+            {values.provider === "deepagents" ? (
+              <div>
+                <dt>{t("ai.services.backend")}</dt>
+                <dd>{getAiProvider(values.backend)?.name ?? values.backend}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>{t("ai.services.address")}</dt>
-              <dd>{addressOf({ provider: values.provider, base_url: values.base_url.trim() || null }, t("ai.serverDefault")) || "—"}</dd>
+              <dd>{addressOf({ provider: values.provider, base_url: values.base_url.trim() || null, options: { backend: values.backend } }, t("ai.serverDefault")) || "—"}</dd>
             </div>
             <div>
               <dt>{t("ai.services.key")}</dt>
@@ -232,7 +243,7 @@ function ServiceSheet({
           <Select label={t("ai.services.preset")} value={values.preset} onChange={(e) => pickPreset(e.target.value)}>
             {AI_SERVICE_PRESETS.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.id === "custom" ? t("ai.services.presetCustom") : p.id === "ollama" ? t("ai.services.presetOllama") : p.name}
+                {p.id === "custom" ? t("ai.services.presetCustom") : p.id === "ollama" ? t("ai.services.presetOllama") : p.id === "deepagents" ? t("ai.services.presetDeepAgents") : p.name}
               </option>
             ))}
           </Select>
@@ -245,13 +256,28 @@ function ServiceSheet({
             </option>
           ))}
         </Select>
+        {values.provider === "deepagents" ? (
+          <Select
+            label={t("ai.services.backend")}
+            hint={t("ai.services.backendHint")}
+            value={values.backend}
+            onChange={(e) => set("backend", e.target.value === "openai" ? "openai" : "ollama")}
+          >
+            <option value="ollama">{getAiProvider("ollama")?.name ?? "Ollama"}</option>
+            <option value="openai">{getAiProvider("openai")?.name ?? "OpenAI-compatible API"}</option>
+          </Select>
+        ) : null}
         <Input
           label={t("ai.services.address")}
-          hint={t(values.provider === "ollama" ? "ai.services.addressHintOllama" : "ai.services.addressHint")}
+          hint={t(
+            values.provider === "ollama" || (values.provider === "deepagents" && values.backend === "ollama")
+              ? "ai.services.addressHintOllama"
+              : "ai.services.addressHint",
+          )}
           type="url"
           value={values.base_url}
           onChange={(e) => set("base_url", e.target.value)}
-          placeholder={provider?.defaultBaseUrl}
+          placeholder={values.provider === "deepagents" ? getAiProvider(values.backend)?.defaultBaseUrl : provider?.defaultBaseUrl}
           maxLength={500}
         />
         <Input

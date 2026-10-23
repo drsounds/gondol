@@ -2,8 +2,10 @@
 
 Gondol ships one app of its own, `ai`: LLM support for an app built on gondol, and an AI chat.
 
-- **Providers** are the APIs it speaks. [Ollama](https://ollama.com) and OpenAI-compatible APIs are
-  built in; more can be registered in code.
+- **Providers** are the APIs it speaks. [Ollama](https://ollama.com), OpenAI-compatible APIs and
+  [LangChain Deep Agents](https://docs.langchain.com/oss/javascript/deepagents/overview) (an agent on
+  the server, on an Ollama's or an OpenAI-compatible API's model) are built in; more can be
+  registered in code.
 - **Services** are the user's own AI APIs (`ai_services`): OpenAI, Berget AI, a local Ollama, …,
   each linked to a provider, with an address and a key of its own that stays on the server. A
   provider can also be used straight from the app's settings, as before.
@@ -81,6 +83,9 @@ then gets `service` (`{ id, base_url }`) in `listModels(settings, signal, servic
 | `ollama.apiKey` | password (submenu Ollama) | user | A bearer token, for an Ollama behind a proxy that asks for one. |
 | `ollama.keepAlive` | string (submenu Ollama) | user, workspace, site | How long Ollama keeps the model loaded (`5m`, `1h`, `-1`). |
 | `ollama.numCtx` | whole number (submenu Ollama) | user, workspace, site | The context window, in tokens. |
+| `ollama.transport` | select (radio, submenu Ollama) | user, workspace, site | `websocket` (default; falls back to HTTP) or `http`: how answers travel, see [Over a WebSocket](#over-a-websocket). |
+| `deepagents.backend` | select (radio, submenu LangChain Deep Agents) | user, workspace, site | The API the agent's model runs on: `ollama` (default) or `openai`, with that provider's address and key. |
+| `deepagents.maxSteps` | whole number (submenu LangChain Deep Agents) | user, workspace, site | The most model and tool calls per answer (default 100). |
 
 A site's owner can point everyone on the site at a shared Ollama by setting `ollama.baseUrl` in the
 site's settings; a user's own address still wins.
@@ -142,6 +147,55 @@ except for:
 
 For the OpenAI-compatible function, use an equivalent allowlist for any internal API hosts.
 
+### Over a WebSocket
+
+An answer can take long to start (a model loading on the Ollama server) or to finish, and a proxy
+between the browser and the function (Kong, nginx) closes an HTTP request that sends nothing for a
+while. So the chat asks `ai-ollama` over a **WebSocket** by default (the `ollama.transport` setting,
+`websocket` or `http`), and `ai-deepagents` only takes WebSockets. The protocol
+(`src/builtin/ai/models/socket.ts`, `runAiSocket()`):
+
+| Direction | Message | |
+| --- | --- | --- |
+| browser → | `{ type: "start", accessToken, body }` | First. `body` is what the HTTP POST would send; the token is the session's (a browser can't put headers on a WebSocket, and it never goes in the URL). |
+| ← function | `{ type: "ready" }` | Signed in, working on it. |
+| ← function | `{ type: "ping" }` | Every 10 seconds while it works, so nothing in between counts the connection as idle. |
+| ← function | the function's own events | `ai-ollama`: `{ type: "chunk", chunk }`, one per Ollama JSON chunk. |
+| ← function | `{ type: "done", … }` or `{ type: "error", error, kind }` | The end (then it closes). |
+| browser → | `{ type: "cancel" }` | Stop (closing the socket does too). |
+
+The functions check the token themselves, so the gateway must let the upgrade through without an
+`Authorization` header: `verify_jwt = false` for them, or, on a self-hosted Supabase, their names in
+the main router's exempt list (`volumes/functions/main/index.ts`). When the socket can't be opened
+(an older function, a gateway that still wants the header) the Ollama provider asks over HTTP as
+before; its HTTP answer sends a `: keep-alive` comment every 10 seconds too.
+
+### LangChain Deep Agents
+
+The `deepagents` provider runs a [Deep Agent](https://docs.langchain.com/oss/javascript/deepagents/overview)
+in gondol's `ai-deepagents` function (`supabase/functions/ai-deepagents`, written into the host's
+functions by `gondol-api --functions` next to `ai-openai`): an agent that plans, keeps notes in a
+scratch file system of its own (gone after the answer), hands parts of the work to a sub-agent and
+calls the apps' tools until it has an answer. Its model is an Ollama's or an OpenAI-compatible
+API's: the `deepagents.backend` setting picks which, with that provider's address and key settings;
+a Deep Agent service (provider `deepagents`) has its own `options.backend`, address and key. The
+same host rules apply (`OLLAMA_*` for an Ollama, `OPENAI_*` for the rest).
+
+The agent runs the loop on the server, so the provider says `runsTools`: when the agent calls one
+of the apps' tools, the function sends `{ type: "tool_call", id, name, arguments }` and the chat
+runs it as usual (asking first when `toolApproval` says so, through the app router as the user) and
+answers `{ type: "tool_result", id, content, ok }`. Besides `ready`, `ping` and `cancel`:
+
+| Event | |
+| --- | --- |
+| `{ type: "token", text }` | A piece of the answer. |
+| `{ type: "status", status }` | What the agent is doing ("Planning", "Working with a sub-agent", "Taking notes", …), shown where a tool's name shows. |
+| `{ type: "done", models }` | For `{ action: "models", backend, baseUrl? \| serviceId }`: what the backend serves. |
+| `{ type: "done", content, usage }` | For `{ action: "chat", backend, baseUrl? \| serviceId, model, messages, tools?, temperature?, numCtx?, maxSteps? }`. |
+
+`deepagents.maxSteps` (default 100) caps the model and tool calls of one answer. A long run keeps the
+function's worker alive for as long, so allow for it in the edge runtime's worker timeout.
+
 ## The apps' tools
 
 Other apps can offer the model tools over MCP (their manifests' `mcp`, see
@@ -161,10 +215,11 @@ A provider says it can call tools with `supportsTools`; `AiChatRequest.tools` an
 A host whose function has another name sets it once, before anything renders:
 
 ```ts
-import { configureOllama, configureOpenAi } from "gondol/builtin/ai/models";
+import { configureDeepAgents, configureOllama, configureOpenAi } from "gondol/builtin/ai/models";
 
 configureOllama({ functionName: "my-ollama" });
 configureOpenAi({ functionName: "my-openai" });
+configureDeepAgents({ functionName: "my-deepagents" });
 ```
 
 ## Using it from code
@@ -200,7 +255,9 @@ const { content } = await ollama.chat(settings, {
 ### Adding a provider
 
 A provider implements `listModels(settings, signal)` and `chat(settings, request)`, streaming each
-piece of the answer to `request.onToken` and stopping when `request.signal` aborts:
+piece of the answer to `request.onToken` and stopping when `request.signal` aborts. One that runs
+its own agent loop says `runsTools` and calls `request.runTool(call)` for the apps' tools (and
+`request.onStatus(text)` for what it's doing) instead of returning `toolCalls`:
 
 ```ts
 import { registerAiProvider, type AiProvider } from "gondol/builtin/ai/models";
@@ -226,7 +283,7 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 
 | Table | Columns |
 | --- | --- |
-| `ai_services` | `id`, `user_id` (default `auth.uid()`), `name`, `provider`, `base_url`, `has_api_key` (kept by `set_ai_service_key()`), `enabled`, `position`, `created_at`, `updated_at` |
+| `ai_services` | `id`, `user_id` (default `auth.uid()`), `name`, `provider`, `base_url`, `has_api_key` (kept by `set_ai_service_key()`), `enabled`, `position`, `options` (jsonb, `{}`; a Deep Agent's `backend`), `created_at`, `updated_at` |
 | `ai_service_keys` | `service_id` (cascades), `user_id`, `api_key`: no grants to `authenticated`, written by `set_ai_service_key(p_service_id, p_api_key)` (null removes it), read by the AI functions |
 | `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
 | `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `created_at` |
@@ -234,4 +291,5 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 
 Each is private to its user (`user_id = auth.uid()` policies); a message can only be added to the
 user's own conversation. Spacify's migration `20261022210000_app_settings_and_ai.sql` creates them,
-with `app_settings`; `20261023170000_ai_services.sql` adds the services.
+with `app_settings`; `20261023170000_ai_services.sql` adds the services and
+`20261023190000_ai_service_options.sql` their `options`.

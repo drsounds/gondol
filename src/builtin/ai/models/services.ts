@@ -3,7 +3,8 @@ import { aiDb } from "./conversations";
 import { aiModelsKey } from "./models";
 import { OPENAI_BASE_URL } from "./openai";
 import { enabledAiProviders, getAiProvider, getAiProviders, type AiProvider, type AiSettings } from "./providers";
-import type { AiService, AiServiceWrite } from "./types";
+import type { Json } from "../../../supabase/types";
+import type { AiService, AiServiceOptions, AiServiceWrite } from "./types";
 
 /**
  * The user's AI services (`ai_services`): APIs they added, each speaking one provider's protocol
@@ -14,7 +15,7 @@ import type { AiService, AiServiceWrite } from "./types";
 
 export const aiServicesKey = ["gondol", "ai", "services"] as const;
 
-const COLUMNS = "id,user_id,name,provider,base_url,has_api_key,enabled,position,created_at,updated_at";
+const COLUMNS = "id,user_id,name,provider,base_url,has_api_key,enabled,position,options,created_at,updated_at";
 
 /** The user's services, in their order. */
 export function useAiServices() {
@@ -35,7 +36,8 @@ export function useAiServices() {
 export function useSaveAiService() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, apiKey, ...values }: AiServiceWrite & { id?: string; apiKey?: string | null }): Promise<AiService> => {
+    mutationFn: async ({ id, apiKey, options, ...rest }: AiServiceWrite & { id?: string; apiKey?: string | null }): Promise<AiService> => {
+      const values = { ...rest, ...(options !== undefined ? { options: options as Json } : {}) };
       const query = id
         ? aiDb().from("ai_services").update(values).eq("id", id)
         : aiDb()
@@ -78,12 +80,14 @@ export interface AiServicePreset {
   baseUrl: string;
   /** Whether it needs a key to answer. */
   needsKey: boolean;
+  options?: AiServiceOptions;
 }
 
 export const AI_SERVICE_PRESETS: AiServicePreset[] = [
   { id: "openai", name: "OpenAI", provider: "openai", baseUrl: OPENAI_BASE_URL, needsKey: true },
   { id: "berget", name: "Berget AI", provider: "openai", baseUrl: "https://api.berget.ai/v1", needsKey: true },
   { id: "ollama", name: "Ollama", provider: "ollama", baseUrl: "", needsKey: false },
+  { id: "deepagents", name: "Deep Agent", provider: "deepagents", baseUrl: "", needsKey: false, options: { backend: "ollama" } },
   { id: "custom", name: "", provider: "openai", baseUrl: "", needsKey: false },
 ];
 

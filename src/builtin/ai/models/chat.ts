@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { addAiMessage, aiConversationsKey, aiMessagesKey, conversationTitle, createAiConversation, touchAiConversation } from "./conversations";
-import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings } from "./providers";
+import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings, type AiToolCall } from "./providers";
 import { callAppTool, toolResultText } from "../../../api/client";
 import { aiToolsFor, instructionsWithApps, toolNeedsApproval, type AppTools, type McpTool } from "./tools";
 import type { AiConversation, AiMessage, AiMetrics, AiService } from "./types";
@@ -35,7 +35,8 @@ export interface AiStreamingAnswer {
  * With `tools` (useAiAppTools) and a provider that supports them, the model may call the apps'
  * tools: the chat runs each call through the app router, asking `confirmTool` first when the
  * `toolApproval` setting says so, and sends the results back until the model answers. The tools it
- * used are kept in the answer's metrics.
+ * used are kept in the answer's metrics. A provider that `runsTools` (an agent on the server) gets
+ * the same runner as `runTool` and calls it while it works; what it's doing shows as the `tool`.
  */
 export function useAiChat(
   settings: AiSettings,
@@ -113,6 +114,29 @@ export function useAiChat(
         const used: NonNullable<AiMetrics["tools"]> = [];
         // What has streamed in so far, kept when the answer stops short.
         let live = "";
+        const toolTitle = (call: AiToolCall) => appTools?.tools.find((t) => t.name === call.name)?.title ?? call.name;
+        /** Runs a tool call through the app router (asking first when the settings say so), for what to tell the model. */
+        const runTool = async (call: AiToolCall): Promise<string> => {
+          const tool = appTools?.tools.find((t) => t.name === call.name);
+          let text: string;
+          let ok = false;
+          if (!tool) {
+            text = `There is no tool named ${call.name}.`;
+          } else if (toolNeedsApproval(tool, settings) && !(await (confirmTool?.(tool, call.arguments) ?? false))) {
+            text = "The user didn't let this tool run.";
+          } else {
+            try {
+              const answer = await callAppTool(call.name, call.arguments, abort.signal);
+              text = toolResultText(answer);
+              ok = !answer.isError;
+            } catch (caught) {
+              if (abort.signal.aborted) throw new AiProviderError("Stopped", "aborted");
+              text = caught instanceof Error ? caught.message : String(caught);
+            }
+          }
+          used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok });
+          return text.length > MAX_TOOL_RESULT ? `${text.slice(0, MAX_TOOL_RESULT)}…` : text;
+        };
         try {
           for (let round = 0; ; round++) {
             // Each round's text follows the last's.
@@ -125,6 +149,15 @@ export function useAiChat(
               signal: abort.signal,
               service: target.service ?? null,
               ...(appTools && round < MAX_TOOL_ROUNDS ? { tools: aiToolsFor(appTools.tools) } : {}),
+              ...(provider.runsTools
+                ? {
+                    runTool: async (call: AiToolCall) => {
+                      setStreaming({ conversationId: conversation!.id, content: live, tool: toolTitle(call) });
+                      return runTool(call);
+                    },
+                    onStatus: (status: string) => setStreaming({ conversationId: conversation!.id, content: live, tool: status }),
+                  }
+                : {}),
               onToken: (piece) => {
                 piecewise += piece;
                 live = before + piecewise;
@@ -138,26 +171,8 @@ export function useAiChat(
 
             messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
             for (const call of result.toolCalls) {
-              const tool = appTools.tools.find((t) => t.name === call.name);
-              setStreaming({ conversationId: conversation.id, content: partial, tool: tool?.title ?? call.name });
-              let text: string;
-              let ok = false;
-              if (!tool) {
-                text = `There is no tool named ${call.name}.`;
-              } else if (toolNeedsApproval(tool, settings) && !(await (confirmTool?.(tool, call.arguments) ?? false))) {
-                text = "The user didn't let this tool run.";
-              } else {
-                try {
-                  const answer = await callAppTool(call.name, call.arguments, abort.signal);
-                  text = toolResultText(answer);
-                  ok = !answer.isError;
-                } catch (caught) {
-                  if (abort.signal.aborted) throw new AiProviderError("Stopped", "aborted");
-                  text = caught instanceof Error ? caught.message : String(caught);
-                }
-              }
-              used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok });
-              messages.push({ role: "tool", content: text.length > MAX_TOOL_RESULT ? `${text.slice(0, MAX_TOOL_RESULT)}…` : text, toolCallId: call.id, toolName: call.name });
+              setStreaming({ conversationId: conversation.id, content: partial, tool: toolTitle(call) });
+              messages.push({ role: "tool", content: await runTool(call), toolCallId: call.id, toolName: call.name });
             }
           }
         } catch (caught) {

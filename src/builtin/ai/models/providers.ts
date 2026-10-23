@@ -1,3 +1,4 @@
+import { deepAgentsProvider } from "./deepagents";
 import { ollamaProvider } from "./ollama";
 import { openAiProvider } from "./openai";
 import type { AiProvider, AiSettings } from "./provider";
@@ -5,13 +6,15 @@ import type { AiProvider, AiSettings } from "./provider";
 export * from "./provider";
 
 /**
- * LLM providers the ai app talks to. Ollama is built in (./ollama.ts); register others with
+ * LLM providers the ai app talks to. Ollama (./ollama.ts), OpenAI-compatible APIs (./openai.ts) and
+ * LangChain Deep Agents (./deepagents.ts) are built in; register others with
  * `registerAiProvider()` before anything renders, and add their settings (and an option of the
  * `providers` setting) to the app's manifest.
  */
 const providers = new Map<string, AiProvider>([
   [ollamaProvider.id, ollamaProvider],
   [openAiProvider.id, openAiProvider],
+  [deepAgentsProvider.id, deepAgentsProvider],
 ]);
 
 /** Adds (or replaces) a provider. */
