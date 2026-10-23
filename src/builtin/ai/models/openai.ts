@@ -3,7 +3,10 @@ import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
 /** The configured API address, defaulting to the OpenAI API's versioned base URL. */
 export function openAiBaseUrl(settings: AiSettings): string {
   const value = typeof settings["openai.baseUrl"] === "string" ? settings["openai.baseUrl"].trim() : "";
-  return (value || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const baseUrl = value || "https://api.openai.com/v1";
+  let end = baseUrl.length;
+  while (end > 0 && baseUrl.charCodeAt(end - 1) === 47) end--;
+  return baseUrl.slice(0, end);
 }
 
 function apiKey(settings: AiSettings): string {
