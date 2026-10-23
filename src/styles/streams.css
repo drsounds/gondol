@@ -1,0 +1,61 @@
+/* The streams app (builtin/streams): an expandable card per stream; dropping an entity on one adds
+ * an entry for it. */
+.stream-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stream {
+  border: 1px solid var(--bungalow-color-border);
+  border-radius: var(--bungalow-radius-sm);
+}
+.stream--drop {
+  background: color-mix(in srgb, var(--bungalow-color-primary) 8%, transparent);
+  outline: 2px dashed var(--bungalow-color-primary);
+  outline-offset: 4px;
+}
+.stream__head {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-2);
+  padding-inline-end: var(--bungalow-space-2);
+}
+/* Rows shrink when pressed (base.css), but a stream's header isn't something you press. */
+.stream__head.action-row:active { scale: none; }
+.stream__toggle {
+  align-items: center;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  font: inherit;
+  gap: var(--bungalow-space-2) var(--bungalow-space-3);
+  min-width: 0;
+  padding: var(--bungalow-space-3);
+  text-align: start;
+}
+.stream__toggle:focus-visible { outline: none; box-shadow: var(--bungalow-focus-ring); border-radius: var(--bungalow-radius-sm); }
+.stream__chevron {
+  color: var(--bungalow-color-muted);
+  display: inline-block;
+  transition: transform 120ms ease;
+}
+.stream__chevron--open { transform: rotate(90deg); }
+.stream__title { display: flex; flex: 1; flex-direction: column; min-width: 10rem; }
+.stream__title .library-row__kind { margin-inline-start: 0; white-space: normal; }
+.stream__totals {
+  color: var(--bungalow-color-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stream__body {
+  border-top: 1px solid var(--bungalow-color-border);
+  padding: var(--bungalow-space-3);
+}

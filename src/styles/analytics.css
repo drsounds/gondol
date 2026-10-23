@@ -1,0 +1,65 @@
+/* The analytics app (builtin/analytics): filters in a card, then totals, a bar chart over time, a
+ * breakdown with share bars and the matching streams. */
+.analytics__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-2);
+}
+.analytics__conditions-head {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-3);
+  justify-content: space-between;
+}
+.analytics__condition {
+  align-items: start;
+  display: grid;
+  gap: var(--bungalow-space-2);
+  grid-template-columns: minmax(9rem, 12rem) minmax(6rem, 8rem) minmax(0, 1fr) auto;
+}
+@media (max-width: 40rem) {
+  .analytics__condition { grid-template-columns: 1fr 1fr; }
+  .analytics__condition-value { grid-column: 1 / -1; }
+}
+.analytics__share {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-2);
+  min-inline-size: 6rem;
+}
+.analytics__share-bar {
+  background: var(--bungalow-color-primary);
+  block-size: 0.5rem;
+  border-radius: 0 4px 4px 0;
+  display: block;
+  max-inline-size: 70%;
+}
+.analytics__share-text {
+  color: var(--bungalow-color-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-chart { margin: 0; min-inline-size: 0; }
+.analytics__hint { font-size: 0.75rem; margin: 0; }
+.analytics-chart__readout {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  min-block-size: 1.5rem;
+}
+.analytics-chart__readout-label { color: var(--bungalow-color-muted); }
+.analytics-chart__svg {
+  block-size: auto;
+  display: block;
+  inline-size: 100%;
+  overflow: visible;
+}
+.analytics-chart__grid { stroke: var(--bungalow-color-border); stroke-dasharray: 2 4; stroke-width: 1; }
+.analytics-chart__axis { stroke: var(--bungalow-color-border); stroke-width: 1; }
+.analytics-chart__tick { fill: var(--bungalow-color-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.analytics-chart__bar { fill: var(--bungalow-color-primary); transition: opacity 120ms ease; }
+.analytics-chart__svg:hover .analytics-chart__bar:not(.analytics-chart__bar--active) { opacity: 0.55; }
+.analytics-chart__bar-group { cursor: default; outline: none; }
+.analytics-chart__bar-group:focus-visible .analytics-chart__bar { stroke: var(--bungalow-color-ink); stroke-width: 2; }
+@media (forced-colors: active) {
+  .analytics-chart__bar, .analytics__share-bar { fill: CanvasText; background: CanvasText; }
+}

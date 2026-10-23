@@ -1,0 +1,39 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "streams",
+  "slug": "streams",
+  "name": { "en": "Streams", "sv": "Strömmar" },
+  "description": {
+    "en": "What you do, as streams: an action on an entity in a context, for a motivation, from a start to an end, with a quantity and yin/yang entries.",
+    "sv": "Det du gör, som strömmar: en handling på ett objekt i ett sammanhang, med en motivation, från start till slut, med antal och yin/yang-poster."
+  },
+  "iconName": "broadcast",
+  "defaultFeatureId": "streams",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": ["creator", "consumer", "operator"],
+  "features": [
+    {
+      "id": "streams",
+      "name": { "en": "Streams", "sv": "Strömmar" },
+      "description": { "en": "Actions on entities over time, with yin and yang", "sv": "Handlingar på objekt över tid, med yin och yang" },
+      "path": "streams",
+      "iconName": "broadcast",
+      "entityTypes": ["stream"],
+      "actions": [
+        { "id": "streams.open", "title": "Open streams", "category": "Streams", "iconName": "broadcast", "navigate": "/streams", "keywords": ["activity", "log"], "aspects": ["view"] },
+        { "id": "streams.new", "title": "New stream", "category": "Streams", "iconName": "plus", "navigate": "/streams/new", "keywords": ["activity", "log"], "aspects": ["create"] }
+      ],
+      "create": [{ "key": "stream", "label": "entity.stream", "section": "nav.streams", "iconName": "broadcast", "path": "/streams/new" }],
+      "browse": { "label": "nav.streams", "iconName": "repeat", "hue": 18 }
+    }
+  ],
+  "entities": {
+    "stream": {
+      "slug": "stream",
+      "edit": "/streams/{key}/edit",
+      "art": { "iconName": "broadcast", "hue": 18 },
+      "source": { "table": "streams", "columns": "id, action", "label": "action" }
+    }
+  }
+}
