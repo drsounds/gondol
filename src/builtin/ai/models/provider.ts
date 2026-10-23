@@ -1,11 +1,15 @@
 import type { AppSettingValue } from "../../../settings/schema";
-import type { AiMetrics, AiRole } from "./types";
+import type { AiMetrics, AiRole, AiService } from "./types";
 
 /**
  * What an LLM provider is (see ./providers.ts for the registry): it lists the models it serves and
  * streams a chat answer, reading its configuration (an API address, a key) from the ai app's
- * settings, which it is handed on every call.
+ * settings, which it is handed on every call, or from one of the user's services (ai_services,
+ * `service`), which name an address of their own and keep their key on the server.
  */
+
+/** What a provider needs of a service: which one (the server reads its key) and its address. */
+export type AiServiceRef = Pick<AiService, "id" | "base_url">;
 
 /** The ai app's settings in effect (useAppSettings("ai").values). */
 export type AiSettings = Record<string, AppSettingValue | undefined>;
@@ -56,6 +60,8 @@ export interface AiChatRequest {
   onToken: (text: string) => void;
   /** Tools the model may call (only sent to providers with `supportsTools`). */
   tools?: AiTool[];
+  /** The service to ask instead of the provider's settings. */
+  service?: AiServiceRef | null;
 }
 
 export interface AiChatResult {
@@ -71,11 +77,15 @@ export interface AiProvider {
   name: string;
   /** The settings key holding its address, shown when it can't be reached. */
   addressSetting?: string;
-  /** Its address with the settings in effect, for messages. */
-  describe?: (settings: AiSettings) => string;
+  /** Its address with the settings in effect (or the service's), for messages. */
+  describe?: (settings: AiSettings, service?: AiServiceRef | null) => string;
   /** Whether it can hand the model tools (function calling). */
   supportsTools?: boolean;
-  listModels: (settings: AiSettings, signal?: AbortSignal) => Promise<AiProviderModel[]>;
+  /** Whether it can be added as a service (an address and key of its own, in ai_services). */
+  supportsServices?: boolean;
+  /** The address a new service of it starts with, as a placeholder. */
+  defaultBaseUrl?: string;
+  listModels: (settings: AiSettings, signal?: AbortSignal, service?: AiServiceRef | null) => Promise<AiProviderModel[]>;
   chat: (settings: AiSettings, request: AiChatRequest) => Promise<AiChatResult>;
 }
 

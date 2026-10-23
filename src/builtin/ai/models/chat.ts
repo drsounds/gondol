@@ -4,7 +4,7 @@ import { addAiMessage, aiConversationsKey, aiMessagesKey, conversationTitle, cre
 import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings } from "./providers";
 import { callAppTool, toolResultText } from "../../../api/client";
 import { aiToolsFor, instructionsWithApps, toolNeedsApproval, type AppTools, type McpTool } from "./tools";
-import type { AiConversation, AiMessage, AiMetrics } from "./types";
+import type { AiConversation, AiMessage, AiMetrics, AiService } from "./types";
 
 /** How many times an answer may go back to the model with tool results. */
 const MAX_TOOL_ROUNDS = 8;
@@ -14,6 +14,8 @@ const MAX_TOOL_RESULT = 20_000;
 export interface AiChatTarget {
   conversation: AiConversation | null;
   provider: string;
+  /** The service to ask (one of the user's ai_services), or null for the provider's settings. */
+  service?: AiService | null;
   model: string | null;
 }
 
@@ -77,7 +79,13 @@ export function useAiChat(
         let conversation = target.conversation;
         if (!conversation) {
           const systemPrompt = typeof settings.systemPrompt === "string" && settings.systemPrompt.trim() ? settings.systemPrompt.trim() : null;
-          conversation = await createAiConversation({ title: conversationTitle(content), provider: provider.id, model: target.model, system_prompt: systemPrompt });
+          conversation = await createAiConversation({
+            title: conversationTitle(content),
+            provider: provider.id,
+            service_id: target.service?.id ?? null,
+            model: target.model,
+            system_prompt: systemPrompt,
+          });
           conversationId = conversation.id;
           queryClient.setQueryData<AiConversation[]>(aiConversationsKey, (previous) => [conversation!, ...(previous ?? [])]);
           queryClient.setQueryData<AiMessage[]>(aiMessagesKey(conversation.id), []);
@@ -115,6 +123,7 @@ export function useAiChat(
               messages,
               temperature: typeof settings.temperature === "number" ? settings.temperature : undefined,
               signal: abort.signal,
+              service: target.service ?? null,
               ...(appTools && round < MAX_TOOL_ROUNDS ? { tools: aiToolsFor(appTools.tools) } : {}),
               onToken: (piece) => {
                 piecewise += piece;
@@ -168,7 +177,13 @@ export function useAiChat(
           });
           appendToCache(answer);
         }
-        await touchAiConversation(conversation.id, target.model !== conversation.model ? { model: target.model, provider: provider.id } : {});
+        const serviceId = target.service?.id ?? null;
+        await touchAiConversation(
+          conversation.id,
+          target.model !== conversation.model || provider.id !== conversation.provider || serviceId !== (conversation.service_id ?? null)
+            ? { model: target.model, provider: provider.id, service_id: serviceId }
+            : {},
+        );
         void queryClient.invalidateQueries({ queryKey: aiConversationsKey });
       } catch (caught) {
         setError(caught instanceof Error ? caught : new Error(String(caught)));

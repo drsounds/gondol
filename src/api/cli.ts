@@ -10,7 +10,9 @@
 //   bunx gondol-api --apps src/apps --builtin ai,oauth --out supabase/functions/_shared/gondol-api
 //
 // `--functions <dir>` also writes gondol's Supabase edge function for the router to
-// <dir>/app-router/index.ts (from supabase/functions/app-router), importing the files above.
+// <dir>/app-router/index.ts (from supabase/functions/app-router), importing the files above, and,
+// when the built-in ai app is among `--builtin`, its function for OpenAI-compatible APIs to
+// <dir>/ai-openai/index.ts (from supabase/functions/ai-openai).
 //
 // `--check` writes nothing and fails when the files are out of date (for CI). `--title` and
 // `--version` set the document's info.
@@ -56,6 +58,10 @@ if (functionsDir) {
   // The function imports ../_shared/gondol-api/…; point it at wherever --out is.
   const shared = relative(target, out).split("\\").join("/");
   files[join(target, "index.ts")] = `${generated("supabase/functions/app-router/index.ts")}${fn.replaceAll("../_shared/gondol-api/", `${shared}/`)}`;
+  if (builtin.includes("ai")) {
+    const ai = readFileSync(join(here, "../../supabase/functions/ai-openai/index.ts"), "utf8");
+    files[join(resolve(functionsDir), "ai-openai", "index.ts")] = `${generated("supabase/functions/ai-openai/index.ts")}${ai}`;
+  }
 }
 
 let stale = false;

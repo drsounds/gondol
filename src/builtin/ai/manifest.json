@@ -4,14 +4,14 @@
   "slug": "ai",
   "name": { "en": "AI", "sv": "AI" },
   "description": {
-    "en": "Chat with large language models: conversations kept per account, models from Ollama or OpenAI-compatible APIs, the provider's address in the app's settings, and the tools other apps offer over MCP.",
-    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från Ollama eller OpenAI-kompatibla API:er, leverantörens adress i appens inställningar och verktygen andra appar erbjuder via MCP."
+    "en": "Chat with large language models: conversations kept per account, AI services of your own (OpenAI, Berget AI, a local Ollama, …) each on a provider, or the provider's address in the app's settings, and the tools other apps offer over MCP.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, egna AI-tjänster (OpenAI, Berget AI, en lokal Ollama, …) kopplade till en leverantör, eller leverantörens adress i appens inställningar, och verktygen andra appar erbjuder via MCP."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "chat",
   "dependencies": [],
   "defaultActive": true,
-  "uuidPaths": ["/ai"],
+  "uuidPaths": ["/ai", "/ai-models"],
   "features": [
     {
       "id": "chat",
@@ -27,13 +27,14 @@
     {
       "id": "models",
       "name": { "en": "AI models", "sv": "AI-modeller" },
-      "description": { "en": "Providers and the models they serve", "sv": "Leverantörer och modellerna de erbjuder" },
+      "description": { "en": "AI services, providers and the models they serve", "sv": "AI-tjänster, leverantörer och modellerna de erbjuder" },
       "path": "ai-models",
       "iconName": "chip",
       "roles": ["admin", "operator"],
       "aspects": ["configure"],
       "actions": [
-        { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm"] }
+        { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm", "services", "openai", "berget"] },
+        { "id": "ai.services.new", "title": "Add AI service", "category": "AI", "iconName": "plus", "navigate": "/ai-models/services/new", "keywords": ["openai", "berget", "ollama", "api key"], "aspects": ["create"] }
       ]
     }
   ],

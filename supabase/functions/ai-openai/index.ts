@@ -1,7 +1,16 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+// The ai app's way to OpenAI-compatible APIs (gondol/builtin/ai): the browser asks this function,
+// which calls the API server-side for the signed-in user.
+//
+// POST body: { action: "models", baseUrl } | { action: "models", serviceId }
+//            { action: "chat", baseUrl | serviceId, model, messages, temperature?, tools? }
+//
+// With `baseUrl` the key is the user's `openai.apiKey` setting (app_settings). With `serviceId`
+// (one of the user's ai_services, provider "openai") the address is the service's (empty: OpenAI's)
+// and the key the service's, from ai_service_keys, which only the service role reads.
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-spacify-workspace",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Origin": "*",
 };
@@ -246,6 +255,47 @@ function upstreamErrorMessage(payload: unknown): string | undefined {
   return typeof error === "string" ? error : error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : undefined;
 }
 
+const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * One of the user's services (ai_services, read as the user so RLS applies), with its key, which
+ * only the service role can read (ai_service_keys).
+ */
+async function readService(
+  supabase: SupabaseClient,
+  userId: string,
+  serviceId: unknown,
+): Promise<{ baseUrl: string; apiKey: string }> {
+  if (typeof serviceId !== "string" || !UUID.test(serviceId)) throw new FunctionError("The AI service is invalid", "invalid", 400);
+  const { data: service, error } = await supabase
+    .from("ai_services")
+    .select("id, provider, base_url, enabled")
+    .eq("id", serviceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new FunctionError("Couldn't read the AI service", "config", 500);
+  const row = service as { provider?: string; base_url?: string | null; enabled?: boolean } | null;
+  if (!row) throw new FunctionError("There is no such AI service", "config", 404);
+  if (row.provider !== "openai") throw new FunctionError("The AI service doesn't speak an OpenAI-compatible API", "config", 400);
+  if (row.enabled === false) throw new FunctionError("The AI service is turned off", "config", 400);
+
+  const serviceKey = deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = deno.env.get("SUPABASE_URL");
+  if (!serviceKey || !supabaseUrl) throw new FunctionError("SUPABASE_SERVICE_ROLE_KEY isn't set for this function", "config", 500);
+  const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: key, error: keyError } = await admin
+    .from("ai_service_keys")
+    .select("api_key")
+    .eq("service_id", serviceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (keyError) throw new FunctionError("Couldn't read the AI service's key", "config", 500);
+  const stored = (key as { api_key?: unknown } | null)?.api_key;
+  const apiKey = typeof stored === "string" ? stored.trim() : "";
+  return { baseUrl: typeof row.base_url === "string" ? row.base_url.trim() : "", apiKey };
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Method not allowed", kind: "invalid" }, 405);
@@ -281,19 +331,27 @@ async function handleRequest(request: Request): Promise<Response> {
     throw new FunctionError("The requested action is invalid", "invalid", 400);
   }
 
-  const { data: settingsRow, error: settingsError } = await supabase
-    .from("app_settings")
-    .select("data")
-    .eq("app_id", "ai")
-    .eq("scope", "user")
-    .eq("scope_id", authData.user.id)
-    .maybeSingle();
-  if (settingsError) throw new FunctionError("Couldn't read your AI settings", "config", 500);
-  const settings = settingsRow?.data && typeof settingsRow.data === "object" && !Array.isArray(settingsRow.data)
-    ? settingsRow.data as Record<string, unknown>
-    : {};
-  const apiKey = typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
-  const baseUrl = await validateBaseUrl(input.baseUrl);
+  let apiKey = "";
+  let requestedBaseUrl: unknown = input.baseUrl;
+  if (input.serviceId !== undefined) {
+    const service = await readService(supabase, authData.user.id, input.serviceId);
+    apiKey = service.apiKey;
+    requestedBaseUrl = service.baseUrl || OPENAI_BASE_URL;
+  } else {
+    const { data: settingsRow, error: settingsError } = await supabase
+      .from("app_settings")
+      .select("data")
+      .eq("app_id", "ai")
+      .eq("scope", "user")
+      .eq("scope_id", authData.user.id)
+      .maybeSingle();
+    if (settingsError) throw new FunctionError("Couldn't read your AI settings", "config", 500);
+    const settings = settingsRow?.data && typeof settingsRow.data === "object" && !Array.isArray(settingsRow.data)
+      ? settingsRow.data as Record<string, unknown>
+      : {};
+    apiKey = typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
+  }
+  const baseUrl = await validateBaseUrl(requestedBaseUrl);
   const endpoint = new URL(`${baseUrl.toString().replace(/\/+$/, "")}/${input.action === "models" ? "models" : "chat/completions"}`);
 
   let upstream: Response;

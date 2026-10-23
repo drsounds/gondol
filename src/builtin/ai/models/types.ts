@@ -10,6 +10,8 @@ export type AiConversation = {
   title: string;
   /** The provider id (providers.ts), e.g. "ollama". */
   provider: string;
+  /** The service (ai_services) it talks to; null uses the provider's settings. */
+  service_id: string | null;
   /** The model it last used, as the provider names it (e.g. "llama3.2:3b"). */
   model: string | null;
   /** Its own instructions; null uses the app's `systemPrompt` setting. */
@@ -50,6 +52,8 @@ export type AiModel = {
   id: string;
   user_id: string;
   provider: string;
+  /** The service serving it (ai_services); null for the provider's settings. */
+  service_id: string | null;
   /** The provider's name for it, sent with every request. */
   name: string;
   /** A name of the user's own, shown instead. */
@@ -60,6 +64,30 @@ export type AiModel = {
   created_at: string;
   updated_at: string;
 };
+
+/**
+ * An AI service the user added (`ai_services`): one API of a provider (OpenAI, Berget AI, a local
+ * Ollama, …) with its own address and key. The key is write-only: it's kept apart, in
+ * `ai_service_keys`, which the client can't read, and set with `set_ai_service_key()`
+ * (`has_api_key` says whether one is saved); the AI edge functions read it server-side.
+ */
+export type AiService = {
+  id: string;
+  user_id: string;
+  name: string;
+  /** The provider id (providers.ts) whose API it speaks, e.g. "openai" or "ollama". */
+  provider: string;
+  /** Its API address; null uses the provider's default (OpenAI's, or the server's Ollama). */
+  base_url: string | null;
+  has_api_key: boolean;
+  enabled: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** What the client writes to ai_services. */
+export type AiServiceWrite = Partial<Pick<AiService, "name" | "provider" | "base_url" | "enabled" | "position">>;
 
 type Table<Row, Required extends keyof Row> = {
   Row: Row;
@@ -77,9 +105,17 @@ export type AiDatabase = {
       ai_conversations: Table<AiConversation, "provider">;
       ai_messages: Table<Stored<AiMessage>, "conversation_id" | "role" | "content">;
       ai_models: Table<Stored<AiModel>, "provider" | "name">;
+      ai_services: {
+        Row: AiService;
+        Insert: AiServiceWrite & Pick<AiService, "name" | "provider">;
+        Update: AiServiceWrite;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      set_ai_service_key: { Args: { p_service_id: string; p_api_key: string | null }; Returns: undefined };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

@@ -8,8 +8,8 @@ import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { fetchAppCatalog } from "../../../../../../api/client";
 import {
   AiProviderError,
+  aiSourceKey,
   appToolsEnabled,
-  enabledAiProviders,
   getAiProvider,
   useAiAppTools,
   useAiChat,
@@ -41,20 +41,27 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const [showApps, setShowApps] = useState(false);
   const appTools = useAiAppTools(settings);
 
-  const providers = enabledAiProviders(settings);
-  const defaultProvider = providers[0]?.id ?? "ollama";
   const current = useMemo(
-    () => (conversation ? { provider: conversation.provider, model: conversation.model } : null),
+    () => (conversation ? { provider: conversation.provider, serviceId: conversation.service_id ?? null, model: conversation.model } : null),
     [conversation],
   );
   const models = useAiModelChoices(settings, current);
-  const [picked, setPicked] = useState<{ provider: string; model: string } | null>(null);
+  const sources = models.sources;
+  type Picked = { provider: string; serviceId: string | null; model: string };
+  const [picked, setPicked] = useState<Picked | null>(null);
   useEffect(() => setPicked(null), [conversationId]);
   const defaultModel = typeof settings.defaultModel === "string" && settings.defaultModel.trim() ? settings.defaultModel.trim() : null;
-  const target = picked ?? (conversation?.model ? { provider: conversation.provider, model: conversation.model } : null) ?? {
-    provider: defaultProvider,
-    model: defaultModel ?? models.choices[0]?.name ?? "",
-  };
+  const fallback = models.choices.find((c) => c.name === defaultModel) ?? models.choices[0];
+  const target: Picked = picked ??
+    (conversation?.model ? { provider: conversation.provider, serviceId: conversation.service_id ?? null, model: conversation.model } : null) ?? {
+      provider: fallback?.provider ?? sources[0]?.provider.id ?? "ollama",
+      serviceId: fallback?.serviceId ?? sources[0]?.service?.id ?? null,
+      model: fallback?.name ?? "",
+    };
+  // The service the target names; a conversation whose service is gone uses the provider's settings.
+  const source = sources.find((s) => s.key === aiSourceKey(target.provider, target.serviceId));
+  const service = target.serviceId ? (source?.service ?? null) : null;
+  const choiceValue = (provider: string, serviceId: string | null, model: string) => [provider, serviceId ?? "", model].join("\u0000");
 
   const confirmTool = useCallback(
     (tool: McpTool, args: Record<string, unknown>) => window.confirm(t("ai.confirmTool", { tool: tool.title ?? tool.name, args: JSON.stringify(args, null, 2) })),
@@ -103,16 +110,16 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           <Select
             aria-label={t("ai.model")}
             className="ai-chat__model"
-            value={target.model ? `${target.provider}\u0000${target.model}` : ""}
+            value={target.model ? choiceValue(target.provider, target.serviceId, target.model) : ""}
             onChange={(e) => {
-              const [providerId, model] = e.target.value.split("\u0000");
-              setPicked(model ? { provider: providerId, model } : null);
+              const [providerId, serviceId, model] = e.target.value.split("\u0000");
+              setPicked(model ? { provider: providerId, serviceId: serviceId || null, model } : null);
             }}
           >
             {!target.model ? <option value="">{models.isLoading ? t("app.loading") : t("ai.pickModel")}</option> : null}
             {models.choices.map((choice) => (
-              <option key={`${choice.provider}:${choice.name}`} value={`${choice.provider}\u0000${choice.name}`}>
-                {providers.length > 1 ? `${getAiProvider(choice.provider)?.name ?? choice.provider} · ${choice.label}` : choice.label}
+              <option key={choiceValue(choice.provider, choice.serviceId, choice.name)} value={choiceValue(choice.provider, choice.serviceId, choice.name)}>
+                {sources.length > 1 ? `${choice.sourceName} · ${choice.label}` : choice.label}
               </option>
             ))}
           </Select>
@@ -160,7 +167,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
               {error instanceof AiProviderError && error.kind === "unreachable" ? (
                 <>
                   {" "}
-                  {t("ai.unreachableHint", { address: provider?.describe?.(settings) || t("ai.serverDefault") })}
+                  {t("ai.unreachableHint", { address: provider?.describe?.(settings, service) || t("ai.serverDefault") })}
                 </>
               ) : null}
             </span>
@@ -187,7 +194,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
           onSend={(text) => {
             chat.clearError();
-            void chat.send(text, { conversation, provider: target.provider, model: target.model || null });
+            void chat.send(text, { conversation, provider: target.provider, service, model: target.model || null });
           }}
           onStop={chat.stop}
         />

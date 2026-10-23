@@ -3,17 +3,19 @@ import { useI18n } from "../../../../../../i18n/i18n";
 import { AppSettingsPanel } from "../../../../../../settings/AppSettingsPanel";
 import { useSaveAppSetting, useSettingsScopeIds } from "../../../../../../settings/settings";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
+import { AiServicesSection } from "../components/AiServices";
 import {
   AiProviderError,
   enabledAiProviders,
   getAiProviders,
   useAiSettings,
+  useAiSources,
   useProviderModels,
   useRemoveAiModel,
   useSaveAiModel,
   useSavedAiModels,
-  type AiProvider,
   type AiSettings,
+  type AiSource,
 } from "../../../../models";
 
 function formatSize(bytes: number | undefined): string {
@@ -25,23 +27,30 @@ function formatSize(bytes: number | undefined): string {
 const detail = (details: Record<string, unknown> | undefined | null, key: string) => (typeof details?.[key] === "string" ? (details[key] as string) : "");
 
 /**
- * Providers and models (`/ai-models`): each provider in use with what it serves now, which of those
- * the chat's model picker offers (kept in ai_models), the default model, and the app's settings.
+ * Services, providers and models (`/ai-models`): the user's AI services (ai_services: OpenAI,
+ * Berget AI, a local Ollama, …, each speaking one provider's API), with `/ai-models/services/new`
+ * and `/ai-models/services/<id>/edit` as the routed sheets; then each source in use (a service, or a
+ * provider configured in the settings) with what it serves now, which of those the chat's model
+ * picker offers (kept in ai_models), the default model, and the app's settings.
  */
 export function AiModelsPage(_props: AppFeaturePageProps) {
   const { t } = useI18n();
   const { settings } = useAiSettings();
+  const { sources } = useAiSources(settings);
   const inUse = enabledAiProviders(settings);
   const others = getAiProviders().filter((p) => !inUse.includes(p));
 
   return (
     <div className="stack ai-models">
+      <AiServicesSection />
       <div className="panel-head">
-        <h2 className="panel-title">{t("ai.models.title")}</h2>
+        <div>
+          <h2 className="panel-title">{t("ai.models.title")}</h2>
+          <p className="muted">{t("ai.models.intro")}</p>
+        </div>
       </div>
-      <p className="muted">{t("ai.models.intro")}</p>
-      {inUse.map((provider) => (
-        <ProviderCard key={provider.id} provider={provider} settings={settings} />
+      {sources.map((source) => (
+        <ProviderCard key={source.key} source={source} settings={settings} />
       ))}
       {others.length ? <p className="muted">{t("ai.models.otherProviders", { names: others.map((p) => p.name).join(", ") })}</p> : null}
       <Card>
@@ -51,16 +60,19 @@ export function AiModelsPage(_props: AppFeaturePageProps) {
   );
 }
 
-function ProviderCard({ provider, settings }: { provider: AiProvider; settings: AiSettings }) {
+function ProviderCard({ source, settings }: { source: AiSource; settings: AiSettings }) {
   const { t } = useI18n();
-  const live = useProviderModels(provider.id, settings);
+  const { provider, service } = source;
+  const serviceId = service?.id ?? null;
+  const live = useProviderModels(provider.id, settings, true, service);
   const saved = useSavedAiModels();
   const save = useSaveAiModel();
   const remove = useRemoveAiModel();
   const ids = useSettingsScopeIds();
   const saveSetting = useSaveAppSetting("user", ids.user);
   const defaultModel = typeof settings.defaultModel === "string" ? settings.defaultModel : "";
-  const keptHere = (saved.data ?? []).filter((m) => m.provider === provider.id);
+  const keptHere = (saved.data ?? []).filter((m) => m.provider === provider.id && (m.service_id ?? null) === serviceId);
+  const address = provider.describe?.(settings, service) || t("ai.serverDefault");
   const liveNames = new Set((live.data ?? []).map((m) => m.name));
   const gone = keptHere.filter((m) => live.isSuccess && !liveNames.has(m.name));
   const error = live.error as Error | null;
@@ -70,8 +82,10 @@ function ProviderCard({ provider, settings }: { provider: AiProvider; settings: 
       <div className="stack">
         <div className="panel-head">
           <div>
-            <div className="panel-title">{provider.name}</div>
-            {provider.describe ? <div className="stat-note">{provider.describe(settings) || t("ai.serverDefault")}</div> : null}
+            <div className="panel-title">{source.name}</div>
+            <div className="stat-note">
+              {[service ? provider.name : t("ai.models.fromSettings"), provider.describe ? address : ""].filter(Boolean).join(" · ")}
+            </div>
           </div>
           <Button type="button" variant="outline" size="sm" loading={live.isFetching} onClick={() => void live.refetch()}>
             {t("ai.models.refresh")}
@@ -81,7 +95,7 @@ function ProviderCard({ provider, settings }: { provider: AiProvider; settings: 
           <Alert tone="danger">
             {error.message}
             {error instanceof AiProviderError && error.kind === "unreachable"
-              ? ` ${t("ai.unreachableHint", { address: provider.describe?.(settings) || t("ai.serverDefault") })}`
+              ? ` ${t(service ? "ai.services.unreachableHint" : "ai.unreachableHint", { address })}`
               : ""}
           </Alert>
         ) : null}
@@ -113,7 +127,7 @@ function ProviderCard({ provider, settings }: { provider: AiProvider; settings: 
                         className="ai-models__keep"
                         checked={!!kept?.enabled}
                         disabled={save.isPending}
-                        onChange={(e) => save.mutate({ provider: provider.id, model, enabled: e.target.checked })}
+                        onChange={(e) => save.mutate({ provider: provider.id, serviceId, model, enabled: e.target.checked })}
                       />
                     </td>
                     <td>

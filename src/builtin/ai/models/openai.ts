@@ -1,7 +1,13 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
-import { AiProviderError, type AiChatMessage, type AiProvider, type AiSettings, type AiTool, type AiToolCall } from "./provider";
+import { AiProviderError, type AiChatMessage, type AiProvider, type AiServiceRef, type AiSettings, type AiTool, type AiToolCall } from "./provider";
 
+/**
+ * OpenAI-compatible APIs (OpenAI, Berget AI, a vLLM or LM Studio server, …), reached through a
+ * Supabase edge function (`ai-openai`, supabase/functions/ai-openai) that calls the API for the
+ * signed-in user. With the settings it calls `openai.baseUrl` with the `openai.apiKey` setting; a
+ * service (ai_services) is named by `serviceId`, and the function reads its address and key itself.
+ */
 let functionName = "ai-openai";
 
 /** Names the edge function that calls an OpenAI-compatible API (default `ai-openai`). */
@@ -9,10 +15,17 @@ export function configureOpenAi(options: { functionName?: string }): void {
   if (options.functionName) functionName = options.functionName;
 }
 
+export const OPENAI_BASE_URL = "https://api.openai.com/v1";
+
+/** Where a request goes: the service (the function reads its address), else the settings' address. */
+function target(settings: AiSettings, service?: AiServiceRef | null): Record<string, unknown> {
+  return service ? { serviceId: service.id } : { baseUrl: openAiBaseUrl(settings) };
+}
+
 /** The configured API address, defaulting to the OpenAI API's versioned base URL. */
-export function openAiBaseUrl(settings: AiSettings): string {
-  const value = typeof settings["openai.baseUrl"] === "string" ? settings["openai.baseUrl"].trim() : "";
-  const baseUrl = value || "https://api.openai.com/v1";
+export function openAiBaseUrl(settings: AiSettings, service?: AiServiceRef | null): string {
+  const value = service ? (service.base_url ?? "").trim() : typeof settings["openai.baseUrl"] === "string" ? settings["openai.baseUrl"].trim() : "";
+  const baseUrl = value || OPENAI_BASE_URL;
   let end = baseUrl.length;
   while (end > 0 && baseUrl.charCodeAt(end - 1) === 47) end--;
   return baseUrl.slice(0, end);
@@ -93,10 +106,12 @@ export const openAiProvider: AiProvider = {
   name: "OpenAI-compatible API",
   addressSetting: "openai.baseUrl",
   supportsTools: true,
-  describe: (settings) => openAiBaseUrl(settings),
+  supportsServices: true,
+  defaultBaseUrl: OPENAI_BASE_URL,
+  describe: (settings, service) => openAiBaseUrl(settings, service),
 
-  async listModels(settings, signal) {
-    const data = (await invoke({ action: "models", baseUrl: openAiBaseUrl(settings) }, signal)) as { data?: OpenAiModel[] } | null;
+  async listModels(settings, signal, service) {
+    const data = (await invoke({ action: "models", ...target(settings, service) }, signal)) as { data?: OpenAiModel[] } | null;
     if (!data || !Array.isArray(data.data)) throw new AiProviderError("The AI API sent an invalid models response", "invalid");
     return data.data
       .filter((model): model is OpenAiModel & { id: string } => !!model && typeof model.id === "string" && !!model.id)
@@ -106,12 +121,12 @@ export const openAiProvider: AiProvider = {
       }));
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken, tools }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service }) {
     const startedAt = Date.now();
     const response = await invoke(
       {
         action: "chat",
-        baseUrl: openAiBaseUrl(settings),
+        ...target(settings, service),
         model,
         messages: openAiMessages(messages),
         ...(tools?.length ? { tools: openAiTools(tools) } : {}),

@@ -1,7 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
 import { openAiTools, parseToolArguments } from "./openai";
-import { AiProviderError, type AiChatMessage, type AiProvider, type AiSettings, type AiToolCall } from "./provider";
+import { AiProviderError, type AiChatMessage, type AiProvider, type AiServiceRef, type AiSettings, type AiToolCall } from "./provider";
 
 /**
  * Ollama (https://ollama.com), reached through a Supabase edge function rather than from the
@@ -9,8 +9,9 @@ import { AiProviderError, type AiChatMessage, type AiProvider, type AiSettings, 
  * /api/chat` for an answer) server-side for the signed-in user and streams the answer back as
  * server-sent events, one Ollama JSON chunk per event. So the address (the `ollama.baseUrl`
  * setting, or the function's OLLAMA_BASE_URL when it's empty) has to be reachable from the server,
- * and no CORS setup is needed on Ollama. The function's contract is in docs/guide/ai.md; Spacify's
- * is `supabase/functions/ai-ollama`.
+ * and no CORS setup is needed on Ollama. A service (ai_services) is named by `serviceId`: the
+ * function reads its address and key itself. The function's contract is in docs/guide/ai.md;
+ * Spacify's is `supabase/functions/ai-ollama`.
  */
 
 let functionName = "ai-ollama";
@@ -24,6 +25,13 @@ export function configureOllama(options: { functionName?: string }): void {
 export function ollamaBaseUrl(settings: AiSettings): string {
   const value = typeof settings["ollama.baseUrl"] === "string" ? settings["ollama.baseUrl"].trim() : "";
   return value.replace(/\/+$/, "");
+}
+
+/** Where a request goes: the service, else the settings' address ("" = the server's default). */
+function target(settings: AiSettings, service?: AiServiceRef | null): Record<string, unknown> {
+  if (service) return { serviceId: service.id };
+  const baseUrl = ollamaBaseUrl(settings);
+  return baseUrl ? { baseUrl } : {};
 }
 
 type ErrorKind = "config" | "forbidden" | "unreachable" | "http" | "invalid";
@@ -93,10 +101,12 @@ export const ollamaProvider: AiProvider = {
   name: "Ollama",
   addressSetting: "ollama.baseUrl",
   supportsTools: true,
-  describe: (settings) => ollamaBaseUrl(settings),
+  supportsServices: true,
+  defaultBaseUrl: "http://localhost:11434",
+  describe: (settings, service) => (service ? (service.base_url ?? "").replace(/\/+$/, "") : ollamaBaseUrl(settings)),
 
-  async listModels(settings, signal) {
-    const data = (await invoke({ action: "models", baseUrl: ollamaBaseUrl(settings) || undefined }, signal)) as { models?: OllamaTag[] } | null;
+  async listModels(settings, signal, service) {
+    const data = (await invoke({ action: "models", ...target(settings, service) }, signal)) as { models?: OllamaTag[] } | null;
     return (data?.models ?? [])
       .map((tag) => ({
         name: tag.name || tag.model || "",
@@ -107,7 +117,7 @@ export const ollamaProvider: AiProvider = {
       .filter((m) => m.name);
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken, tools }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service }) {
     const options: Record<string, number> = {};
     if (temperature !== undefined) options.temperature = temperature;
     const numCtx = option(settings, "ollama.numCtx");
@@ -116,7 +126,7 @@ export const ollamaProvider: AiProvider = {
     const response = await invoke(
       {
         action: "chat",
-        baseUrl: ollamaBaseUrl(settings) || undefined,
+        ...target(settings, service),
         model,
         messages: ollamaMessages(messages),
         ...(tools?.length ? { tools: openAiTools(tools) } : {}),
