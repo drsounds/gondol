@@ -1,0 +1,69 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "oauth",
+  "slug": "oauth",
+  "name": { "en": "OAuth", "sv": "OAuth" },
+  "description": {
+    "en": "Let HTML5 and other apps act for a user: OAuth 2 credentials per app (the secret is shown once and stored hashed), the consent page, and the apps a user has connected.",
+    "sv": "Låt HTML5-appar och andra appar agera åt en användare: OAuth 2-uppgifter per app (hemligheten visas en gång och lagras hashad), samtyckessidan och apparna en användare har kopplat."
+  },
+  "iconName": "shield",
+  "defaultFeatureId": "credentials",
+  "dependencies": [],
+  "defaultActive": true,
+  "staticPaths": ["/oauth/authorize", "/oauth/new"],
+  "features": [
+    {
+      "id": "authorize",
+      "name": { "en": "Allow access", "sv": "Ge åtkomst" },
+      "description": { "en": "Where a user lets an app act for them", "sv": "Där en användare låter en app agera åt dem" },
+      "path": "oauth/authorize",
+      "iconName": "shield",
+      "hiddenFromNav": true
+    },
+    {
+      "id": "credentials",
+      "name": { "en": "OAuth credentials", "sv": "OAuth-uppgifter" },
+      "description": { "en": "Client ids and secrets for your apps, and the apps you've connected", "sv": "Klient-id:n och hemligheter för dina appar, och apparna du har kopplat" },
+      "path": "oauth",
+      "iconName": "shield",
+      "roles": ["admin", "creator", "operator"],
+      "aspects": ["configure"],
+      "actions": [
+        { "id": "oauth.open", "title": "OAuth credentials", "category": "Developer", "iconName": "shield", "navigate": "/oauth", "keywords": ["oauth", "client id", "secret", "api", "credentials"] },
+        { "id": "oauth.new", "title": "New OAuth credential", "category": "Developer", "iconName": "plus", "navigate": "/oauth/new", "keywords": ["oauth", "client", "api"], "aspects": ["create"] }
+      ]
+    }
+  ],
+  "api": {
+    "scopes": {
+      "profile": {
+        "en": "See who you are (your account's id)",
+        "sv": "Se vem du är (ditt kontos id)"
+      }
+    },
+    "schemas": {
+      "Me": {
+        "type": "object",
+        "required": ["id", "uri"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "uri": { "type": "string", "format": "uri", "description": "The account's entity URI" },
+          "client_id": { "type": "string", "description": "The client the token was issued to" },
+          "scopes": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "paths": {
+      "/me": {
+        "get": {
+          "operationId": "getMe",
+          "summary": "The user the access token acts for",
+          "rpc": "api_me",
+          "scopes": ["profile"],
+          "responses": { "200": { "description": "The user", "schema": { "$ref": "#/components/schemas/Me" } } }
+        }
+      }
+    }
+  }
+}

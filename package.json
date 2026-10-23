@@ -4,6 +4,9 @@
   "description": "A web application framework on TanStack Start, React and Supabase: the application shell, theming engine, navigation, search, entity system and apps framework.",
   "license": "LGPL-3.0-only",
   "type": "module",
+  "bin": {
+    "gondol-api": "./src/api/cli.ts"
+  },
   "sideEffects": [
     "*.css"
   ],
@@ -19,7 +22,8 @@
     "exports": "node scripts/exports.mjs",
     "check-exports": "node scripts/exports.mjs --check",
     "manifest-schema": "bun scripts/manifest-schema.ts",
-    "check-manifest-schema": "bun scripts/manifest-schema.ts --check"
+    "check-manifest-schema": "bun scripts/manifest-schema.ts --check",
+    "test": "bun test src"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -56,6 +60,9 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./api/cli": "./src/api/cli.ts",
+    "./api/gateway": "./src/api/gateway.ts",
+    "./api/openapi": "./src/api/openapi.ts",
     "./apps/actions": "./src/apps/actions.tsx",
     "./apps/components/ActionsPalette": "./src/apps/components/ActionsPalette.tsx",
     "./apps/components/AppBundleView": "./src/apps/components/AppBundleView.tsx",
@@ -90,6 +97,11 @@
     "./builtin/analytics": "./src/builtin/analytics/index.ts",
     "./builtin/analytics/models": "./src/builtin/analytics/models/index.ts",
     "./builtin/analytics/models/streamAnalytics": "./src/builtin/analytics/models/streamAnalytics.ts",
+    "./builtin/oauth/features/authorize/src/pages/OAuthAuthorizePage": "./src/builtin/oauth/features/authorize/src/pages/OAuthAuthorizePage.tsx",
+    "./builtin/oauth/features/credentials/src/pages/OAuthCredentialsPage": "./src/builtin/oauth/features/credentials/src/pages/OAuthCredentialsPage.tsx",
+    "./builtin/oauth": "./src/builtin/oauth/index.ts",
+    "./builtin/oauth/models/oauth": "./src/builtin/oauth/models/oauth.ts",
+    "./builtin/oauth/models/types": "./src/builtin/oauth/models/types.ts",
     "./builtin/streams/features/streams/src/components/StreamsPanel": "./src/builtin/streams/features/streams/src/components/StreamsPanel.tsx",
     "./builtin/streams/features/streams/src/pages/StreamsPage": "./src/builtin/streams/features/streams/src/pages/StreamsPage.tsx",
     "./builtin/streams": "./src/builtin/streams/index.ts",

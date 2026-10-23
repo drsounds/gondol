@@ -2,6 +2,7 @@ import { z } from "zod/v4";
 import { SITE_ASPECTS, SITE_ROLES } from "../sites/capabilities";
 import { appSettingsSchema } from "../settings/schema";
 import { settingsProblems } from "../settings/tree";
+import { appApiSchema } from "../api/openapi";
 
 /**
  * The schema of an app's `manifest.json`: everything an app declares about itself as data, checked
@@ -12,7 +13,7 @@ import { settingsProblems } from "../settings/tree";
  * What a manifest declares, the shell reads without knowing any app (see ./contributions.ts): the
  * features and their paths, palette actions, the root navigation items, the create picker's items,
  * the search page's browse tiles, the app's entity types (addresses, tile art, where their rows
- * live) and its settings (../settings/schema.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
+ * live), its settings (../settings/schema.ts) and its HTTP API (../api/openapi.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
  * index.ts with defineApp.
  */
 
@@ -185,6 +186,7 @@ export const appManifestSchema = z
       .optional()
       .meta({ description: "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know." }),
     settings: appSettingsSchema.optional(),
+    api: appApiSchema.optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
