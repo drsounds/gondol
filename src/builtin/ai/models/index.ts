@@ -4,5 +4,6 @@ export * from "./ollama";
 export * from "./openai";
 export * from "./conversations";
 export * from "./models";
+export * from "./services";
 export * from "./chat";
 export * from "./tools";

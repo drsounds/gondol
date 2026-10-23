@@ -254,3 +254,7 @@
     max-height: 12rem;
   }
 }
+
+.ai-services__address {
+  overflow-wrap: anywhere;
+}

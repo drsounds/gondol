@@ -39,7 +39,7 @@ export function useAiMessages(conversationId: string | null | undefined) {
   });
 }
 
-export async function createAiConversation(values: { title: string; provider: string; model: string | null; system_prompt?: string | null }): Promise<AiConversation> {
+export async function createAiConversation(values: { title: string; provider: string; service_id?: string | null; model: string | null; system_prompt?: string | null }): Promise<AiConversation> {
   const { data, error } = await aiDb().from("ai_conversations").insert(values).select("*").single();
   if (error) throw error;
   return data as AiConversation;
@@ -63,7 +63,7 @@ export async function addAiMessage(values: {
   return data as unknown as AiMessage;
 }
 
-export async function touchAiConversation(id: string, values: Partial<Pick<AiConversation, "model" | "provider" | "title">> = {}): Promise<void> {
+export async function touchAiConversation(id: string, values: Partial<Pick<AiConversation, "model" | "provider" | "service_id" | "title">> = {}): Promise<void> {
   const { error } = await aiDb().from("ai_conversations").update({ ...values, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) throw error;
 }

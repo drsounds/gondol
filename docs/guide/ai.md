@@ -2,8 +2,11 @@
 
 Gondol ships one app of its own, `ai`: LLM support for an app built on gondol, and an AI chat.
 
-- **Providers** are what it talks to. [Ollama](https://ollama.com) and OpenAI-compatible APIs are
+- **Providers** are the APIs it speaks. [Ollama](https://ollama.com) and OpenAI-compatible APIs are
   built in; more can be registered in code.
+- **Services** are the user's own AI APIs (`ai_services`): OpenAI, Berget AI, a local Ollama, …,
+  each linked to a provider, with an address and a key of its own that stays on the server. A
+  provider can also be used straight from the app's settings, as before.
 - **Models** are what a provider serves. The user picks which ones the chat offers and a default.
 - **Conversations** and their **messages** are kept per account, and answers stream in as the
   model writes them.
@@ -41,9 +44,25 @@ can leave it out.
 | --- | --- | --- |
 | `/ai`, `/ai/new` | `chat` | A new conversation, beside the list of the user's conversations. |
 | `/ai/<conversation id>` | `chat` | A conversation: its messages, the model picker, and the box to write the next message. Answers stream in; **Stop** ends one early and keeps what was written. |
-| `/ai-models` | `models` | Each provider in use with the models it serves now: which the chat offers, the default, and the app's settings. Tagged `admin`/`operator` and `configure` for [sites](./sites.md). |
+| `/ai-models` | `models` | The user's services, then each source in use (a service, or a provider from the settings) with the models it serves now: which the chat offers, the default, and the app's settings. Tagged `admin`/`operator` and `configure` for [sites](./sites.md). |
+| `/ai-models/services/new`, `/ai-models/services/<id>/edit` | `models` | The routed sheets for a service: a preset (OpenAI, Berget AI, Ollama, another OpenAI-compatible API), its name, provider, address and key, and whether the chat uses it. |
 
-The palette has "Open AI chat", "New AI conversation" and "AI models and providers".
+The palette has "Open AI chat", "New AI conversation", "AI models and providers" and "Add AI service".
+
+## Services
+
+A service is one API the chat gets answers from, speaking a provider's protocol (`provider`:
+`openai` for OpenAI, Berget AI, vLLM, LM Studio and other OpenAI-compatible APIs, `ollama` for an
+Ollama). Its `base_url` is the API's address as the server reaches it (empty: OpenAI's
+`https://api.openai.com/v1`, or the server's own Ollama), and its key is set with
+`set_ai_service_key()` into `ai_service_keys`, which the client can't read: only the AI functions
+do, with the service role. The model picker offers the models kept for each enabled service (and
+for the providers the `providers` setting switches on), so one account can use several services
+side by side; a conversation remembers the service it uses (`service_id`).
+
+A provider can be added as a service when it says `supportsServices` (both built-in ones do); it
+then gets `service` (`{ id, base_url }`) in `listModels(settings, signal, service)` and
+`chat(settings, { …, service })` and sends `serviceId` to its function instead of an address.
 
 ## Settings
 
@@ -85,11 +104,14 @@ contract:
 
 | Request (POST, JSON) | Answer |
 | --- | --- |
-| `{ action: "models", baseUrl }` | The API's `/models` JSON response (`{ data: [...] }`). |
-| `{ action: "chat", baseUrl, model, messages, temperature?, tools? }` | The API's streaming `/chat/completions` response as server-sent events. `messages` may hold `assistant` messages with `tool_calls` and `tool` messages (`tool_call_id`), `tools` is chat completions' `[{ type: "function", function: { name, description, parameters } }]`. |
+| `{ action: "models", baseUrl }` or `{ action: "models", serviceId }` | The API's `/models` JSON response (`{ data: [...] }`). |
+| `{ action: "chat", baseUrl \| serviceId, model, messages, temperature?, tools? }` | The API's streaming `/chat/completions` response as server-sent events. `messages` may hold `assistant` messages with `tool_calls` and `tool` messages (`tool_call_id`), `tools` is chat completions' `[{ type: "function", function: { name, description, parameters } }]`. |
 
 The function reads the signed-in user's `openai.apiKey` from `app_settings` and sends it as a bearer
-token; do not accept the key in the request body. Validate the base URL and restrict hosts the
+token; do not accept the key in the request body. With `serviceId` it reads the service (as the
+user, so only their own) and its key from `ai_service_keys` (with `SUPABASE_SERVICE_ROLE_KEY`), and
+calls the service's address instead. `gondol-api --functions <dir>` writes gondol's `ai-openai` into
+the host's functions when `--builtin` includes `ai`, next to the app router. Validate the base URL and restrict hosts the
 function may call to avoid using it to reach private services.
 
 By default, the function only calls public HTTPS hosts. Set `OPENAI_ALLOWED_HOSTS` to a comma-separated
@@ -104,12 +126,12 @@ contract:
 
 | Request (POST, JSON) | Answer |
 | --- | --- |
-| `{ action: "models", baseUrl? }` | `{ models: [{ name, model, size, modified_at, details }] }`, Ollama's `/api/tags` |
-| `{ action: "chat", baseUrl?, model, messages: [{ role, content, tool_calls?, tool_name? }], tools?, options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece (tool calls in `message.tool_calls`), the last with `done: true`, or `data: {"error": "…"}` |
+| `{ action: "models", baseUrl? \| serviceId }` | `{ models: [{ name, model, size, modified_at, details }] }`, Ollama's `/api/tags` |
+| `{ action: "chat", baseUrl? \| serviceId, model, messages: [{ role, content, tool_calls?, tool_name? }], tools?, options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece (tool calls in `message.tool_calls`), the last with `done: true`, or `data: {"error": "…"}` |
 
 `baseUrl` is the `ollama.baseUrl` setting in effect; when it's empty the function uses its own
 `OLLAMA_BASE_URL`. The API key isn't sent along: the function reads the user's own `ollama.apiKey`
-from `app_settings`. Since anyone can type an address, Spacify's function only calls public hosts,
+from `app_settings` (or, with `serviceId`, the service's address and key, as `ai-openai` does). Since anyone can type an address, Spacify's function only calls public hosts,
 except for:
 
 | Secret | |
@@ -154,8 +176,10 @@ configureOpenAi({ functionName: "my-openai" });
 | `useAiSettings()` | The app's settings in effect. |
 | `useAiConversations()`, `useAiMessages(id)` | The user's conversations (latest first) and a conversation's messages. |
 | `useAiChat(settings, { onConversationCreated })` | `send(text, { conversation, provider, model })`, `stop()`, the answer `streaming`, `busy`, `error`. |
-| `useAiModelChoices(settings)` | The chat's model picker. |
-| `useProviderModels(providerId, settings)` | What a provider serves now. |
+| `useAiModelChoices(settings)` | The chat's model picker (each choice with its `provider`, `serviceId` and `sourceName`). |
+| `useProviderModels(providerId, settings, enabled?, service?)` | What a provider (or a service) serves now. |
+| `useAiServices()`, `useSaveAiService()`, `useDeleteAiService()`, `AI_SERVICE_PRESETS` | The user's services (`apiKey` on save sets, keeps or removes the key). |
+| `useAiSources(settings)`, `aiSources(settings, services)` | Where answers can come from: the enabled services, then the providers in the settings. |
 | `useSavedAiModels()`, `useSaveAiModel()`, `useRemoveAiModel()` | The models kept in `ai_models`. |
 | `getAiProvider(id)`, `getAiProviders()`, `enabledAiProviders(settings)` | The provider registry (Ollama and OpenAI-compatible APIs are built in). |
 
@@ -202,10 +226,12 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 
 | Table | Columns |
 | --- | --- |
-| `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `model`, `system_prompt`, `created_at`, `updated_at` |
+| `ai_services` | `id`, `user_id` (default `auth.uid()`), `name`, `provider`, `base_url`, `has_api_key` (kept by `set_ai_service_key()`), `enabled`, `position`, `created_at`, `updated_at` |
+| `ai_service_keys` | `service_id` (cascades), `user_id`, `api_key`: no grants to `authenticated`, written by `set_ai_service_key(p_service_id, p_api_key)` (null removes it), read by the AI functions |
+| `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
 | `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `created_at` |
-| `ai_models` | `id`, `user_id`, `provider`, `name`, `label`, `details` (jsonb), `enabled`, `created_at`, `updated_at`; unique `(user_id, provider, name)` |
+| `ai_models` | `id`, `user_id`, `provider`, `service_id` (cascades), `name`, `label`, `details` (jsonb), `enabled`, `created_at`, `updated_at`; unique `(user_id, provider, service_id, name)`, nulls not distinct |
 
 Each is private to its user (`user_id = auth.uid()` policies); a message can only be added to the
 user's own conversation. Spacify's migration `20261022210000_app_settings_and_ai.sql` creates them,
-with `app_settings`.
+with `app_settings`; `20261023170000_ai_services.sql` adds the services.
