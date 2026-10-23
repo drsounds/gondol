@@ -26,9 +26,30 @@ export class AppRouterError extends Error {
   }
 }
 
+/**
+ * What the router lets the caller's MCP tools reach (router.ts): the apps they have on
+ * (`x-gondol-apps`) and the entity types the site shows (`x-gondol-entity-types`); null: no limit.
+ */
+export type AppRouterScope = { apps: string[] | null; entityTypes: string[] | null };
+
+let scope: AppRouterScope = { apps: null, entityTypes: null };
+
+/** Narrows what the router serves this browser (the ai app sets it from the apps on and the site). */
+export function setAppRouterScope(next: AppRouterScope): void {
+  scope = next;
+}
+
+function scopeHeaders(): Record<string, string> {
+  return {
+    ...(scope.apps ? { "x-gondol-apps": scope.apps.join(",") } : {}),
+    ...(scope.entityTypes ? { "x-gondol-entity-types": scope.entityTypes.join(",") } : {}),
+  };
+}
+
 async function invoke<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal }): Promise<T> {
   const { data, error } = await supabase.functions.invoke(`${functionName}${path}`, {
     method: init.method ?? "POST",
+    headers: scopeHeaders(),
     ...(init.body !== undefined ? { body: init.body as Record<string, unknown> } : {}),
     signal: init.signal,
   });
@@ -66,6 +87,8 @@ export type AppCatalogEntry = {
   userServer?: boolean;
   /** Why a user's server couldn't list its tools. */
   error?: string;
+  /** gondol's own tools (apps__…, entities__…), served as an app. */
+  builtin?: boolean;
 };
 
 export async function fetchAppCatalog(signal?: AbortSignal): Promise<{ mcp: string; apps: AppCatalogEntry[] }> {

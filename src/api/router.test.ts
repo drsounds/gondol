@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildAppRegistry } from "./functions";
-import { createAppRouter, mayCall, splitToolName, type RouterCaller } from "./router";
+import { createAppRouter, mayCall, splitToolName, type AppRouterOptions, type RouterCaller } from "./router";
 
 const registry = buildAppRegistry([
   {
@@ -46,6 +46,21 @@ const registry = buildAppRegistry([
     name: { en: "Remote" },
     mcp: { endpoint: { url: "https://mcp.example.com/mcp", headers: { Authorization: "REMOTE_TOKEN" } } },
   },
+  {
+    id: "tasks",
+    name: { en: "Tasks" },
+    description: { en: "Things to do" },
+    features: [
+      {
+        id: "tasks",
+        name: { en: "Tasks", sv: "Uppgifter" },
+        path: "tasks",
+        entityTypes: ["task_list"],
+        actions: [{ id: "tasks.new", title: "New task", navigate: "/tasks/new", shortcut: "Mod+Alt+T" }],
+      },
+    ],
+    entities: { task: { slug: "task", edit: "/tasks/{key}/edit" } },
+  },
 ]);
 
 const user: RouterCaller = { userId: "u1", token: "session.jwt.token", scopes: null };
@@ -53,7 +68,7 @@ const client: RouterCaller = { userId: "u1", token: "opaque", scopes: ["ideas:re
 
 type Call = { kind: string; [key: string]: unknown };
 
-function router() {
+function router(extra: Partial<AppRouterOptions> = {}) {
   const calls: Call[] = [];
   const remoteCalls: { method: string; headers: Record<string, string> }[] = [];
   const handler = createAppRouter({
@@ -62,6 +77,7 @@ function router() {
     authenticate: async (token) => (token === user.token ? user : token === client.token ? client : null),
     rpc: async ({ rpc, args, caller }) => {
       calls.push({ kind: "rpc", rpc, args, caller: caller?.userId ?? null });
+      if (rpc === "entity_api_types") return { data: [{ type: "task" }, { type: "task_list" }, { type: "note" }] };
       return rpc === "api_create_idea" ? { data: { id: "i1", title: args.p_title } } : { data: { ok: true } };
     },
     callFunction: async ({ function: name, input }) => {
@@ -86,6 +102,7 @@ function router() {
         headers: { "Content-Type": "text/event-stream", "Mcp-Session-Id": "s1" },
       });
     }) as typeof fetch,
+    ...extra,
   });
   return { handler, calls, remoteCalls };
 }
@@ -213,8 +230,9 @@ describe("mcp", () => {
     const { handler, remoteCalls } = router();
     const response = await handler(post("/mcp", rpc("tools/list"), user.token));
     const body = (await response.json()) as { result: { tools: { name: string; annotations: { readOnlyHint: boolean } }[] } };
-    expect(body.result.tools.map((t) => t.name)).toEqual(["ideas__create_idea", "ideas__summarize", "remote__lookup"]);
-    expect(body.result.tools[1].annotations.readOnlyHint).toBe(true);
+    const tools = body.result.tools.filter((t) => !t.name.startsWith("apps__"));
+    expect(tools.map((t) => t.name)).toEqual(["ideas__create_idea", "ideas__summarize", "remote__lookup"]);
+    expect(tools[1].annotations.readOnlyHint).toBe(true);
     expect(remoteCalls.map((c) => c.method)).toEqual(["initialize", "notifications/initialized", "tools/list"]);
     expect(remoteCalls[0].headers.Authorization).toBe("Bearer remote-secret");
   });
@@ -257,5 +275,100 @@ describe("mcp", () => {
     const { handler } = router();
     const response = await handler(new Request("https://x.example/app-router/mcp", { headers: { Authorization: `Bearer ${user.token}` } }));
     expect(response.status).toBe(405);
+  });
+});
+
+const postWith = (path: string, body: unknown, token: string, headers: Record<string, string>) =>
+  new Request(`https://x.example/functions/v1/app-router${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...headers },
+    body: JSON.stringify(body),
+  });
+
+type ToolList = { result: { tools: { name: string; annotations: { readOnlyHint: boolean; destructiveHint: boolean } }[] } };
+type ToolCall = { result: { isError?: boolean; content: { text: string }[]; structuredContent?: Record<string, unknown> } };
+
+describe("gondol's own tools", () => {
+  test("apps__ and, when on, entities__ tools, for the user's own session only", async () => {
+    const { handler } = router({ entities: true });
+    const own = (await (await handler(post("/mcp", rpc("tools/list"), user.token))).json()) as ToolList;
+    const names = own.result.tools.map((t) => t.name);
+    expect(names.slice(0, 3)).toEqual(["apps__list_apps", "apps__describe_app", "apps__call_function"]);
+    expect(names).toContain("entities__create");
+    const byName = Object.fromEntries(own.result.tools.map((t) => [t.name, t.annotations]));
+    expect(byName.entities__list.readOnlyHint).toBe(true);
+    expect(byName.entities__create.readOnlyHint).toBe(false);
+    expect(byName.entities__delete.destructiveHint).toBe(true);
+    expect(byName.apps__call_function.readOnlyHint).toBe(false);
+
+    const oauth = (await (await handler(post("/mcp", rpc("tools/list"), client.token))).json()) as ToolList;
+    expect(oauth.result.tools.some((t) => t.name.startsWith("apps__") || t.name.startsWith("entities__"))).toBe(false);
+
+    const init = (await (await handler(post("/mcp", rpc("initialize", { protocolVersion: "2025-06-18" }), user.token))).json()) as { result: { instructions: string } };
+    expect(init.result.instructions).toContain("Entities (tools entities__…)");
+    expect(init.result.instructions).not.toContain("Tasks (tools tasks__…)");
+
+    const off = router({ discovery: false });
+    const none = (await (await off.handler(post("/mcp", rpc("tools/list"), user.token))).json()) as ToolList;
+    expect(none.result.tools.some((t) => t.name.startsWith("apps__") || t.name.startsWith("entities__"))).toBe(false);
+  });
+
+  test("entity tools run the entity API as the user, narrowed to the site's types", async () => {
+    const { handler, calls } = router({ entities: true });
+    const created = (await (
+      await handler(postWith("/mcp", rpc("tools/call", { name: "entities__create", arguments: { type: "task", values: { title: "Fly" } } }), user.token, { "x-gondol-entity-types": "task, note,bad type" }))
+    ).json()) as ToolCall;
+    expect(created.result.isError).toBeUndefined();
+    expect(calls.at(-1)).toEqual({ kind: "rpc", rpc: "entity_api_create", args: { p_type: "task", p_values: { title: "Fly" }, p_allowed_types: ["task", "note"] }, caller: "u1" });
+
+    const types = (await (await handler(post("/mcp", rpc("tools/call", { name: "entities__list_types", arguments: {} }), user.token))).json()) as ToolCall;
+    expect(types.result.structuredContent).toEqual({ types: [{ type: "task", app: "tasks" }, { type: "task_list", app: "tasks" }, { type: "note" }] });
+    expect(calls.at(-1)?.args).toEqual({ p_allowed_types: null });
+
+    const bad = (await (await handler(post("/mcp", rpc("tools/call", { name: "entities__update", arguments: { uri: "spacify:task:1" } }), user.token))).json()) as ToolCall;
+    expect(bad.result.isError).toBe(true);
+    expect(bad.result.content[0].text).toContain("arguments.values: is required");
+  });
+
+  test("apps__ tools describe the apps and run any of their functions", async () => {
+    const { handler, calls } = router();
+    const list = (await (await handler(post("/mcp", rpc("tools/call", { name: "apps__list_apps", arguments: {} }), user.token))).json()) as ToolCall;
+    const apps = (list.result.structuredContent as { apps: { id: string; features: unknown[]; entity_types: string[]; functions: string[] }[] }).apps;
+    expect(apps.map((a) => a.id)).toEqual(["ideas", "remote", "tasks"]);
+    expect(apps[2].features).toEqual([{ name: "Tasks", path: "/tasks" }]);
+    expect(apps[2].entity_types).toEqual(["task", "task_list"]);
+    expect(apps[0].functions).toEqual(["create_idea", "summarize", "ping"]);
+
+    const described = (await (await handler(post("/mcp", rpc("tools/call", { name: "apps__describe_app", arguments: { app: "tasks" } }), user.token))).json()) as ToolCall;
+    const tasks = described.result.structuredContent as { features: { actions: unknown[] }[]; entities: unknown };
+    expect(tasks.features[0].actions).toEqual([{ id: "tasks.new", title: "New task", navigate: "/tasks/new", shortcut: "Mod+Alt+T" }]);
+    expect(tasks.entities).toEqual({ task: { slug: "task", edit: "/tasks/{key}/edit" } });
+
+    // ping isn't a tool, but the model can still run it.
+    const ran = (await (await handler(post("/mcp", rpc("tools/call", { name: "apps__call_function", arguments: { app: "ideas", function: "ping" } }), user.token))).json()) as ToolCall;
+    expect(ran.result.structuredContent).toEqual({ ok: true });
+    expect(calls.at(-1)?.rpc).toBe("api_ping");
+    const invalid = (await (await handler(post("/mcp", rpc("tools/call", { name: "apps__call_function", arguments: { app: "ideas", function: "create_idea", input: {} } }), user.token))).json()) as ToolCall;
+    expect(invalid.result.content[0].text).toContain("input.title: is required");
+  });
+
+  test("x-gondol-apps limits the apps, their tools and the catalogue", async () => {
+    const { handler } = router();
+    const headers = { "x-gondol-apps": "tasks" };
+    const list = (await (await handler(postWith("/mcp", rpc("tools/list"), user.token, headers))).json()) as ToolList;
+    expect(list.result.tools.map((t) => t.name)).toEqual(["apps__list_apps", "apps__describe_app", "apps__call_function"]);
+    const call = (await (await handler(postWith("/mcp", rpc("tools/call", { name: "apps__call_function", arguments: { app: "ideas", function: "ping" } }), user.token, headers))).json()) as ToolCall;
+    expect(call.result.isError).toBe(true);
+    const catalog = (await (
+      await handler(new Request("https://x.example/app-router/apps", { headers: { Authorization: `Bearer ${user.token}`, ...headers } }))
+    ).json()) as { apps: { id: string; builtin?: boolean }[] };
+    expect(catalog.apps.map((a) => a.id)).toEqual(["apps", "tasks"]);
+    expect(catalog.apps[0].builtin).toBe(true);
+  });
+});
+
+describe("buildAppRegistry and gondol's own tools", () => {
+  test("no app may take their ids", () => {
+    expect(() => buildAppRegistry([{ id: "entities", features: [{ id: "x", name: { en: "X" }, path: "x" }] }])).toThrow("gondol's own tools");
   });
 });

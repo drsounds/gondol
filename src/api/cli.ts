@@ -4,7 +4,7 @@
 //
 //   <out>/openapi.json  every app's manifest `api`, merged (buildOpenApiDocument)
 //   <out>/gateway.ts    the gateway (gateway.ts), copied as is: it imports nothing
-//   <out>/apps.json     every app's `functions` and `mcp`, for the app router (buildAppRegistry)
+//   <out>/apps.json     every app's `functions`, `mcp`, features and entity types, for the app router (buildAppRegistry)
 //   <out>/router.ts     the app router (router.ts), copied as is: it imports only the gateway
 //
 //   bunx gondol-api --apps src/apps --builtin ai,oauth --out supabase/functions/_shared/gondol-api
@@ -40,7 +40,18 @@ const manifests = discoverApps(appsDir, builtin).map((app: { dir: string }) => p
 const sources: ApiSource[] = manifests.map((manifest) => ({ id: manifest.id, name: manifest.name, api: manifest.api }));
 const document = buildOpenApiDocument(sources, { title: arg("title"), version: arg("version") });
 const registry = buildAppRegistry(
-  manifests.map((manifest): FunctionSource => ({ id: manifest.id, name: manifest.name, description: manifest.description, functions: manifest.functions, mcp: manifest.mcp, api: manifest.api })),
+  manifests.map(
+    (manifest): FunctionSource => ({
+      id: manifest.id,
+      name: manifest.name,
+      description: manifest.description,
+      functions: manifest.functions,
+      mcp: manifest.mcp,
+      api: manifest.api,
+      features: manifest.features.filter((feature) => !feature.hiddenFromNav || feature.actions?.length),
+      entities: manifest.entities,
+    }),
+  ),
 );
 
 const here = dirname(fileURLToPath(import.meta.url));

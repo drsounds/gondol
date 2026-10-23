@@ -22,6 +22,12 @@
 // (request headers passed on to functions, e.g. `x-spacify-workspace`) and whatever secrets apps'
 // own MCP servers name in their manifests.
 //
+// For callers with their own session, /mcp also has gondol's own tools: apps__… (the installed apps,
+// their features, actions, entity types and functions) and entities__… (CRUD on any entity through
+// the host's entity API, Postgres functions named in ENTITY_API_FUNCTIONS that run as the user, so
+// RLS decides). APP_ROUTER_ENTITIES=false turns the entity tools off (for a host without them),
+// APP_ROUTER_DISCOVERY=false the app tools.
+//
 // Users' own MCP servers (the ai app's ai_mcp_servers, with their header values from
 // ai_mcp_server_headers) join /mcp for callers with their own session; reading them takes
 // SUPABASE_SERVICE_ROLE_KEY. Their addresses must be public HTTPS, unless MCP_ALLOWED_HOSTS lists the
@@ -204,9 +210,11 @@ const handler = createAppRouter({
   authorizationServers: env("APP_API_PUBLIC_URL") ? [env("APP_API_PUBLIC_URL")!] : undefined,
   secret: env,
   userMcpServers,
+  discovery: env("APP_ROUTER_DISCOVERY") !== "false",
+  entities: env("APP_ROUTER_ENTITIES") !== "false",
   headers: {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": ["authorization", "content-type", "x-client-info", "apikey", "mcp-protocol-version", "mcp-session-id", ...FORWARD].join(", "),
+    "Access-Control-Allow-Headers": ["authorization", "content-type", "x-client-info", "apikey", "mcp-protocol-version", "mcp-session-id", "x-gondol-apps", "x-gondol-entity-types", ...FORWARD].join(", "),
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Expose-Headers": "WWW-Authenticate",
   },
