@@ -118,6 +118,43 @@ asking first when the `toolApproval` setting says so (`changes`: tools that aren
 `always`; `never`), and hands the result back until the model answers. The answer notes the tools
 it used. The chat's **Apps** button lists what the AI can use.
 
+## gondol's own tools: apps and entities
+
+For a caller with their own session (the ai app, not OAuth clients), `/mcp` also serves two groups
+of tools of gondol's own, so a model can work with any app without the app writing tools for it:
+
+| Tool | |
+| --- | --- |
+| `apps__list_apps` | The apps the user has: what each is for, its pages (features, with paths), entity types and the names of its functions. |
+| `apps__describe_app` | One app in full: features with their palette actions (`navigate`, `shortcut`), entity types with their addresses (`slug`, `view`, `edit`), functions with their input. |
+| `apps__call_function` | Runs any of an app's `functions` as the user, also ones that aren't tools (the input is checked like a direct call). Not read-only, so the chat asks first. |
+| `entities__list_types` | Every entity type: its table, the app it belongs to, the field that names it, whether deletes go to the trash, what the user may do (read, create, update, delete). |
+| `entities__describe_type` | A type's fields (type, required, writable, default, enum values, what a foreign key points at, URI fields), check constraints, the types pointing at it, and the row level security policies. |
+| `entities__search` | Full-text search over everything the user can see. |
+| `entities__list` | One type's rows, filtered by `conditions` (`[{field, op, value}]`, ops `eq` … `not_empty`, dates as `{{today+7}}`) matched `all` or `any`, words in the label, ordered and paged. |
+| `entities__get` | One entity with its fields, what its references point at, what points at it and its tags. |
+| `entities__create`, `entities__update` | Writes field values (never the row's identity, owner, timestamps, trash or workspace, nor secret-looking columns). |
+| `entities__delete`, `entities__restore` | To the trash and back; `permanent` deletes for good (destructive: the chat always asks). |
+
+The `apps__` tools read the registry: `gondol-api` puts every app's features, actions and entity
+types in `apps.json` next to its functions. Turn them off with `discovery: false`.
+
+The `entities__` tools (`entities: true`, on in gondol's edge function unless
+`APP_ROUTER_ENTITIES=false`) don't know the host's schema: each calls a Postgres function of the
+host's **entity API** as the user (`ENTITY_API_FUNCTIONS`: `entity_api_types`,
+`entity_api_describe`, `entity_api_search`, `entity_api_list`, `entity_api_get`,
+`entity_api_create`, `entity_api_update`, `entity_api_delete`, `entity_api_restore`), with the tool's
+arguments as `p_<name>` and `p_allowed_types`. They must be SECURITY INVOKER, so row level security
+decides exactly what the model may read and change: the user's rights in the app, no more. Entities
+are addressed by `uri` (`<scheme>:<type>:<id, identifier or slug>`) or `type` + `key`. Spacify's
+are in its migration `20261023230000_entity_api.sql`.
+
+Two request headers narrow what the router serves on `/mcp` and in the catalogue: `x-gondol-apps`
+(comma-separated app ids: only those apps' tools, and only they are discovered and callable) and
+`x-gondol-entity-types` (only those entity types, as `p_allowed_types`). The ai app sends the apps the
+user has on and, on a [site](./sites.md), the entity types the site shows (`useAppRouterScope()`,
+`setAppRouterScope()` in `gondol/api/client`). They only ever narrow: the database still decides.
+
 ## Building and deploying the router
 
 `gondol-api` (see [App APIs](./api.md)) writes the router's files next to the gateway's:
@@ -127,9 +164,9 @@ bun node_modules/gondol/src/api/cli.ts --apps src/apps --builtin ai,oauth,stream
   --out supabase/functions/_shared/gondol-api --functions supabase/functions
 ```
 
-- `apps.json`: every app's `functions` and `mcp`, resolved (`buildAppRegistry()`): tools point at
+- `apps.json`: every app's `functions` and `mcp` (and its features, actions and entity types, for discovery), resolved (`buildAppRegistry()`): tools point at
   their Postgres or edge function, refs are inlined. It refuses a tool naming a function or
-  operation the app doesn't have and a scope no app declares.
+  operation the app doesn't have, a scope no app declares and an app with the id `apps` or `entities`.
 - `router.ts`: the router, `createAppRouter()`; it only imports `gateway.ts` beside it.
 - with `--functions <dir>`: `<dir>/app-router/index.ts`, gondol's Supabase edge function for it
   (`supabase/functions/app-router` in gondol). It takes the user's Supabase session (a JWT) as a
@@ -146,6 +183,7 @@ bun node_modules/gondol/src/api/cli.ts --apps src/apps --builtin ai,oauth,stream
 | `APP_ROUTER_PUBLIC_URL` | Its public address, for the links it hands out (default: from the request). |
 | `APP_API_PUBLIC_URL` | The app API's public address, named to MCP clients as the authorization server. |
 | `APP_ROUTER_FORWARD_HEADERS` | Request headers passed on to functions, comma-separated (e.g. `x-spacify-workspace`); they're also allowed by CORS. |
+| `APP_ROUTER_ENTITIES`, `APP_ROUTER_DISCOVERY` | `false` turns off the `entities__` (for a host without the entity API) or `apps__` tools. |
 | whatever `mcp.endpoint.headers` name | Apps' own MCP servers' credentials. |
 | `MCP_ALLOWED_HOSTS`, `MCP_ALLOW_PRIVATE` | Users' own MCP servers (the ai app's `ai_mcp_servers`, read with `SUPABASE_SERVICE_ROLE_KEY`) must be public HTTPS hosts; these allow listed hosts (comma separated, `host` or `host:port`) or every address. |
 

@@ -212,6 +212,14 @@ Other apps can offer the model tools over MCP (their manifests' `mcp`, see
 the model makes through the router as the user and sends the results back, up to eight rounds per
 answer. The tools used are kept in the answer's `metrics.tools` (`denied` when the user said no).
 
+Next to the apps' own tools the model gets gondol's: `apps__…` to find the apps the user has, their
+pages, actions, entity types and functions (and run any function), and `entities__…` to search,
+read, create, change and delete any entity as the user, under row level security (see
+[gondol's own tools](./functions.md#gondols-own-tools-apps-and-entities)). The chat tells the router
+which apps are on and, on a site, which entity types the site shows (`useAppRouterScope()`), so the
+model reaches only what the user could in the app. Reading tools run without asking; creating,
+changing, deleting and running functions ask under `changes`.
+
 When a tool needs asking (`toolApproval`), the answer being written shows what the model wants to run
 and with what, and the user picks **Allow once**, **Allow in this conversation**, **Always allow** or
 **Don't allow** (Stop also says no). The two that last are kept in `ai_tool_permissions`, by the

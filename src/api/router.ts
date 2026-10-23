@@ -15,6 +15,14 @@
 //   POST /apps/<app>/mcp                one app's tools (and its own MCP server's, proxied)
 //   GET  /.well-known/oauth-protected-resource   where MCP clients get a token (RFC 9728)
 //
+// For callers with their own session, `/mcp` also has gondol's own tools: `apps__…` (with
+// `discovery`, the default) find the installed apps, their features, actions, entity types and
+// functions, and run any app's function; `entities__…` (with `entities`) find, read, create, change
+// and delete any entity through the host's entity API, Postgres functions that run as the caller so
+// row level security decides (spacify's entity_api_*). Two request headers narrow both, and the
+// apps' tools: `x-gondol-apps` (the app ids the caller has on, comma separated) and
+// `x-gondol-entity-types` (the entity types a site shows).
+//
 // Callers send `Authorization: Bearer <token>`: the user's own session (first party, every scope) or
 // an access token from the app API's OAuth (its scopes). `authenticate` tells which.
 import { rpcArgName, validate, type InvokeResult, type JsonSchema } from "./gateway.ts";
@@ -37,6 +45,23 @@ export type RegistryFunction = {
 
 export type RegistryTool = RegistryFunction & { name: string };
 
+/** A palette action of a feature: where it goes (`navigate`), or something the app does in the browser. */
+export type RegistryAction = { id: string; title: string; description?: string; navigate?: string; shortcut?: string };
+
+/** One of an app's features (its pages), as its manifest has it. */
+export type RegistryFeature = {
+  id: string;
+  name: string;
+  description?: string;
+  /** Its in-app path, with a leading slash. */
+  path: string;
+  entityTypes?: string[];
+  actions?: RegistryAction[];
+};
+
+/** An entity type an app owns: its public segment and the templates of its page and edit sheet. */
+export type RegistryEntity = { slug: string | null; view?: string; edit?: string };
+
 export type RegistryApp = {
   id: string;
   name: string;
@@ -46,6 +71,9 @@ export type RegistryApp = {
   tools: RegistryTool[];
   /** An MCP server of the app's own; header values name server secrets. */
   endpoint?: { url: string; headers?: Record<string, string> };
+  /** What the app has in the browser, for discovery (`apps__describe_app`). */
+  features?: RegistryFeature[];
+  entities?: Record<string, RegistryEntity>;
 };
 
 /**
@@ -101,6 +129,19 @@ export type AppRouterOptions = {
    * address may be called (public HTTPS, not the stack's own network) is up to this function.
    */
   userMcpServers?: (caller: RouterCaller) => Promise<UserMcpServer[]>;
+  /**
+   * gondol's `apps__…` tools on `/mcp` for callers with their own session: the installed apps,
+   * their features, actions, entity types and functions, and running any of those functions
+   * (default true).
+   */
+  discovery?: boolean;
+  /**
+   * gondol's `entities__…` tools on `/mcp` for callers with their own session: CRUD on any entity
+   * through the host's entity API (Postgres functions run as the caller, so row level security
+   * applies; see ENTITY_API_FUNCTIONS). Off by default: true, or the functions' names and extra
+   * instructions.
+   */
+  entities?: boolean | EntityApiOptions;
   /** For apps' own MCP servers (default: the global fetch). */
   fetch?: typeof fetch;
   /** OAuth authorization servers MCP clients get tokens from (the app API's address). */
@@ -145,7 +186,7 @@ export function rpcArgs(input: Record<string, unknown>): Record<string, unknown>
 
 const DEFAULT_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey, mcp-protocol-version, mcp-session-id",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-client-info, apikey, mcp-protocol-version, mcp-session-id, x-gondol-apps, x-gondol-entity-types",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Expose-Headers": "WWW-Authenticate",
 };
@@ -187,6 +228,210 @@ function toolResult(data: unknown): McpToolResult {
 function toolError(message: string): McpToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
 }
+
+// ── gondol's own tools: apps and entities ──────────────────────────────────────────────────────
+
+/** The entity API's tools, by name (served as `entities__<name>`). */
+export const ENTITY_API_TOOLS = ["list_types", "describe_type", "search", "list", "get", "create", "update", "delete", "restore"] as const;
+export type EntityApiTool = (typeof ENTITY_API_TOOLS)[number];
+
+/**
+ * The Postgres functions that answer the entity tools, by default. Each runs as the caller (SECURITY
+ * INVOKER, so row level security decides), gets the tool's arguments as `p_<name>` plus
+ * `p_allowed_types` (text[], the `x-gondol-entity-types` header; NULL: every type) and answers JSON.
+ * Entities are addressed by `uri` (`<scheme>:<type>:<id, identifier or slug>`) or `type` + `key`.
+ */
+export const ENTITY_API_FUNCTIONS: Record<EntityApiTool, string> = {
+  list_types: "entity_api_types",
+  describe_type: "entity_api_describe",
+  search: "entity_api_search",
+  list: "entity_api_list",
+  get: "entity_api_get",
+  create: "entity_api_create",
+  update: "entity_api_update",
+  delete: "entity_api_delete",
+  restore: "entity_api_restore",
+};
+
+export type EntityApiOptions = {
+  /** Other names for the Postgres functions (ENTITY_API_FUNCTIONS). */
+  functions?: Partial<Record<EntityApiTool, string>>;
+  /** More for the model about the host's entities (appended to the default instructions). */
+  instructions?: string;
+};
+
+/** The ids of gondol's own tool groups on `/mcp`; no app may take them. */
+export const CORE_APP_IDS = ["apps", "entities"] as const;
+
+const ID_LIST = /^[A-Za-z0-9][\w.-]*$/;
+
+/** A comma-separated header of ids (apps, entity types), or null when it's absent. */
+export function headerList(request: Request, name: string): string[] | null {
+  const value = request.headers.get(name);
+  if (value === null) return null;
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => ID_LIST.test(item));
+}
+
+const entityAddress: Record<string, JsonSchema> = {
+  uri: { type: "string", maxLength: 300, description: "The entity's URI, e.g. spacify:task:<id>; or give type and key." },
+  type: { type: "string", maxLength: 80, description: "The entity type (entities__list_types), with key." },
+  key: { type: "string", maxLength: 200, description: "The entity's id, identifier or slug, with type." },
+};
+
+const CONDITION: JsonSchema = {
+  type: "object",
+  required: ["field"],
+  additionalProperties: false,
+  properties: {
+    field: { type: "string", maxLength: 80 },
+    op: { type: "string", enum: ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "not_contains", "empty", "not_empty"], description: "Default eq." },
+    value: { description: "What to compare with; dates may be {{today}}, {{today+7}}, {{today-1}} or {{now}}." },
+  },
+};
+
+type CoreToolSpec = Omit<RegistryTool, "target"> & { name: string };
+
+type CoreGroup = (typeof CORE_APP_IDS)[number];
+const CORE_GROUP_NAMES: Record<CoreGroup, string> = { apps: "Apps", entities: "Entities" };
+
+/** What gondol's own tools see of a call: the caller, the apps they may use and the entity types (null: all). */
+type CoreContext = { caller: RouterCaller; request: Request; scope: RegistryApp[]; types: string[] | null };
+type CoreTool = { group: CoreGroup; spec: CoreToolSpec; run: (input: Record<string, unknown>, ctx: CoreContext) => Promise<InvokeResult> };
+
+/** The entities__ tools (what they take; the host's Postgres functions answer them). */
+const ENTITY_TOOL_SPECS: Record<EntityApiTool, CoreToolSpec> = {
+  list_types: {
+    name: "list_types",
+    title: "List entity types",
+    description: "Every type of entity there is (tasks, ideas, playlists, …): its table, the app it belongs to, the field that names it, whether deletes go to the trash and what the user may do with it (read, create, update, delete).",
+    input: { type: "object", additionalProperties: false, properties: {} },
+    readOnly: true,
+  },
+  describe_type: {
+    name: "describe_type",
+    title: "Describe an entity type",
+    description: "An entity type's fields (type, required, writable, default, allowed values, what a reference points at), check constraints, the types that point at it, what the user may do and the row level security policies deciding it. Read it before creating or changing entities of a type.",
+    input: { type: "object", additionalProperties: false, required: ["type"], properties: { type: entityAddress.type } },
+    readOnly: true,
+  },
+  search: {
+    name: "search",
+    title: "Search entities",
+    description: "Full-text search over everything the user can see, as the app's search does. Returns each hit's type, URI and label.",
+    input: {
+      type: "object",
+      additionalProperties: false,
+      required: ["query"],
+      properties: {
+        query: { type: "string", maxLength: 200 },
+        types: { type: "array", maxItems: 50, items: { type: "string", maxLength: 80 }, description: "Only these entity types." },
+        limit: { type: "integer", minimum: 1, maximum: 100, description: "Default 20." },
+      },
+    },
+    readOnly: true,
+  },
+  list: {
+    name: "list",
+    title: "List entities",
+    description: "The entities of one type the user can see, newest first by default, filtered by conditions on their fields and/or words in their label. Trashed ones are left out unless include_deleted.",
+    input: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type"],
+      properties: {
+        type: entityAddress.type,
+        conditions: { type: "array", maxItems: 20, items: CONDITION },
+        match: { type: "string", enum: ["all", "any"], description: "Whether all conditions must hold (default) or any." },
+        query: { type: "string", maxLength: 200, description: "Words in the label." },
+        order_by: { type: "string", maxLength: 80, description: "A field (default updated_at, else created_at)." },
+        descending: { type: "boolean" },
+        limit: { type: "integer", minimum: 1, maximum: 100, description: "Default 20." },
+        offset: { type: "integer", minimum: 0 },
+        include_deleted: { type: "boolean" },
+        fields: { type: "array", maxItems: 50, items: { type: "string", maxLength: 80 }, description: "Only these fields of each entity (default all)." },
+      },
+    },
+    readOnly: true,
+  },
+  get: {
+    name: "get",
+    title: "Get an entity",
+    description: "One entity with all its fields, what its references point at, what points at it and its tags.",
+    input: { type: "object", additionalProperties: false, properties: { ...entityAddress, relations: { type: "boolean", description: "With references, what points at it and tags (default true)." } } },
+    readOnly: true,
+  },
+  create: {
+    name: "create",
+    title: "Create an entity",
+    description: "Create an entity of a type with field values (entities__describe_type lists the writable and required ones; references are ids, URI fields spacify: URIs). The user owns it. Returns it with its URI.",
+    input: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "values"],
+      properties: { type: entityAddress.type, values: { type: "object", description: "Field: value." } },
+    },
+  },
+  update: {
+    name: "update",
+    title: "Change an entity",
+    description: "Set some fields of an entity. Only the fields given change.",
+    input: { type: "object", additionalProperties: false, required: ["values"], properties: { ...entityAddress, values: { type: "object", description: "Field: new value." } } },
+  },
+  delete: {
+    name: "delete",
+    title: "Delete an entity",
+    description: "Move an entity to the trash (it can be restored), or delete it for good with permanent (also for types without a trash).",
+    input: { type: "object", additionalProperties: false, properties: { ...entityAddress, permanent: { type: "boolean" } } },
+    destructive: true,
+  },
+  restore: {
+    name: "restore",
+    title: "Restore an entity",
+    description: "Take an entity out of the trash.",
+    input: { type: "object", additionalProperties: false, properties: entityAddress },
+  },
+};
+
+const ENTITY_INSTRUCTIONS =
+  "Entities are every kind of thing the user keeps in the app (tasks, ideas, books, playlists, …), whichever app they belong to. With the entities__ tools you can find, read, create, change and delete any of them, as the user: you can do exactly what they may do. Start with entities__list_types, read entities__describe_type before writing a type, and name entities by their uri. Prefer an app's own tool when it has one for the job. Deletes go to the trash unless permanent.";
+
+const APPS_INSTRUCTIONS =
+  "The apps__ tools tell which apps the user has, what they do, their pages (features, with their paths), actions and entity types, and the server functions they declare; apps__call_function runs any of those functions, also ones that aren't tools. Link to a page with its path, e.g. [Ideas](/ideas).";
+
+const APP_TOOL_SPECS: CoreToolSpec[] = [
+  {
+    name: "list_apps",
+    title: "List apps",
+    description: "The apps the user has: what each is for, its pages, entity types and the names of its functions.",
+    input: { type: "object", additionalProperties: false, properties: {} },
+    readOnly: true,
+  },
+  {
+    name: "describe_app",
+    title: "Describe an app",
+    description: "One app in full: its pages (features) with their paths and actions, its entity types with their addresses, and its functions with what they take.",
+    input: { type: "object", additionalProperties: false, required: ["app"], properties: { app: { type: "string", maxLength: 80, description: "The app's id (apps__list_apps)." } } },
+    readOnly: true,
+  },
+  {
+    name: "call_function",
+    title: "Run an app's function",
+    description: "Run one of an app's server functions (apps__describe_app lists them, with their input) as the user.",
+    input: {
+      type: "object",
+      additionalProperties: false,
+      required: ["app", "function"],
+      properties: {
+        app: { type: "string", maxLength: 80 },
+        function: { type: "string", maxLength: 80 },
+        input: { type: "object", description: "The function's input (default {})." },
+      },
+    },
+  },
+];
 
 export function createAppRouter(options: AppRouterOptions): (request: Request) => Promise<Response> {
   const headers = options.headers ?? DEFAULT_HEADERS;
@@ -242,6 +487,145 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     if (problems.length) return { error: { status: 422, message: problems.join("; ") } };
     if ("rpc" in fn.target) return await options.rpc({ app, name, input, caller, request, rpc: fn.target.rpc, args: rpcArgs(input) });
     return await options.callFunction({ app, name, input, caller, request, function: fn.target.function });
+  }
+
+  // ── gondol's own tools ─────────────────────────────────────────────────────────────────────
+
+  const entityOptions: EntityApiOptions | null = options.entities ? (options.entities === true ? {} : options.entities) : null;
+  const entityFunctions: Record<EntityApiTool, string> = { ...ENTITY_API_FUNCTIONS, ...(entityOptions?.functions ?? {}) };
+
+  /** The app an entity type belongs to: the one declaring it in `entities`, else in a feature's `entityTypes`. */
+  const typeApps = new Map<string, string>();
+  for (const app of Object.values(apps)) for (const type of Object.keys(app.entities ?? {})) if (!typeApps.has(type)) typeApps.set(type, app.id);
+  for (const app of Object.values(apps)) {
+    for (const feature of app.features ?? []) for (const type of feature.entityTypes ?? []) if (!typeApps.has(type)) typeApps.set(type, app.id);
+  }
+
+  /** The app's entity types: those it declares, and those its features list. */
+  const appEntityTypes = (app: RegistryApp) => [...typeApps.entries()].filter(([, owner]) => owner === app.id).map(([type]) => type);
+
+  const coreTools: CoreTool[] = [];
+  if (options.discovery !== false) {
+    const [listApps, describeApp, callFunction] = APP_TOOL_SPECS;
+    coreTools.push(
+      {
+        group: "apps",
+        spec: listApps,
+        run: async (_input, ctx) => ({
+          data: {
+            apps: ctx.scope.map((app) => ({
+              id: app.id,
+              name: app.name,
+              ...(app.description ? { description: app.description } : {}),
+              features: (app.features ?? []).map((feature) => ({ name: feature.name, path: feature.path })),
+              entity_types: appEntityTypes(app),
+              functions: Object.entries(app.functions)
+                .filter(([, fn]) => mayCall(ctx.caller, fn.scopes))
+                .map(([name]) => name),
+              tools: app.tools.filter((tool) => mayCall(ctx.caller, tool.scopes)).map((tool) => qualifiedToolName(app.id, tool.name)),
+            })),
+          },
+        }),
+      },
+      {
+        group: "apps",
+        spec: describeApp,
+        run: async (input, ctx) => {
+          const app = ctx.scope.find((a) => a.id === input.app);
+          if (!app) return { error: { status: 404, message: `No app "${String(input.app)}" (apps__list_apps lists them)` } };
+          return {
+            data: {
+              id: app.id,
+              name: app.name,
+              ...(app.description ? { description: app.description } : {}),
+              ...(app.instructions ? { instructions: app.instructions } : {}),
+              features: app.features ?? [],
+              entities: Object.fromEntries(Object.entries(app.entities ?? {}).filter(([type]) => !ctx.types || ctx.types.includes(type))),
+              entity_types: appEntityTypes(app).filter((type) => !ctx.types || ctx.types.includes(type)),
+              functions: Object.entries(app.functions)
+                .filter(([, fn]) => mayCall(ctx.caller, fn.scopes))
+                .map(([name, fn]) => ({
+                  name,
+                  ...(fn.title ? { title: fn.title } : {}),
+                  description: fn.description,
+                  input: fn.input,
+                  readOnly: !!fn.readOnly,
+                  destructive: !!fn.destructive,
+                })),
+              tools: app.tools.filter((tool) => mayCall(ctx.caller, tool.scopes)).map((tool) => qualifiedToolName(app.id, tool.name)),
+            },
+          };
+        },
+      },
+      {
+        group: "apps",
+        spec: callFunction,
+        run: async (input, ctx) => {
+          const app = ctx.scope.find((a) => a.id === input.app);
+          const fn = app?.functions[String(input.function)];
+          if (!app || !fn) return { error: { status: 404, message: `No function ${String(input.app)}/${String(input.function)} (apps__describe_app lists an app's)` } };
+          if (!mayCall(ctx.caller, fn.scopes)) return { error: { status: 403, message: `The token lacks the scope ${fn.scopes?.join(" ")}` } };
+          const args = input.input ?? {};
+          if (!args || typeof args !== "object" || Array.isArray(args)) return { error: { status: 422, message: "input must be an object" } };
+          return await run(app.id, String(input.function), fn, args as Record<string, unknown>, ctx.caller, ctx.request);
+        },
+      },
+    );
+  }
+  if (entityOptions) {
+    for (const name of ENTITY_API_TOOLS) {
+      coreTools.push({
+        group: "entities",
+        spec: ENTITY_TOOL_SPECS[name],
+        run: async (input, ctx) => {
+          const result = await options.rpc({
+            app: "entities",
+            name,
+            input,
+            caller: ctx.caller,
+            request: ctx.request,
+            rpc: entityFunctions[name],
+            args: { ...rpcArgs(input), p_allowed_types: ctx.types },
+          });
+          // Which app each type belongs to, from the manifests.
+          if (name === "list_types" && "data" in result && Array.isArray(result.data)) {
+            const types = (result.data as Record<string, unknown>[]).map((row) => {
+              const app = typeof row.type === "string" ? typeApps.get(row.type) : undefined;
+              return app ? { ...row, app } : row;
+            });
+            return { data: { types } };
+          }
+          return result;
+        },
+      });
+    }
+  }
+
+  const coreName = (tool: CoreTool) => qualifiedToolName(tool.group, tool.spec.name);
+
+  function describeCoreTool(tool: CoreTool): McpTool {
+    return describeTool({ id: tool.group, name: CORE_GROUP_NAMES[tool.group] }, { ...tool.spec, target: { rpc: "" } }, true);
+  }
+
+  /** gondol's own tools for a caller (only with their own session) and what narrows them. */
+  function coreFor(caller: RouterCaller, request: Request, scope: RegistryApp[]): { tools: CoreTool[]; ctx: CoreContext } {
+    return { tools: caller.scopes === null ? coreTools : [], ctx: { caller, request, scope, types: headerList(request, "x-gondol-entity-types") } };
+  }
+
+  function coreInstructions(tools: CoreTool[]): string[] {
+    const lines: string[] = [];
+    if (tools.some((tool) => tool.group === "apps")) lines.push(`${CORE_GROUP_NAMES.apps} (tools apps__…): ${APPS_INSTRUCTIONS}`);
+    if (tools.some((tool) => tool.group === "entities")) {
+      lines.push(`${CORE_GROUP_NAMES.entities} (tools entities__…): ${ENTITY_INSTRUCTIONS}${entityOptions?.instructions ? ` ${entityOptions.instructions}` : ""}`);
+    }
+    return lines;
+  }
+
+  /** The registry's apps a request may see: all, or those `x-gondol-apps` names. */
+  function appsFor(request: Request): RegistryApp[] {
+    const only = headerList(request, "x-gondol-apps");
+    const all = Object.values(apps);
+    return only ? all.filter((app) => only.includes(app.id)) : all;
   }
 
   // ── Apps' own MCP servers (Streamable HTTP, as a client) ───────────────────────────────────
@@ -345,7 +729,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
 
   // ── MCP server ────────────────────────────────────────────────────────────────────────────
 
-  function describeTool(app: ScopeApp, tool: RegistryTool, qualified: boolean): McpTool {
+  function describeTool(app: Pick<ScopeApp, "id" | "name">, tool: RegistryTool, qualified: boolean): McpTool {
     return {
       name: qualified ? qualifiedToolName(app.id, tool.name) : tool.name,
       ...(tool.title ? { title: tool.title } : {}),
@@ -368,7 +752,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
       .map((tool) => ({ ...tool, name: qualified ? qualifiedToolName(app.id, tool.name) : tool.name, description: qualified ? `${app.name}: ${tool.description ?? ""}` : tool.description }));
   }
 
-  async function listTools(scope: ScopeApp[], caller: RouterCaller, qualified: boolean): Promise<McpTool[]> {
+  async function listTools(scope: ScopeApp[], caller: RouterCaller, qualified: boolean, core: CoreTool[] = []): Promise<McpTool[]> {
     const lists = await Promise.all(
       scope.map(async (app) => {
         const own = app.tools.filter((tool) => mayCall(caller, tool.scopes)).map((tool) => describeTool(app, tool, qualified));
@@ -381,13 +765,27 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
         }
       }),
     );
-    return lists.flat();
+    return [...core.map(describeCoreTool), ...lists.flat()];
   }
 
-  async function callTool(scope: ScopeApp[], caller: RouterCaller, qualified: boolean, params: Record<string, unknown>, request: Request): Promise<McpToolResult> {
+  async function callTool(
+    scope: ScopeApp[],
+    caller: RouterCaller,
+    qualified: boolean,
+    params: Record<string, unknown>,
+    request: Request,
+    core: { tools: CoreTool[]; ctx: CoreContext } | null = null,
+  ): Promise<McpToolResult> {
     if (typeof params.name !== "string") throw new RpcError(-32602, "The tool's name is missing");
     const input = params.arguments ?? {};
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new RpcError(-32602, "The arguments must be an object");
+    const own = core?.tools.find((tool) => coreName(tool) === params.name);
+    if (own && core) {
+      const problems = validate(own.spec.input, input, undefined, "arguments");
+      if (problems.length) return toolError(problems.join("; "));
+      const result = await own.run(input as Record<string, unknown>, core.ctx);
+      return "error" in result ? toolError(result.error.message) : toolResult(result.data);
+    }
     const parts = qualified ? splitToolName(params.name) : { app: scope[0]?.id ?? "", tool: params.name };
     const app = parts ? scope.find((a) => a.id === parts.app) : undefined;
     if (!app || !parts) throw new RpcError(-32602, `Unknown tool: ${params.name}`);
@@ -406,7 +804,14 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     return "error" in result ? toolError(result.error.message) : toolResult(result.data);
   }
 
-  async function answer(message: JsonRpcRequest, scope: ScopeApp[], caller: RouterCaller, qualified: boolean, request: Request): Promise<JsonRpcResponse | null> {
+  async function answer(
+    message: JsonRpcRequest,
+    scope: ScopeApp[],
+    caller: RouterCaller,
+    qualified: boolean,
+    request: Request,
+    core: { tools: CoreTool[]; ctx: CoreContext } | null,
+  ): Promise<JsonRpcResponse | null> {
     const id = message.id ?? null;
     const isRequest = message.id !== undefined;
     try {
@@ -417,8 +822,13 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
       switch (message.method) {
         case "initialize": {
           const asked = typeof params.protocolVersion === "string" ? params.protocolVersion : "";
-          const instructions = scope
-            .map((app) => (app.instructions || app.description ? `${app.name}${qualified ? ` (tools ${app.id}__…)` : ""}: ${app.instructions ?? app.description}` : ""))
+          const instructions = [
+            ...coreInstructions(core?.tools ?? []),
+            ...scope
+              // Only apps with tools: the others are for apps__describe_app.
+              .filter((app) => app.tools.length || app.endpoint)
+              .map((app) => (app.instructions || app.description ? `${app.name}${qualified ? ` (tools ${app.id}__…)` : ""}: ${app.instructions ?? app.description}` : "")),
+          ]
             .filter(Boolean)
             .join("\n");
           result = {
@@ -433,10 +843,10 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
           result = {};
           break;
         case "tools/list":
-          result = { tools: await listTools(scope, caller, qualified) };
+          result = { tools: await listTools(scope, caller, qualified, core?.tools) };
           break;
         case "tools/call":
-          result = await callTool(scope, caller, qualified, params, request);
+          result = await callTool(scope, caller, qualified, params, request, core);
           break;
         case "resources/list":
           result = { resources: [] };
@@ -460,7 +870,8 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     if (request.method !== "POST") return problem(405, "Method Not Allowed", "This MCP server answers POST only (no event stream).", { Allow: "POST" });
     const caller = await callerOf(request);
     if (!caller) return problem(401, "Unauthorized", "Send an access token: Authorization: Bearer <token>", challenge(request, caller === null ? "invalid_token" : undefined));
-    // The aggregate server also has the caller's own MCP servers.
+    // The aggregate server also has gondol's own tools and the caller's own MCP servers.
+    const core = qualified ? coreFor(caller, request, appScope) : null;
     const scope: ScopeApp[] = qualified ? [...appScope, ...(await userApps(caller))] : appScope;
     const body = await readJson(request);
     if ("error" in body) {
@@ -469,7 +880,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     }
     const batch = Array.isArray(body.value);
     const messages = (batch ? body.value : [body.value]) as JsonRpcRequest[];
-    const answers = (await Promise.all(messages.map((m) => answer(m && typeof m === "object" ? m : {}, scope, caller, qualified, request)))).filter(
+    const answers = (await Promise.all(messages.map((m) => answer(m && typeof m === "object" ? m : {}, scope, caller, qualified, request, core)))).filter(
       (a): a is JsonRpcResponse => a !== null,
     );
     if (!answers.length) return new Response(null, { status: 202, headers });
@@ -503,7 +914,8 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     const caller = await callerOf(request);
     if (!caller) return problem(401, "Unauthorized", "Send a token: Authorization: Bearer <token>", challenge(request, caller === null ? "invalid_token" : undefined));
     const base = baseUrl(request);
-    const list = Object.values(apps).map((app) => ({
+    const scope = appsFor(request);
+    const list = scope.map((app) => ({
       id: app.id,
       name: app.name,
       ...(app.description ? { description: app.description } : {}),
@@ -547,7 +959,19 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
         };
       }),
     );
-    return json({ mcp: `${base}/mcp`, apps: [...list, ...own] });
+    // gondol's own tools, as apps of their own.
+    const { tools: core } = coreFor(caller, request, scope);
+    const builtin = CORE_APP_IDS.filter((id) => core.some((tool) => tool.group === id)).map((id) => ({
+      id,
+      name: CORE_GROUP_NAMES[id],
+      description: id === "entities" ? ENTITY_INSTRUCTIONS : APPS_INSTRUCTIONS,
+      functions: [],
+      tools: core.filter((tool) => tool.group === id).map(describeCoreTool),
+      mcp: `${base}/mcp`,
+      ownMcpServer: false,
+      builtin: true,
+    }));
+    return json({ mcp: `${base}/mcp`, apps: [...builtin, ...list, ...own] });
   }
 
   return async (request: Request) => {
@@ -566,7 +990,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
         });
       }
       if (path === "/apps" && request.method === "GET") return await handleCatalog(request);
-      if (path === "/mcp") return await handleMcp(request, Object.values(apps), true);
+      if (path === "/mcp") return await handleMcp(request, appsFor(request), true);
       const appMcp = /^\/apps\/([^/]+)\/mcp$/.exec(path);
       if (appMcp) {
         const app = apps[decodeURIComponent(appMcp[1])];

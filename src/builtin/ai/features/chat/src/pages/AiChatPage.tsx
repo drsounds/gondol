@@ -11,12 +11,14 @@ import {
   aiSourceKey,
   appToolsEnabled,
   getAiProvider,
+  scopeKey,
   useAiAppTools,
   useAiChat,
   useAiConversations,
   useAiMessages,
   useAiModelChoices,
   useAiSettings,
+  useAppRouterScope,
   useDeleteAiConversation,
   type AiMessage,
   type AiMetrics,
@@ -342,7 +344,8 @@ function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetri
 function AppsPanel({ settings, toolSupport, error, onAddServer }: { settings: AiSettings; toolSupport: boolean; error: string | null; onAddServer: () => void }) {
   const { t } = useI18n();
   const enabled = appToolsEnabled(settings);
-  const catalog = useQuery({ queryKey: aiAppCatalogKey, enabled, retry: false, staleTime: 5 * 60_000, queryFn: ({ signal }) => fetchAppCatalog(signal) });
+  const scope = useAppRouterScope();
+  const catalog = useQuery({ queryKey: [...aiAppCatalogKey, scopeKey(scope)], enabled, retry: false, staleTime: 5 * 60_000, queryFn: ({ signal }) => fetchAppCatalog(signal) });
   const apps = (catalog.data?.apps ?? []).filter((app) => app.tools.length || app.ownMcpServer);
   const problem = error ?? (catalog.error instanceof Error ? catalog.error.message : null);
   return (

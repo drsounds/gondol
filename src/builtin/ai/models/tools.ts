@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { listAppTools, type AppTools, type McpTool } from "../../../api/client";
+import { useEffect, useMemo } from "react";
+import { listAppTools, setAppRouterScope, type AppRouterScope, type AppTools, type McpTool } from "../../../api/client";
+import { useRegisteredBundles } from "../../../apps/hooks";
+import { registeredEntityTypes } from "../../../entities/uri";
+import { siteShowsType, useSite } from "../../../sites/sites";
 import type { AiSettings, AiTool } from "./provider";
 
 /**
@@ -7,6 +11,11 @@ import type { AiSettings, AiTool } from "./provider";
  * which serves every app's manifest `mcp` tools (and apps' own MCP servers' tools) as one server.
  * The model gets them as functions it may call; what the apps tell it about themselves (their
  * `instructions`) goes with the conversation's instructions.
+ *
+ * The router also has gondol's own tools there: `apps__…` (the apps the user has, their pages,
+ * actions, entity types and functions) and `entities__…` (any entity, as the user). The chat tells
+ * it which apps are on here and, on a site, which entity types the site shows (useAppRouterScope),
+ * so the model only reaches what the user could in the app.
  */
 
 export const aiAppToolsKey = ["gondol", "ai", "app-tools"] as const;
@@ -16,11 +25,40 @@ export function appToolsEnabled(settings: AiSettings): boolean {
   return settings.appTools !== false;
 }
 
+/** What the router may reach for this user here: the apps they have on, and the site's entity types. */
+export function useAppRouterScope(): AppRouterScope {
+  const bundles = useRegisteredBundles();
+  const { site } = useSite();
+  const scope = useMemo<AppRouterScope>(
+    () => ({
+      apps: bundles
+        .filter((bundle) => bundle.isActive)
+        .map((bundle) => bundle.id)
+        .sort(),
+      entityTypes: site
+        ? registeredEntityTypes()
+            .filter((type) => siteShowsType(site, type))
+            .sort()
+        : null,
+    }),
+    [bundles, site],
+  );
+  // Before the queries below fetch (effects run in order), and for the tool calls after them.
+  useEffect(() => setAppRouterScope(scope), [scope]);
+  return scope;
+}
+
+/** A query key part that changes with the scope. */
+export function scopeKey(scope: AppRouterScope): string {
+  return `${scope.apps?.join(",") ?? "*"}|${scope.entityTypes?.join(",") ?? "*"}`;
+}
+
 /** The apps' tools, while the setting is on; empty when the router isn't deployed. */
 export function useAiAppTools(settings: AiSettings) {
   const enabled = appToolsEnabled(settings);
+  const scope = useAppRouterScope();
   const query = useQuery({
-    queryKey: aiAppToolsKey,
+    queryKey: [...aiAppToolsKey, scopeKey(scope)],
     enabled,
     retry: false,
     staleTime: 5 * 60_000,

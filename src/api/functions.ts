@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 import { API_METHODS, type JsonSchema } from "./gateway";
 import type { AppApi } from "./openapi";
-import type { AppRegistry, RegistryApp, RegistryFunction, RegistryTarget, RegistryTool } from "./router";
+import { CORE_APP_IDS, type AppRegistry, type RegistryApp, type RegistryEntity, type RegistryFeature, type RegistryFunction, type RegistryTarget, type RegistryTool } from "./router";
 
 /**
  * What an app lets other code call on the server, declared in its manifest:
@@ -99,7 +99,49 @@ export type FunctionSource = {
   functions?: Record<string, AppFunction>;
   mcp?: AppMcp;
   api?: AppApi;
+  /** Its pages and their actions, for discovery (the manifest's `features`). */
+  features?: readonly {
+    id: string;
+    name: { en: string; [locale: string]: string };
+    description?: { en: string; [locale: string]: string };
+    path: string;
+    entityTypes?: string[];
+    actions?: readonly { id: string; title: string; description?: string; navigate?: string; shortcut?: string }[];
+  }[];
+  /** The entity types it owns (the manifest's `entities`). */
+  entities?: Record<string, { slug: string | null; view?: string; edit?: string }>;
 };
+
+/** An app's features as the registry keeps them: English names, paths with a leading slash. */
+function registryFeatures(source: FunctionSource): RegistryFeature[] | undefined {
+  if (!source.features?.length) return undefined;
+  return source.features.map((feature) => ({
+    id: feature.id,
+    name: feature.name.en,
+    ...(feature.description?.en ? { description: feature.description.en } : {}),
+    path: `/${feature.path.replace(/^\/+/, "")}`,
+    ...(feature.entityTypes?.length ? { entityTypes: feature.entityTypes } : {}),
+    ...(feature.actions?.length
+      ? {
+          actions: feature.actions.map((action) => ({
+            id: action.id,
+            title: action.title,
+            ...(action.description ? { description: action.description } : {}),
+            ...(action.navigate ? { navigate: action.navigate } : {}),
+            ...(action.shortcut ? { shortcut: action.shortcut } : {}),
+          })),
+        }
+      : {}),
+  }));
+}
+
+function registryEntities(source: FunctionSource): Record<string, RegistryEntity> | undefined {
+  const entries = Object.entries(source.entities ?? {});
+  if (!entries.length) return undefined;
+  return Object.fromEntries(
+    entries.map(([type, entity]) => [type, { slug: entity.slug, ...(entity.view ? { view: entity.view } : {}), ...(entity.edit ? { edit: entity.edit } : {}) }]),
+  );
+}
 
 /** Replaces `#/components/schemas/…` refs with what they point at, so a tool's schema stands alone. */
 export function inlineRefs(schema: unknown, schemas: Record<string, unknown>, seen: string[] = []): unknown {
@@ -118,9 +160,10 @@ export function inlineRefs(schema: unknown, schemas: Record<string, unknown>, se
 const anyObject: JsonSchema = { type: "object" };
 
 /**
- * Turns the apps' `functions` and `mcp` into the app router's registry (its `apps.json`). Throws on
- * a tool naming a function or operation the app doesn't have, two tools of an app with one name,
- * and a scope no app declares.
+ * Turns the apps' `functions` and `mcp` into the app router's registry (its `apps.json`), with what
+ * each app has in the browser (features, actions, entity types) for discovery. Throws on a tool
+ * naming a function or operation the app doesn't have, two tools of an app with one name, a scope
+ * no app declares and an app taking the id of gondol's own tools (`apps`, `entities`).
  */
 export function buildAppRegistry(sources: readonly FunctionSource[]): AppRegistry {
   const problems: string[] = [];
@@ -137,7 +180,10 @@ export function buildAppRegistry(sources: readonly FunctionSource[]): AppRegistr
 
   const apps: Record<string, RegistryApp> = {};
   for (const source of sources) {
-    if (!source.functions && !source.mcp) continue;
+    if ((CORE_APP_IDS as readonly string[]).includes(source.id)) problems.push(`app "${source.id}": the id is gondol's own tools' on /mcp`);
+    const features = registryFeatures(source);
+    const entities = registryEntities(source);
+    if (!source.functions && !source.mcp && !features && !entities) continue;
     const functions: Record<string, RegistryFunction> = {};
     for (const [name, fn] of Object.entries(source.functions ?? {})) {
       checkScopes(`app "${source.id}", function ${name}`, fn.scopes);
@@ -228,6 +274,8 @@ export function buildAppRegistry(sources: readonly FunctionSource[]): AppRegistr
       functions,
       tools,
       ...(source.mcp?.endpoint ? { endpoint: source.mcp.endpoint } : {}),
+      ...(features ? { features } : {}),
+      ...(entities ? { entities } : {}),
     };
   }
   if (problems.length) throw new Error(`gondol: the apps' functions don't fit together:\n${problems.map((p) => `  - ${p}`).join("\n")}`);
