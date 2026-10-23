@@ -90,8 +90,8 @@ The app declares an [HTTP API](./api.md) for HTML5 and other apps, called with a
 
 | Operation | Scope | Function | |
 | --- | --- | --- | --- |
-| `POST /streams` | `streams:write` | `api_start_stream` | Starts a stream for the user: `subject_uri` (the user, the default), `predicate_uri` (or `action` in words), `object_uri`, `motivation_uri`, `context_uri`, `started_at` (default now), `ended_at`, `duration_seconds`, `position_seconds`, `quantity` (default 1), `description`. Answers `201` with the stream and its `id`. |
-| `PATCH /streams/{id}` | `streams:write` | `api_update_stream` | Reports how it went: `ended_at` (or `ended: true` for now), `position_seconds`, `quantity`, `description` and any URI. Fields left out stay; the duration follows from start and end unless given. |
+| `POST /streams` | `streams:write` | `api_start_stream` | Starts a stream for the user: `subject_uri` (the user, the default), `predicate_uri` (or `action` in words), `object_uri`, `motivation_uri`, `context_uri`, `started_at` (default now), `ended_at`, `position_seconds`, `quantity` (default 1), `description`. Answers `201` with the stream and its `id`. |
+| `PATCH /streams/{id}` | `streams:write` | `api_update_stream` | Reports how it went: `ended_at` (or `ended: true` for now), `position_seconds`, `quantity`, `description` and any URI. Fields left out stay; the duration follows from start and end. |
 | `GET /streams/{id}` | `streams:read` | `api_get_stream` | The stream. |
 
 The functions run as the user (RLS) and record the calling app as the actor in the audit trail.

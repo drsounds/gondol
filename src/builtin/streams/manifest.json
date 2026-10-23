@@ -167,7 +167,7 @@
             "type": "string",
             "format": "uri",
             "maxLength": 2000,
-            "description": "Why: an idea, a quest, a goal, …"
+            "description": "Why: a spacify: URI of an idea, a quest, a goal, …"
           },
           "context_uri": {
             "type": "string",
@@ -194,11 +194,6 @@
             "format": "date-time",
             "description": "When it ended, if it already has."
           },
-          "duration_seconds": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Defaults to the time from started_at to ended_at."
-          },
           "position_seconds": {
             "type": "integer",
             "minimum": 0,
@@ -223,11 +218,6 @@
             "type": "string",
             "format": "date-time",
             "description": "When it ended, if it already has."
-          },
-          "duration_seconds": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "Defaults to the time from started_at to ended_at."
           },
           "position_seconds": {
             "type": "integer",
@@ -259,7 +249,7 @@
             "type": "string",
             "format": "uri",
             "maxLength": 2000,
-            "description": "Why: an idea, a quest, a goal, …"
+            "description": "Why: a spacify: URI of an idea, a quest, a goal, …"
           },
           "context_uri": {
             "type": "string",
@@ -327,7 +317,7 @@
         "patch": {
           "operationId": "updateStream",
           "summary": "Report how a stream went",
-          "description": "Reports the end (ended_at, or ended: true for now) and anything else that changed; fields left out stay as they are. The duration follows from the start and the end unless given.",
+          "description": "Reports the end (ended_at, or ended: true for now) and anything else that changed; fields left out stay as they are. The duration follows from the start and the end.",
           "rpc": "api_update_stream",
           "scopes": [
             "streams:write"
