@@ -62,6 +62,10 @@ export type AppCatalogEntry = {
   tools: McpTool[];
   mcp: string;
   ownMcpServer: boolean;
+  /** One of the user's own MCP servers (ai_mcp_servers), with its tools as it listed them. */
+  userServer?: boolean;
+  /** Why a user's server couldn't list its tools. */
+  error?: string;
 };
 
 export async function fetchAppCatalog(signal?: AbortSignal): Promise<{ mcp: string; apps: AppCatalogEntry[] }> {

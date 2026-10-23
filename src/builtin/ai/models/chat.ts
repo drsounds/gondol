@@ -4,6 +4,7 @@ import { addAiMessage, aiConversationsKey, aiMessagesKey, conversationTitle, cre
 import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings, type AiToolCall } from "./providers";
 import { callAppTool, toolResultText } from "../../../api/client";
 import { aiToolsFor, instructionsWithApps, toolNeedsApproval, type AppTools, type McpTool } from "./tools";
+import { aiToolPermissionsKey, allowAiTool, isToolAllowed, useAiToolPermissions, type AiToolDecision } from "./permissions";
 import type { AiConversation, AiMessage, AiMetrics, AiService } from "./types";
 
 /** How many times an answer may go back to the model with tool results. */
@@ -27,15 +28,24 @@ export interface AiStreamingAnswer {
   tool?: string;
 }
 
+/** A tool call waiting for the user's yes or no, shown in the answer being written. */
+export interface AiToolApproval {
+  conversationId: string;
+  tool: McpTool;
+  arguments: Record<string, unknown>;
+}
+
 /**
  * Sending a message and streaming the answer: saves the user's message (starting a conversation
  * when there is none), sends the instructions and the latest `contextMessages` messages to the
  * provider, shows the answer as it streams and saves it, also when it stops short (with `error`).
  *
  * With `tools` (useAiAppTools) and a provider that supports them, the model may call the apps'
- * tools: the chat runs each call through the app router, asking `confirmTool` first when the
+ * tools: the chat runs each call through the app router, asking the user first when the
  * `toolApproval` setting says so, and sends the results back until the model answers. The tools it
- * used are kept in the answer's metrics. A provider that `runsTools` (an agent on the server) gets
+ * used are kept in the answer's metrics. Asking is `approval` (shown in the answer being written)
+ * until `decide()` answers it: once, for the conversation or always (both kept, permissions.ts), or
+ * no; Stop says no. A host may pass its own `confirmTool` instead. A provider that `runsTools` (an agent on the server) gets
  * the same runner as `runTool` and calls it while it works; what it's doing shows as the `tool`.
  */
 export function useAiChat(
@@ -43,14 +53,43 @@ export function useAiChat(
   options: {
     onConversationCreated?: (conversation: AiConversation) => void;
     tools?: AppTools | null;
-    confirmTool?: (tool: McpTool, args: Record<string, unknown>) => boolean | Promise<boolean>;
+    confirmTool?: (tool: McpTool, args: Record<string, unknown>, context: { conversationId: string }) => boolean | Promise<boolean>;
   } = {},
 ) {
   const queryClient = useQueryClient();
   const [streaming, setStreaming] = useState<AiStreamingAnswer | null>(null);
   const [error, setError] = useState<AiProviderError | Error | null>(null);
+  const [approval, setApproval] = useState<AiToolApproval | null>(null);
   const controller = useRef<AbortController | null>(null);
+  const answerApproval = useRef<((decision: AiToolDecision) => void) | null>(null);
   const { onConversationCreated, tools, confirmTool } = options;
+  const permissions = useAiToolPermissions();
+  const allowed = useRef(permissions.data);
+  allowed.current = permissions.data;
+
+  /** Asks the user about a tool call (unless they allowed it before), keeping what they decide. */
+  const mayRun = useCallback(
+    async (tool: McpTool, args: Record<string, unknown>, conversationId: string): Promise<boolean> => {
+      if (confirmTool) return await confirmTool(tool, args, { conversationId });
+      const known = allowed.current ?? queryClient.getQueryData(aiToolPermissionsKey);
+      if (isToolAllowed(known, tool.name, conversationId)) return true;
+      const decision = await new Promise<AiToolDecision>((resolve) => {
+        answerApproval.current = resolve;
+        setApproval({ conversationId, tool, arguments: args });
+      });
+      answerApproval.current = null;
+      setApproval(null);
+      if (decision === "conversation" || decision === "always") {
+        const title = tool.title ?? tool.annotations?.title ?? null;
+        await allowAiTool(queryClient, { tool: tool.name, title, conversationId: decision === "always" ? null : conversationId }).catch((caught) => {
+          console.warn("ai: couldn't keep the tool permission", caught);
+        });
+        allowed.current = queryClient.getQueryData(aiToolPermissionsKey);
+      }
+      return decision !== "deny";
+    },
+    [confirmTool, queryClient],
+  );
 
   const appendToCache = useCallback(
     (message: AiMessage) => {
@@ -120,10 +159,13 @@ export function useAiChat(
           const tool = appTools?.tools.find((t) => t.name === call.name);
           let text: string;
           let ok = false;
+          let denied = false;
           if (!tool) {
             text = `There is no tool named ${call.name}.`;
-          } else if (toolNeedsApproval(tool, settings) && !(await (confirmTool?.(tool, call.arguments) ?? false))) {
+          } else if (toolNeedsApproval(tool, settings) && !(await mayRun(tool, call.arguments, conversation!.id))) {
+            if (abort.signal.aborted) throw new AiProviderError("Stopped", "aborted");
             text = "The user didn't let this tool run.";
+            denied = true;
           } else {
             try {
               const answer = await callAppTool(call.name, call.arguments, abort.signal);
@@ -134,7 +176,7 @@ export function useAiChat(
               text = caught instanceof Error ? caught.message : String(caught);
             }
           }
-          used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok });
+          used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok, ...(denied ? { denied } : {}) });
           return text.length > MAX_TOOL_RESULT ? `${text.slice(0, MAX_TOOL_RESULT)}…` : text;
         };
         try {
@@ -208,10 +250,14 @@ export function useAiChat(
         setStreaming(null);
       }
     },
-    [settings, queryClient, appendToCache, onConversationCreated, tools, confirmTool],
+    [settings, queryClient, appendToCache, onConversationCreated, tools, mayRun],
   );
 
-  const stop = useCallback(() => controller.current?.abort(), []);
+  const decide = useCallback((decision: AiToolDecision) => answerApproval.current?.(decision), []);
+  const stop = useCallback(() => {
+    controller.current?.abort();
+    answerApproval.current?.("deny");
+  }, []);
 
-  return { send, stop, streaming, busy: streaming !== null, error, clearError: () => setError(null) };
+  return { send, stop, streaming, approval, decide, busy: streaming !== null, error, clearError: () => setError(null) };
 }

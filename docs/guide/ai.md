@@ -44,12 +44,19 @@ can leave it out.
 
 | Path | Feature | |
 | --- | --- | --- |
-| `/ai`, `/ai/new` | `chat` | A new conversation, beside the list of the user's conversations. |
-| `/ai/<conversation id>` | `chat` | A conversation: its messages, the model picker, and the box to write the next message. Answers stream in; **Stop** ends one early and keeps what was written. |
+| `/ai`, `/ai/new` | `chat` | A new conversation, beside the list of the user's conversations (wide screens only: phones have them in the menu). |
+| `/ai/<conversation id>` | `chat` | A conversation: its messages, the model picker, and the box to write the next message. Answers stream in, formatted from markdown; **Stop** ends one early and keeps what was written. |
+| `/ai/settings`, `/ai/<conversation id>/settings` | `chat` | The AI settings as a dialog over the chat: the app's settings for the user and the tools allowed without asking, to take back. |
 | `/ai-models` | `models` | The user's services, then each source in use (a service, or a provider from the settings) with the models it serves now: which the chat offers, the default, and the app's settings. Tagged `admin`/`operator` and `configure` for [sites](./sites.md). |
 | `/ai-models/services/new`, `/ai-models/services/<id>/edit` | `models` | The routed sheets for a service: a preset (OpenAI, Berget AI, Ollama, another OpenAI-compatible API), its name, provider, address and key, and whether the chat uses it. |
+| `/ai-models/mcp/new`, `/ai-models/mcp/<id>/edit` | `models` | The routed sheets for one of the user's [MCP servers](#the-users-own-mcp-servers): name, address, what it's for, headers and whether the chat uses it. |
 
-The palette has "Open AI chat", "New AI conversation", "AI models and providers" and "Add AI service".
+The palette has "Open AI chat", "New AI conversation", "AI settings", "AI models and providers",
+"Add AI service" and "Add MCP server".
+
+Answers are markdown as models write it, rendered by `<Markdown/>` (`models/markdown.ts` parses it:
+headings, lists and task lists, code blocks, quotes, tables, emphasis and links). It never produces
+HTML: HTML in an answer stays text, and only http(s) and mailto links are kept, opening in a new tab.
 
 ## Services
 
@@ -75,6 +82,7 @@ then gets `service` (`{ id, base_url }`) in `listModels(settings, signal, servic
 | `temperature` | number 0–2 | user, workspace, site | Empty leaves the model's own. |
 | `contextMessages` | whole number | user, workspace, site | How many earlier messages are sent along (default 20). |
 | `sendWith` | select (radio) | user | Enter or Ctrl/⌘+Enter sends. |
+| `composerPosition` | select (radio) | user | `bottom` (default): the conversation, then the message box. `top`: the box first and the exchanges newest first under it, each question above its answer. |
 | `showMetrics` | checkbox | user | Tokens, speed and time under answers. |
 | `providers` | checkboxes | user, workspace, site | The providers in use (default: Ollama). |
 | `openai.baseUrl` | URL (submenu OpenAI-compatible API) | user, workspace, site | API base URL (default `https://api.openai.com/v1`), as the server reaches it. |
@@ -202,7 +210,28 @@ Other apps can offer the model tools over MCP (their manifests' `mcp`, see
 [App functions and MCP](./functions.md)). The chat fetches them from the app router's `/mcp`
 (`useAiAppTools()`), hands them to the model with what the apps say about themselves, runs the calls
 the model makes through the router as the user and sends the results back, up to eight rounds per
-answer. The tools used are kept in the answer's `metrics.tools`.
+answer. The tools used are kept in the answer's `metrics.tools` (`denied` when the user said no).
+
+When a tool needs asking (`toolApproval`), the answer being written shows what the model wants to run
+and with what, and the user picks **Allow once**, **Allow in this conversation**, **Always allow** or
+**Don't allow** (Stop also says no). The two that last are kept in `ai_tool_permissions`, by the
+tool's name on the router (`<app>__<tool>`), with the conversation or none for always; the AI
+settings dialog lists them to take back, and deleting a conversation takes its own with it.
+`useAiChat()` returns the question as `approval` and takes the answer with `decide()`; a host can
+pass `confirmTool` to ask its own way instead.
+
+### The user's own MCP servers
+
+Users can add MCP servers of their own on `/ai-models` (`ai_mcp_servers`): a remote server speaking
+Streamable HTTP, with headers such as `Authorization: Bearer …`. The headers are write-only, like a
+service's key: `set_ai_mcp_server_headers(p_server_id, p_set, p_remove)` keeps the values in
+`ai_mcp_server_headers`, which the client can't read, and `header_names` on the server says which are
+set. The app router (`userMcpServers` in `createAppRouter()`) adds each enabled one to `/mcp` and the
+catalogue for callers with their own session (never OAuth clients) as an app `mcp_<first 8 hex
+digits of its id>`, so its tools are `mcp_1a2b3c4d__<tool>`, and calls it server-side without
+following redirects. With `toolApproval` at `changes`, the chat asks before any of their tools runs,
+whatever the server says about it. The function reads them with `SUPABASE_SERVICE_ROLE_KEY` and only calls public
+HTTPS hosts, unless `MCP_ALLOWED_HOSTS` lists the host or `MCP_ALLOW_PRIVATE=true`.
 
 | Setting | Type | Scope | |
 | --- | --- | --- | --- |
@@ -285,6 +314,9 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 | --- | --- |
 | `ai_services` | `id`, `user_id` (default `auth.uid()`), `name`, `provider`, `base_url`, `has_api_key` (kept by `set_ai_service_key()`), `enabled`, `position`, `options` (jsonb, `{}`; a Deep Agent's `backend`), `created_at`, `updated_at` |
 | `ai_service_keys` | `service_id` (cascades), `user_id`, `api_key`: no grants to `authenticated`, written by `set_ai_service_key(p_service_id, p_api_key)` (null removes it), read by the AI functions |
+| `ai_tool_permissions` | `id`, `user_id` (default `auth.uid()`), `tool`, `title`, `conversation_id` (null: always; cascades), `created_at`; unique `(user_id, conversation_id, tool)`, nulls not distinct |
+| `ai_mcp_servers` | `id`, `user_id` (default `auth.uid()`), `name`, `url`, `description`, `header_names` (kept by `set_ai_mcp_server_headers()`), `enabled`, `position`, `created_at`, `updated_at` |
+| `ai_mcp_server_headers` | `server_id` (cascades), `user_id`, `headers` (jsonb, name → value): no grants to `authenticated`, written by `set_ai_mcp_server_headers()`, read by the app router |
 | `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
 | `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `created_at` |
 | `ai_models` | `id`, `user_id`, `provider`, `service_id` (cascades), `name`, `label`, `details` (jsonb), `enabled`, `created_at`, `updated_at`; unique `(user_id, provider, service_id, name)`, nulls not distinct |
@@ -292,4 +324,5 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 Each is private to its user (`user_id = auth.uid()` policies); a message can only be added to the
 user's own conversation. Spacify's migration `20261022210000_app_settings_and_ai.sql` creates them,
 with `app_settings`; `20261023170000_ai_services.sql` adds the services and
-`20261023190000_ai_service_options.sql` their `options`.
+`20261023190000_ai_service_options.sql` their `options`, and `20261023210000_ai_tool_permissions_and_mcp_servers.sql`
+the tool permissions and MCP servers.

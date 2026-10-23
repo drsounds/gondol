@@ -4,6 +4,7 @@ import { AppSettingsPanel } from "../../../../../../settings/AppSettingsPanel";
 import { useSaveAppSetting, useSettingsScopeIds } from "../../../../../../settings/settings";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { AiServicesSection } from "../components/AiServices";
+import { AiMcpServersSection } from "../components/AiMcpServers";
 import {
   AiProviderError,
   enabledAiProviders,
@@ -29,7 +30,8 @@ const detail = (details: Record<string, unknown> | undefined | null, key: string
 /**
  * Services, providers and models (`/ai-models`): the user's AI services (ai_services: OpenAI,
  * Berget AI, a local Ollama, …, each speaking one provider's API), with `/ai-models/services/new`
- * and `/ai-models/services/<id>/edit` as the routed sheets; then each source in use (a service, or a
+ * and `/ai-models/services/<id>/edit` as the routed sheets; the user's own MCP servers
+ * (`/ai-models/mcp/new`, `/ai-models/mcp/<id>/edit`); then each source in use (a service, or a
  * provider configured in the settings) with what it serves now, which of those the chat's model
  * picker offers (kept in ai_models), the default model, and the app's settings.
  */
@@ -43,6 +45,7 @@ export function AiModelsPage(_props: AppFeaturePageProps) {
   return (
     <div className="stack ai-models">
       <AiServicesSection />
+      <AiMcpServersSection />
       <div className="panel-head">
         <div>
           <h2 className="panel-title">{t("ai.models.title")}</h2>

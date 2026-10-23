@@ -21,7 +21,8 @@
       "iconName": "chat",
       "actions": [
         { "id": "ai.open", "title": "Open AI chat", "category": "AI", "iconName": "chat", "navigate": "/ai", "keywords": ["llm", "ollama", "assistant"], "aspects": ["view"] },
-        { "id": "ai.new", "title": "New AI conversation", "category": "AI", "iconName": "plus", "navigate": "/ai/new", "keywords": ["chat", "llm"], "aspects": ["create"] }
+        { "id": "ai.new", "title": "New AI conversation", "category": "AI", "iconName": "plus", "navigate": "/ai/new", "keywords": ["chat", "llm"], "aspects": ["create"] },
+        { "id": "ai.settings", "title": "AI settings", "category": "AI", "iconName": "settings", "navigate": "/ai/settings", "keywords": ["chat", "tools", "permissions"], "aspects": ["configure"] }
       ]
     },
     {
@@ -34,7 +35,8 @@
       "aspects": ["configure"],
       "actions": [
         { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm", "services", "openai", "berget"] },
-        { "id": "ai.services.new", "title": "Add AI service", "category": "AI", "iconName": "plus", "navigate": "/ai-models/services/new", "keywords": ["openai", "berget", "ollama", "api key"], "aspects": ["create"] }
+        { "id": "ai.services.new", "title": "Add AI service", "category": "AI", "iconName": "plus", "navigate": "/ai-models/services/new", "keywords": ["openai", "berget", "ollama", "api key"], "aspects": ["create"] },
+        { "id": "ai.mcp.new", "title": "Add MCP server", "category": "AI", "iconName": "plus", "navigate": "/ai-models/mcp/new", "keywords": ["mcp", "tools", "model context protocol"], "aspects": ["create"] }
       ]
     }
   ],
@@ -92,6 +94,18 @@
             "default": "enter"
           },
           {
+            "key": "composerPosition",
+            "type": "select",
+            "scope": "user",
+            "display": "radio",
+            "label": { "en": "Message box", "sv": "Meddelanderutan" },
+            "options": [
+              { "value": "bottom", "label": { "en": "At the bottom, the conversation above it", "sv": "Längst ner, konversationen ovanför" } },
+              { "value": "top", "label": { "en": "At the top, the latest answer right under it", "sv": "Högst upp, det senaste svaret direkt under" } }
+            ],
+            "default": "bottom"
+          },
+          {
             "key": "showMetrics",
             "type": "checkbox",
             "scope": "user",
@@ -120,6 +134,10 @@
             "scope": "user",
             "display": "radio",
             "label": { "en": "Ask before a tool runs", "sv": "Fråga innan ett verktyg körs" },
+            "description": {
+              "en": "The chat asks in the answer. Tools you allow for a conversation or always are listed in the AI settings, to take back.",
+              "sv": "Chatten frågar i svaret. Verktyg du tillåter för en konversation eller alltid listas i AI-inställningarna, så att du kan ta tillbaka dem."
+            },
             "options": [
               { "value": "changes", "label": { "en": "When it changes something", "sv": "När det ändrar något" } },
               { "value": "always", "label": { "en": "Always", "sv": "Alltid" } },

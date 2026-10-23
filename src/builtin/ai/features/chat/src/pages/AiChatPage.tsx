@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Icon, Select } from "../../../../../../design-system/bungalow-79d923";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
-import { AppSettingsPanel } from "../../../../../../settings/AppSettingsPanel";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { fetchAppCatalog } from "../../../../../../api/client";
 import {
   AiProviderError,
+  aiAppCatalogKey,
   aiSourceKey,
   appToolsEnabled,
   getAiProvider,
@@ -21,23 +21,31 @@ import {
   type AiMessage,
   type AiMetrics,
   type AiSettings,
-  type McpTool,
+  type AiToolApproval,
+  type AiToolDecision,
 } from "../../../../models";
+import { Markdown } from "../components/Markdown";
+import { AiSettingsSheet } from "../components/AiSettingsSheet";
 
 /**
  * The AI chat (`/ai`, `/ai/new`, `/ai/<conversation id>`): the user's conversations beside the open
- * one, its messages, and a box to write the next; the answer streams in from the model picked.
+ * one (on wide screens; phones have them in the menu), its messages, and a box to write the next;
+ * the answer streams in from the model picked. With the `composerPosition` setting at `top` the box
+ * comes first and the latest exchange right under it. `/ai/settings` and
+ * `/ai/<conversation id>/settings` open the AI settings over it.
  */
 export function AiChatPage({ splat }: AppFeaturePageProps) {
   const { t } = useI18n();
   const go = useNavigateKeepingSearch();
-  const conversationId = splat && splat !== "new" ? splat.split("/")[0] : null;
+  const parts = (splat ?? "").split("/").filter(Boolean);
+  const showSettings = parts[parts.length - 1] === "settings";
+  const conversationId = parts[0] && parts[0] !== "new" && parts[0] !== "settings" ? parts[0] : null;
+  const here = conversationId ? `/ai/${conversationId}` : "/ai";
   const { settings } = useAiSettings();
   const conversations = useAiConversations();
   const conversation = conversations.data?.find((c) => c.id === conversationId) ?? null;
   const messages = useAiMessages(conversationId);
   const remove = useDeleteAiConversation();
-  const [showSettings, setShowSettings] = useState(false);
   const [showApps, setShowApps] = useState(false);
   const appTools = useAiAppTools(settings);
 
@@ -63,24 +71,48 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const service = target.serviceId ? (source?.service ?? null) : null;
   const choiceValue = (provider: string, serviceId: string | null, model: string) => [provider, serviceId ?? "", model].join("\u0000");
 
-  const confirmTool = useCallback(
-    (tool: McpTool, args: Record<string, unknown>) => window.confirm(t("ai.confirmTool", { tool: tool.title ?? tool.name, args: JSON.stringify(args, null, 2) })),
-    [t],
-  );
-  const chat = useAiChat(settings, { onConversationCreated: (created) => go(`/ai/${created.id}`), tools: appTools.tools, confirmTool });
+  const onConversationCreated = useCallback((created: { id: string }) => go(`/ai/${created.id}`), [go]);
+  const chat = useAiChat(settings, { onConversationCreated, tools: appTools.tools });
   const streaming = chat.streaming && (chat.streaming.conversationId === conversationId || !conversationId) ? chat.streaming : null;
+  const approval = chat.approval && streaming && chat.approval.conversationId === streaming.conversationId ? chat.approval : null;
 
+  const onTop = settings.composerPosition === "top";
   const list = useRef<HTMLDivElement>(null);
   const shown = messages.data ?? [];
+  // The question being answered, shown above the answer as it streams in.
+  const last = shown[shown.length - 1];
+  const asking = streaming && last?.role === "user" ? last : null;
   useEffect(() => {
-    list.current?.scrollTo({ top: list.current.scrollHeight });
-  }, [shown.length, streaming?.content]);
+    list.current?.scrollTo({ top: onTop ? 0 : list.current.scrollHeight });
+  }, [shown.length, streaming?.content, approval, onTop]);
 
   const error = chat.error ?? (models.error && !models.choices.length ? models.error : null);
   const provider = getAiProvider(target.provider);
 
+  const composer = (
+    <Composer
+      busy={chat.busy}
+      disabled={!target.model}
+      sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
+      onSend={(text) => {
+        chat.clearError();
+        void chat.send(text, { conversation, provider: target.provider, service, model: target.model || null });
+      }}
+      onStop={chat.stop}
+    />
+  );
+  const answerBeingWritten = streaming ? (
+    <div className="ai-message ai-message--assistant ai-message--streaming" aria-live="polite">
+      <div className="ai-message__body">
+        {streaming.content ? <Markdown source={streaming.content} /> : approval ? null : <span className="ai-message__typing">{t("ai.thinking")}</span>}
+        {approval ? <ToolApprovalCard approval={approval} onDecide={chat.decide} /> : null}
+      </div>
+      {streaming.tool && !approval ? <div className="ai-message__meta ai-message__tool">{t("ai.usingTool", { tool: streaming.tool })}</div> : null}
+    </div>
+  ) : null;
+
   return (
-    <div className="ai-chat">
+    <div className={`ai-chat${onTop ? " ai-chat--composer-top" : ""}`}>
       <aside className="ai-chat__conversations" aria-label={t("ai.conversations")}>
         <Button type="button" variant="outline" size="sm" className="ai-chat__new" onClick={() => go("/ai/new")}>
           <Icon name="plus" /> {t("ai.newConversation")}
@@ -127,7 +159,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
             <Icon name="grid" /> {t("ai.apps")}
             {appTools.tools?.tools.length ? <span className="ai-chat__apps-count">{appTools.tools.tools.length}</span> : null}
           </Button>
-          <Button type="button" variant="ghost" size="sm" aria-expanded={showSettings} onClick={() => setShowSettings((v) => !v)}>
+          <Button type="button" variant="ghost" size="sm" aria-haspopup="dialog" onClick={() => go(`${here}/settings`)}>
             <Icon name="settings" /> {t("ai.settings")}
           </Button>
           {conversation ? (
@@ -146,15 +178,10 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           ) : null}
         </header>
 
-        {showSettings ? (
-          <div className="ai-chat__settings">
-            <AppSettingsPanel scope="user" appIds={["ai"]} title={null} />
-          </div>
-        ) : null}
-
         {showApps ? (
           <AppsPanel
             settings={settings}
+            onAddServer={() => go("/ai-models/mcp/new")}
             toolSupport={!!provider?.supportsTools}
             error={appTools.error instanceof Error ? appTools.error.message : null}
           />
@@ -174,31 +201,106 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           </Alert>
         ) : null}
 
-        <div className="ai-chat__messages" ref={list}>
+        {onTop ? composer : null}
+
+        <div className={`ai-chat__messages${onTop ? " ai-chat__messages--newest-first" : ""}`} ref={list}>
           {!conversationId && !streaming ? <p className="ai-chat__intro muted">{t("ai.intro")}</p> : null}
           {conversationId && messages.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
-          {shown.map((message) => (
-            <MessageBubble key={message.id} message={message} showMetrics={settings.showMetrics === true} />
-          ))}
-          {streaming ? (
-            <div className="ai-message ai-message--assistant ai-message--streaming" aria-live="polite">
-              <div className="ai-message__body">{streaming.content || <span className="ai-message__typing">{t("ai.thinking")}</span>}</div>
-              {streaming.tool ? <div className="ai-message__meta ai-message__tool">{t("ai.usingTool", { tool: streaming.tool })}</div> : null}
-            </div>
-          ) : null}
+          {onTop ? (
+            <>
+              {streaming ? (
+                <div className="ai-chat__exchange">
+                  {asking ? <MessageBubble message={asking} showMetrics={false} /> : null}
+                  {answerBeingWritten}
+                </div>
+              ) : null}
+              {exchanges(asking ? shown.slice(0, -1) : shown)
+                .reverse()
+                .map((exchange) => (
+                  <div key={exchange[0].id} className="ai-chat__exchange">
+                    {exchange.map((message) => (
+                      <MessageBubble key={message.id} message={message} showMetrics={settings.showMetrics === true} />
+                    ))}
+                  </div>
+                ))}
+            </>
+          ) : (
+            <>
+              {shown.map((message) => (
+                <MessageBubble key={message.id} message={message} showMetrics={settings.showMetrics === true} />
+              ))}
+              {answerBeingWritten}
+            </>
+          )}
         </div>
 
-        <Composer
-          busy={chat.busy}
-          disabled={!target.model}
-          sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
-          onSend={(text) => {
-            chat.clearError();
-            void chat.send(text, { conversation, provider: target.provider, service, model: target.model || null });
-          }}
-          onStop={chat.stop}
-        />
+        {onTop ? null : composer}
       </section>
+
+      {showSettings ? <AiSettingsSheet conversationId={conversationId} onClose={() => go(here)} /> : null}
+    </div>
+  );
+}
+
+/** Messages in exchanges: a question with the answers after it (for the newest-first layout). */
+function exchanges(messages: AiMessage[]): AiMessage[][] {
+  const out: AiMessage[][] = [];
+  for (const message of messages) {
+    if (message.role === "user" || !out.length) out.push([message]);
+    else out[out.length - 1].push(message);
+  }
+  return out;
+}
+
+/** A tool call the model wants to make, asked about in the answer: what it runs, with what, and the choices. */
+function ToolApprovalCard({ approval, onDecide }: { approval: AiToolApproval; onDecide: (decision: AiToolDecision) => void }) {
+  const { t } = useI18n();
+  const { tool } = approval;
+  const title = tool.title ?? tool.annotations?.title ?? tool.name;
+  const entries = Object.entries(approval.arguments);
+  const [app] = tool.name.split("__");
+  const changes = !tool.annotations?.readOnlyHint || !!tool.annotations?.destructiveHint;
+  return (
+    <div className="ai-tool-ask" role="group" aria-label={t("ai.toolAsk.title", { tool: title })}>
+      <div className="ai-tool-ask__head">
+        <Icon name="grid" />
+        <div>
+          <div className="ai-tool-ask__title">{t("ai.toolAsk.title", { tool: title })}</div>
+          <div className="ai-tool-ask__sub muted">
+            {[app && app !== tool.name ? app : null, t(tool.annotations?.destructiveHint ? "ai.toolAsk.destructive" : changes ? "ai.toolChanges" : "ai.toolReadOnly")]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+        </div>
+      </div>
+      {tool.description ? <p className="ai-tool-ask__description muted">{tool.description}</p> : null}
+      {entries.length ? (
+        <details className="ai-tool-ask__args" open={entries.length <= 4}>
+          <summary>{t("ai.toolAsk.arguments")}</summary>
+          <dl>
+            {entries.map(([key, value]) => (
+              <div key={key}>
+                <dt>{key}</dt>
+                <dd>{typeof value === "string" ? value : <code>{JSON.stringify(value, null, 2)}</code>}</dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
+      <div className="ai-tool-ask__actions">
+        <Button type="button" size="sm" tone="primary" onClick={() => onDecide("once")} autoFocus>
+          {t("ai.toolAsk.once")}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => onDecide("conversation")}>
+          {t("ai.toolAsk.conversation")}
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => onDecide("always")}>
+          {t("ai.toolAsk.always")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={() => onDecide("deny")}>
+          {t("ai.toolAsk.deny")}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -216,10 +318,14 @@ function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetri
   const tools = message.metrics?.tools ?? [];
   return (
     <div className={`ai-message ai-message--${message.role}`}>
-      <div className="ai-message__body">{message.content}</div>
+      {message.content ? (
+        <div className="ai-message__body">{message.role === "assistant" ? <Markdown source={message.content} /> : message.content}</div>
+      ) : null}
       {tools.length ? (
         <div className="ai-message__meta ai-message__tool">
-          {t("ai.usedTools", { tools: tools.map((tool) => `${tool.title ?? tool.name}${tool.ok ? "" : " ✕"}`).join(", ") })}
+          {t("ai.usedTools", {
+            tools: tools.map((tool) => `${tool.title ?? tool.name}${tool.denied ? ` (${t("ai.toolDenied")})` : tool.ok ? "" : " ✕"}`).join(", "),
+          })}
         </div>
       ) : null}
       {message.error ? <div className="ai-message__error">{message.error === "Stopped" ? t("ai.stopped") : message.error}</div> : null}
@@ -233,17 +339,22 @@ function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetri
 }
 
 /** What the apps offer the AI: each app with its tools, from the app router's catalogue. */
-function AppsPanel({ settings, toolSupport, error }: { settings: AiSettings; toolSupport: boolean; error: string | null }) {
+function AppsPanel({ settings, toolSupport, error, onAddServer }: { settings: AiSettings; toolSupport: boolean; error: string | null; onAddServer: () => void }) {
   const { t } = useI18n();
   const enabled = appToolsEnabled(settings);
-  const catalog = useQuery({ queryKey: ["gondol", "ai", "app-catalog"], enabled, retry: false, staleTime: 5 * 60_000, queryFn: ({ signal }) => fetchAppCatalog(signal) });
+  const catalog = useQuery({ queryKey: aiAppCatalogKey, enabled, retry: false, staleTime: 5 * 60_000, queryFn: ({ signal }) => fetchAppCatalog(signal) });
   const apps = (catalog.data?.apps ?? []).filter((app) => app.tools.length || app.ownMcpServer);
   const problem = error ?? (catalog.error instanceof Error ? catalog.error.message : null);
   return (
     <section className="ai-chat__apps" aria-label={t("ai.appsTitle")}>
-      <div className="ai-chat__apps-head">
-        <strong>{t("ai.appsTitle")}</strong>
-        <p className="muted">{t("ai.appsIntro")}</p>
+      <div className="panel-head ai-chat__apps-head">
+        <div>
+          <strong>{t("ai.appsTitle")}</strong>
+          <p className="muted">{t("ai.appsIntro")}</p>
+        </div>
+        <Button type="button" size="sm" variant="outline" onClick={onAddServer}>
+          <Icon name="plus" /> {t("ai.mcp.new")}
+        </Button>
       </div>
       {!enabled ? <p className="muted">{t("ai.appsOff")}</p> : null}
       {enabled && !toolSupport ? <p className="muted">{t("ai.appsNoToolSupport")}</p> : null}
@@ -253,8 +364,12 @@ function AppsPanel({ settings, toolSupport, error }: { settings: AiSettings; too
       <ul className="ai-chat__app-list">
         {apps.map((app) => (
           <li key={app.id} className="ai-chat__app">
-            <div className="ai-chat__app-name">{app.name}</div>
+            <div className="ai-chat__app-name">
+              {app.name}
+              {app.userServer ? <span className="muted"> · {t("ai.mcp.yours")}</span> : null}
+            </div>
             {app.description ? <div className="muted ai-chat__app-description">{app.description}</div> : null}
+            {app.error ? <div className="ai-chat__app-description ai-message__error">{app.error}</div> : null}
             <ul className="ai-chat__tool-list">
               {app.tools.map((tool) => (
                 <li key={tool.name} title={tool.description}>
@@ -262,7 +377,7 @@ function AppsPanel({ settings, toolSupport, error }: { settings: AiSettings; too
                   <span className="muted"> · {t(tool.annotations?.readOnlyHint ? "ai.toolReadOnly" : "ai.toolChanges")}</span>
                 </li>
               ))}
-              {app.ownMcpServer ? <li className="muted">MCP · {app.mcp}</li> : null}
+              {app.ownMcpServer && !app.userServer ? <li className="muted">MCP · {app.mcp}</li> : null}
             </ul>
           </li>
         ))}

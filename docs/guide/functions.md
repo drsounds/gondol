@@ -147,6 +147,7 @@ bun node_modules/gondol/src/api/cli.ts --apps src/apps --builtin ai,oauth,stream
 | `APP_API_PUBLIC_URL` | The app API's public address, named to MCP clients as the authorization server. |
 | `APP_ROUTER_FORWARD_HEADERS` | Request headers passed on to functions, comma-separated (e.g. `x-spacify-workspace`); they're also allowed by CORS. |
 | whatever `mcp.endpoint.headers` name | Apps' own MCP servers' credentials. |
+| `MCP_ALLOWED_HOSTS`, `MCP_ALLOW_PRIVATE` | Users' own MCP servers (the ai app's `ai_mcp_servers`, read with `SUPABASE_SERVICE_ROLE_KEY`) must be public HTTPS hosts; these allow listed hosts (comma separated, `host` or `host:port`) or every address. |
 
 A host with another function name tells the client once, before anything renders:
 

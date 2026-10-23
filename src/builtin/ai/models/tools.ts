@@ -34,11 +34,17 @@ export function aiToolsFor(tools: McpTool[]): AiTool[] {
   return tools.map((tool) => ({ name: tool.name, description: tool.description, parameters: tool.inputSchema as Record<string, unknown> }));
 }
 
-/** Whether the user is asked before a tool runs (the `toolApproval` setting: changes, always, never). */
+/** The tools of the user's own MCP servers (router.ts's userMcpAppId()), whose hints are their own say-so. */
+const USER_SERVER_TOOL = /^mcp_[0-9a-f]{8}__/;
+
+/**
+ * Whether the user is asked before a tool runs (the `toolApproval` setting: changes, always, never).
+ * With `changes`, a tool of the user's own MCP servers is asked about even when it says it only reads.
+ */
 export function toolNeedsApproval(tool: McpTool, settings: AiSettings): boolean {
   const approval = typeof settings.toolApproval === "string" ? settings.toolApproval : "changes";
   if (approval === "never") return false;
-  if (approval === "always") return true;
+  if (approval === "always" || USER_SERVER_TOOL.test(tool.name)) return true;
   return !tool.annotations?.readOnlyHint || !!tool.annotations?.destructiveHint;
 }
 
