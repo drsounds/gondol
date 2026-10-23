@@ -31,7 +31,7 @@ export function useProviderModels(providerId: string, settings: AiSettings, enab
   const provider = getAiProvider(providerId);
   const address = provider?.describe?.(settings) ?? "";
   return useQuery({
-    queryKey: ["gondol", "ai", "provider-models", providerId, address, settings["ollama.apiKey"] ?? null],
+    queryKey: ["gondol", "ai", "provider-models", providerId, address, settings[`${providerId}.apiKey`] ?? null],
     enabled: enabled && !!provider,
     retry: false,
     staleTime: 30_000,

@@ -4,8 +4,8 @@
   "slug": "ai",
   "name": { "en": "AI", "sv": "AI" },
   "description": {
-    "en": "Chat with large language models: conversations kept per account, models from each provider (Ollama for now), and the provider's address in the app's settings.",
-    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från varje leverantör (än så länge Ollama) och leverantörens adress i appens inställningar."
+    "en": "Chat with large language models: conversations kept per account, models from Ollama or OpenAI-compatible APIs, and the provider's address in the app's settings.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från Ollama eller OpenAI-kompatibla API:er och leverantörens adress i appens inställningar."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "chat",
@@ -107,13 +107,52 @@
             "key": "providers",
             "type": "checkboxes",
             "label": { "en": "Providers in use", "sv": "Leverantörer som används" },
-            "options": [{ "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } }],
+            "options": [
+              { "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } },
+              { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } }
+            ],
             "default": ["ollama"]
           }
         ]
       }
     ],
     "submenus": [
+      {
+        "id": "openai",
+        "title": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" },
+        "description": { "en": "API address and key", "sv": "API-adress och nyckel" },
+        "iconName": "chip",
+        "sections": [
+          {
+            "id": "connection",
+            "title": { "en": "Connection", "sv": "Anslutning" },
+            "description": {
+              "en": "Calls the API directly from your browser. The server must allow requests from this site's origin (CORS).",
+              "sv": "Anropar API:et direkt från din webbläsare. Servern måste tillåta anrop från webbplatsens ursprung (CORS)."
+            },
+            "settings": [
+              {
+                "key": "openai.baseUrl",
+                "type": "string",
+                "format": "url",
+                "label": { "en": "API base address", "sv": "API:ets basadress" },
+                "description": { "en": "OpenAI defaults to https://api.openai.com/v1. Use the versioned base URL for other compatible APIs.", "sv": "OpenAI använder https://api.openai.com/v1 som standard. Använd den versionshanterade basadressen för andra kompatibla API:er." },
+                "placeholder": "https://api.openai.com/v1",
+                "maxLength": 500
+              },
+              {
+                "key": "openai.apiKey",
+                "type": "string",
+                "format": "password",
+                "scope": "user",
+                "label": { "en": "API key (optional)", "sv": "API-nyckel (valfri)" },
+                "description": { "en": "Sent as a bearer token. Leave empty for APIs that do not require a key.", "sv": "Skickas som bearer-token. Lämna tomt för API:er som inte kräver en nyckel." },
+                "maxLength": 500
+              }
+            ]
+          }
+        ]
+      },
       {
         "id": "ollama",
         "title": { "en": "Ollama", "sv": "Ollama" },
