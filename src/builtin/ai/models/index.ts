@@ -5,3 +5,4 @@ export * from "./openai";
 export * from "./conversations";
 export * from "./models";
 export * from "./chat";
+export * from "./tools";

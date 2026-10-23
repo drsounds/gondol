@@ -166,6 +166,57 @@
   resize: vertical;
 }
 
+.ai-chat__apps-count {
+  background: var(--bungalow-color-primary-soft);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  margin-left: var(--bungalow-space-1);
+  padding: 0 0.4rem;
+}
+
+.ai-chat__apps {
+  border: 1px solid var(--bungalow-color-border);
+  border-radius: var(--bungalow-radius-md, 0.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--bungalow-space-3);
+}
+
+.ai-chat__apps-head p {
+  margin: var(--bungalow-space-1) 0 0;
+}
+
+.ai-chat__app-list,
+.ai-chat__tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-chat__tool-list {
+  font-size: 0.875rem;
+  gap: 0.15rem;
+  margin-top: var(--bungalow-space-1);
+}
+
+.ai-chat__app-name {
+  font-weight: 600;
+}
+
+.ai-chat__app-description {
+  font-size: 0.875rem;
+}
+
+.ai-message__tool {
+  font-style: italic;
+}
+
 .ai-models__table td {
   vertical-align: middle;
 }

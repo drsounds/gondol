@@ -350,5 +350,13 @@
         }
       }
     }
+  },
+  "mcp": {
+    "instructions": "Streams record what the user does over time: a subject (the user) does an action (the predicate, a URI or words) to an object (any spacify: URI), for a motivation and in a context, from a start to an end. Start a stream when the user begins something (listening, reading, working on a task), update it with ended_at when they stop, and read one back by its id.",
+    "tools": [
+      { "name": "start_stream", "operation": "startStream", "description": "Start a stream: the user begins doing something (an action or predicate_uri) with an object, optionally for a motivation and in a context. Returns the stream with its id." },
+      { "name": "update_stream", "operation": "updateStream", "description": "Update a stream by its id: end it (ended=true or ended_at), move its position, change its quantity or what it is about." },
+      { "name": "get_stream", "operation": "getStream", "description": "Read a stream by its id." }
+    ]
   }
 }

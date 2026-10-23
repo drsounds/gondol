@@ -12,6 +12,7 @@
 //
 // Routes (after `basePath`):
 //   GET  /openapi.json      the document, with this server's URLs filled in
+//   GET  /.well-known/oauth-authorization-server   the OAuth endpoints (RFC 8414)
 //   GET  /oauth/authorize   redirects to `authorizeUrl` (the consent page) with the same query
 //   POST /oauth/token       grant_type=authorization_code | refresh_token (RFC 6749, PKCE RFC 7636)
 //   POST /oauth/revoke      token=… (RFC 7009)
@@ -366,6 +367,24 @@ export function createApiGateway(options: ApiGatewayOptions): (request: Request)
     return { ...options.document, servers: [{ url: base }], components: { ...options.document.components, securitySchemes: schemes } };
   }
 
+  /** RFC 8414 metadata, for clients that discover the endpoints (MCP clients, through the app router). */
+  function authorizationServerMetadata(request: Request) {
+    const document = servedDocument(request);
+    const base = document.servers![0].url;
+    const flow = (document.components?.securitySchemes?.oauth2 as { flows: { authorizationCode: { scopes: Record<string, string> } } }).flows.authorizationCode;
+    return {
+      issuer: base,
+      authorization_endpoint: options.authorizeUrl,
+      token_endpoint: `${base}/oauth/token`,
+      ...(options.revoke ? { revocation_endpoint: `${base}/oauth/revoke` } : {}),
+      response_types_supported: ["code"],
+      grant_types_supported: ["authorization_code", "refresh_token"],
+      code_challenge_methods_supported: ["S256", "plain"],
+      token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post", "none"],
+      scopes_supported: Object.keys(flow.scopes),
+    };
+  }
+
   async function handleToken(request: Request): Promise<Response> {
     const form = await readForm(request);
     if (!form) return json({ error: "invalid_request", error_description: "Unreadable or too large body" }, 400, noStore);
@@ -474,6 +493,7 @@ export function createApiGateway(options: ApiGatewayOptions): (request: Request)
     path = `/${path.replace(/^\/+/, "")}`;
     try {
       if (path === "/openapi.json" && request.method === "GET") return json(servedDocument(request));
+      if (path === "/.well-known/oauth-authorization-server" && request.method === "GET") return json(authorizationServerMetadata(request));
       if (path === "/oauth/authorize" && request.method === "GET") {
         return new Response(null, { status: 302, headers: { ...headers, Location: `${options.authorizeUrl}${url.search}` } });
       }

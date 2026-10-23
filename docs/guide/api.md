@@ -122,6 +122,11 @@ bun node_modules/gondol/src/api/cli.ts --apps src/apps --builtin ai,oauth --out 
 `--check` writes nothing and fails when either is out of date; run it in CI so the server's copy
 follows the manifests.
 
+It also writes `apps.json` and `router.ts`, the [app router](./functions.md) for the apps'
+`functions` and MCP tools (an operation can be an MCP tool too). The gateway serves its OAuth
+endpoints as [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414) metadata at
+`/.well-known/oauth-authorization-server`, for MCP clients.
+
 ## Serving it
 
 The host writes the edge function that wires the gateway to its database:

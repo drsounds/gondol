@@ -3,6 +3,7 @@ import { SITE_ASPECTS, SITE_ROLES } from "../sites/capabilities";
 import { appSettingsSchema } from "../settings/schema";
 import { settingsProblems } from "../settings/tree";
 import { appApiSchema } from "../api/openapi";
+import { appFunctionsSchema, appMcpSchema } from "../api/functions";
 
 /**
  * The schema of an app's `manifest.json`: everything an app declares about itself as data, checked
@@ -13,7 +14,8 @@ import { appApiSchema } from "../api/openapi";
  * What a manifest declares, the shell reads without knowing any app (see ./contributions.ts): the
  * features and their paths, palette actions, the root navigation items, the create picker's items,
  * the search page's browse tiles, the app's entity types (addresses, tile art, where their rows
- * live), its settings (../settings/schema.ts) and its HTTP API (../api/openapi.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
+ * live), its settings (../settings/schema.ts), its HTTP API (../api/openapi.ts), the server functions it lets
+ * other code call and what it offers AI models over MCP (../api/functions.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
  * index.ts with defineApp.
  */
 
@@ -187,6 +189,8 @@ export const appManifestSchema = z
       .meta({ description: "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know." }),
     settings: appSettingsSchema.optional(),
     api: appApiSchema.optional(),
+    functions: appFunctionsSchema.optional(),
+    mcp: appMcpSchema.optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -210,6 +214,11 @@ export const appManifestSchema = z
     }
     for (const problem of manifest.settings ? settingsProblems(manifest.settings) : []) {
       ctx.addIssue({ code: "custom", path: ["settings", ...problem.path], message: problem.message });
+    }
+    for (const [index, tool] of (manifest.mcp?.tools ?? []).entries()) {
+      if (tool.function && !manifest.functions?.[tool.function]) {
+        ctx.addIssue({ code: "custom", path: ["mcp", "tools", index, "function"], message: `no function "${tool.function}" in this app` });
+      }
     }
     if (manifest.dependencies.includes(manifest.id)) {
       ctx.addIssue({ code: "custom", path: ["dependencies"], message: "an app can't depend on itself" });

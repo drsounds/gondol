@@ -65,5 +65,10 @@
         }
       }
     }
+  },
+  "mcp": {
+    "tools": [
+      { "name": "whoami", "operation": "getMe", "description": "Who the AI acts for: the signed-in user's id and spacify:user URI, and the client and scopes of the token, if any." }
+    ]
   }
 }

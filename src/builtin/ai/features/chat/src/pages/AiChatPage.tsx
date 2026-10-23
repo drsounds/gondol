@@ -1,13 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Icon, Select } from "../../../../../../design-system/bungalow-79d923";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
 import { AppSettingsPanel } from "../../../../../../settings/AppSettingsPanel";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
+import { fetchAppCatalog } from "../../../../../../api/client";
 import {
   AiProviderError,
+  appToolsEnabled,
   enabledAiProviders,
   getAiProvider,
+  useAiAppTools,
   useAiChat,
   useAiConversations,
   useAiMessages,
@@ -16,6 +20,8 @@ import {
   useDeleteAiConversation,
   type AiMessage,
   type AiMetrics,
+  type AiSettings,
+  type McpTool,
 } from "../../../../models";
 
 /**
@@ -32,6 +38,8 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const messages = useAiMessages(conversationId);
   const remove = useDeleteAiConversation();
   const [showSettings, setShowSettings] = useState(false);
+  const [showApps, setShowApps] = useState(false);
+  const appTools = useAiAppTools(settings);
 
   const providers = enabledAiProviders(settings);
   const defaultProvider = providers[0]?.id ?? "ollama";
@@ -48,7 +56,11 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
     model: defaultModel ?? models.choices[0]?.name ?? "",
   };
 
-  const chat = useAiChat(settings, { onConversationCreated: (created) => go(`/ai/${created.id}`) });
+  const confirmTool = useCallback(
+    (tool: McpTool, args: Record<string, unknown>) => window.confirm(t("ai.confirmTool", { tool: tool.title ?? tool.name, args: JSON.stringify(args, null, 2) })),
+    [t],
+  );
+  const chat = useAiChat(settings, { onConversationCreated: (created) => go(`/ai/${created.id}`), tools: appTools.tools, confirmTool });
   const streaming = chat.streaming && (chat.streaming.conversationId === conversationId || !conversationId) ? chat.streaming : null;
 
   const list = useRef<HTMLDivElement>(null);
@@ -104,6 +116,10 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
               </option>
             ))}
           </Select>
+          <Button type="button" variant="ghost" size="sm" aria-expanded={showApps} onClick={() => setShowApps((v) => !v)}>
+            <Icon name="grid" /> {t("ai.apps")}
+            {appTools.tools?.tools.length ? <span className="ai-chat__apps-count">{appTools.tools.tools.length}</span> : null}
+          </Button>
           <Button type="button" variant="ghost" size="sm" aria-expanded={showSettings} onClick={() => setShowSettings((v) => !v)}>
             <Icon name="settings" /> {t("ai.settings")}
           </Button>
@@ -129,6 +145,14 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           </div>
         ) : null}
 
+        {showApps ? (
+          <AppsPanel
+            settings={settings}
+            toolSupport={!!provider?.supportsTools}
+            error={appTools.error instanceof Error ? appTools.error.message : null}
+          />
+        ) : null}
+
         {error ? (
           <Alert tone="danger" className="ai-chat__error">
             <span>
@@ -152,6 +176,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
           {streaming ? (
             <div className="ai-message ai-message--assistant ai-message--streaming" aria-live="polite">
               <div className="ai-message__body">{streaming.content || <span className="ai-message__typing">{t("ai.thinking")}</span>}</div>
+              {streaming.tool ? <div className="ai-message__meta ai-message__tool">{t("ai.usingTool", { tool: streaming.tool })}</div> : null}
             </div>
           ) : null}
         </div>
@@ -181,9 +206,15 @@ function formatMetrics(metrics: AiMetrics): string {
 
 function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetrics: boolean }) {
   const { t } = useI18n();
+  const tools = message.metrics?.tools ?? [];
   return (
     <div className={`ai-message ai-message--${message.role}`}>
       <div className="ai-message__body">{message.content}</div>
+      {tools.length ? (
+        <div className="ai-message__meta ai-message__tool">
+          {t("ai.usedTools", { tools: tools.map((tool) => `${tool.title ?? tool.name}${tool.ok ? "" : " ✕"}`).join(", ") })}
+        </div>
+      ) : null}
       {message.error ? <div className="ai-message__error">{message.error === "Stopped" ? t("ai.stopped") : message.error}</div> : null}
       {message.role === "assistant" && (showMetrics || message.model) ? (
         <div className="ai-message__meta">
@@ -191,6 +222,45 @@ function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetri
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** What the apps offer the AI: each app with its tools, from the app router's catalogue. */
+function AppsPanel({ settings, toolSupport, error }: { settings: AiSettings; toolSupport: boolean; error: string | null }) {
+  const { t } = useI18n();
+  const enabled = appToolsEnabled(settings);
+  const catalog = useQuery({ queryKey: ["gondol", "ai", "app-catalog"], enabled, retry: false, staleTime: 5 * 60_000, queryFn: ({ signal }) => fetchAppCatalog(signal) });
+  const apps = (catalog.data?.apps ?? []).filter((app) => app.tools.length || app.ownMcpServer);
+  const problem = error ?? (catalog.error instanceof Error ? catalog.error.message : null);
+  return (
+    <section className="ai-chat__apps" aria-label={t("ai.appsTitle")}>
+      <div className="ai-chat__apps-head">
+        <strong>{t("ai.appsTitle")}</strong>
+        <p className="muted">{t("ai.appsIntro")}</p>
+      </div>
+      {!enabled ? <p className="muted">{t("ai.appsOff")}</p> : null}
+      {enabled && !toolSupport ? <p className="muted">{t("ai.appsNoToolSupport")}</p> : null}
+      {enabled && problem ? <p className="muted">{t("ai.appsUnavailable", { message: problem })}</p> : null}
+      {enabled && catalog.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+      {enabled && catalog.data && !apps.length ? <p className="muted">{t("ai.appsNone")}</p> : null}
+      <ul className="ai-chat__app-list">
+        {apps.map((app) => (
+          <li key={app.id} className="ai-chat__app">
+            <div className="ai-chat__app-name">{app.name}</div>
+            {app.description ? <div className="muted ai-chat__app-description">{app.description}</div> : null}
+            <ul className="ai-chat__tool-list">
+              {app.tools.map((tool) => (
+                <li key={tool.name} title={tool.description}>
+                  <span>{tool.title ?? tool.name}</span>
+                  <span className="muted"> · {t(tool.annotations?.readOnlyHint ? "ai.toolReadOnly" : "ai.toolChanges")}</span>
+                </li>
+              ))}
+              {app.ownMcpServer ? <li className="muted">MCP · {app.mcp}</li> : null}
+            </ul>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

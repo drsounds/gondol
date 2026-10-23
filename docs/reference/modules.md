@@ -48,9 +48,12 @@ Guide: [App settings](../guide/settings.md).
 | --- | --- |
 | `api/openapi` | `appApiSchema` (a manifest's `api`), `buildOpenApiDocument`, `apiScopes`, `AppApi`, `ApiSource` |
 | `api/gateway` | `createApiGateway`, `validate`, `matchOperation`, `statusForDbError`, `rpcArgName`, `ApiDocument`, `ApiOperation`, `ApiCaller`, `TokenGrant`, `TokenResult` (no imports: copied into edge functions) |
-| `api/cli` | The `gondol-api` command: writes `openapi.json` and `gateway.ts` for the host's server |
+| `api/functions` | `appFunctionsSchema`, `appMcpSchema` (a manifest's `functions` and `mcp`), `buildAppRegistry`, `inlineRefs` |
+| `api/router` | `createAppRouter`, `mayCall`, `qualifiedToolName`, `splitToolName`, `AppRegistry`, `RouterCaller`, `McpTool`, `McpToolResult` (imports only `./gateway.ts`: copied into edge functions) |
+| `api/client` | `callAppFunction`, `fetchAppCatalog`, `mcpRequest`, `listAppTools`, `callAppTool`, `configureAppRouter`, `AppRouterError` |
+| `api/cli` | The `gondol-api` command: writes `openapi.json`, `gateway.ts`, `apps.json`, `router.ts` (and with `--functions` the `app-router` function) for the host's server |
 
-Guide: [App APIs](../guide/api.md).
+Guides: [App APIs](../guide/api.md), [App functions and MCP](../guide/functions.md).
 
 ## `builtin/`
 

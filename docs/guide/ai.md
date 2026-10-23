@@ -86,7 +86,7 @@ contract:
 | Request (POST, JSON) | Answer |
 | --- | --- |
 | `{ action: "models", baseUrl }` | The API's `/models` JSON response (`{ data: [...] }`). |
-| `{ action: "chat", baseUrl, model, messages, temperature? }` | The API's streaming `/chat/completions` response as server-sent events. |
+| `{ action: "chat", baseUrl, model, messages, temperature?, tools? }` | The API's streaming `/chat/completions` response as server-sent events. `messages` may hold `assistant` messages with `tool_calls` and `tool` messages (`tool_call_id`), `tools` is chat completions' `[{ type: "function", function: { name, description, parameters } }]`. |
 
 The function reads the signed-in user's `openai.apiKey` from `app_settings` and sends it as a bearer
 token; do not accept the key in the request body. Validate the base URL and restrict hosts the
@@ -105,7 +105,7 @@ contract:
 | Request (POST, JSON) | Answer |
 | --- | --- |
 | `{ action: "models", baseUrl? }` | `{ models: [{ name, model, size, modified_at, details }] }`, Ollama's `/api/tags` |
-| `{ action: "chat", baseUrl?, model, messages: [{ role, content }], options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece, the last with `done: true`, or `data: {"error": "…"}` |
+| `{ action: "chat", baseUrl?, model, messages: [{ role, content, tool_calls?, tool_name? }], tools?, options?, keep_alive? }` | `text/event-stream`: one `data: <Ollama's JSON chunk>` event per piece (tool calls in `message.tool_calls`), the last with `done: true`, or `data: {"error": "…"}` |
 
 `baseUrl` is the `ollama.baseUrl` setting in effect; when it's empty the function uses its own
 `OLLAMA_BASE_URL`. The API key isn't sent along: the function reads the user's own `ollama.apiKey`
@@ -119,6 +119,22 @@ except for:
 | `OLLAMA_ALLOW_PRIVATE` | `true` lets every address through (a single-user install). |
 
 For the OpenAI-compatible function, use an equivalent allowlist for any internal API hosts.
+
+## The apps' tools
+
+Other apps can offer the model tools over MCP (their manifests' `mcp`, see
+[App functions and MCP](./functions.md)). The chat fetches them from the app router's `/mcp`
+(`useAiAppTools()`), hands them to the model with what the apps say about themselves, runs the calls
+the model makes through the router as the user and sends the results back, up to eight rounds per
+answer. The tools used are kept in the answer's `metrics.tools`.
+
+| Setting | Type | Scope | |
+| --- | --- | --- | --- |
+| `appTools` | checkbox | user, workspace, site | Hand the model the apps' tools (default on). |
+| `toolApproval` | radio | user | Ask before a tool runs: `changes` (tools that aren't read-only, the default), `always` or `never`. |
+
+A provider says it can call tools with `supportsTools`; `AiChatRequest.tools` and
+`AiChatResult.toolCalls` carry them, `AiChatMessage` has `toolCalls` and the `tool` role.
 
 A host whose function has another name sets it once, before anything renders:
 

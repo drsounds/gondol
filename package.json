@@ -12,6 +12,7 @@
   ],
   "files": [
     "src",
+    "supabase/functions",
     "apps",
     "README.md",
     "LICENSE"
@@ -61,8 +62,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./api/cli": "./src/api/cli.ts",
+    "./api/client": "./src/api/client.ts",
+    "./api/functions": "./src/api/functions.ts",
     "./api/gateway": "./src/api/gateway.ts",
     "./api/openapi": "./src/api/openapi.ts",
+    "./api/router": "./src/api/router.ts",
     "./apps/actions": "./src/apps/actions.tsx",
     "./apps/components/ActionsPalette": "./src/apps/components/ActionsPalette.tsx",
     "./apps/components/AppBundleView": "./src/apps/components/AppBundleView.tsx",
@@ -91,6 +95,7 @@
     "./builtin/ai/models/openai": "./src/builtin/ai/models/openai.ts",
     "./builtin/ai/models/provider": "./src/builtin/ai/models/provider.ts",
     "./builtin/ai/models/providers": "./src/builtin/ai/models/providers.ts",
+    "./builtin/ai/models/tools": "./src/builtin/ai/models/tools.ts",
     "./builtin/ai/models/types": "./src/builtin/ai/models/types.ts",
     "./builtin/analytics/features/streams/src/components/StreamAnalyticsPanel": "./src/builtin/analytics/features/streams/src/components/StreamAnalyticsPanel.tsx",
     "./builtin/analytics/features/streams/src/pages/StreamAnalyticsPage": "./src/builtin/analytics/features/streams/src/pages/StreamAnalyticsPage.tsx",
