@@ -48,6 +48,22 @@ export type RegistryApp = {
   endpoint?: { url: string; headers?: Record<string, string> };
 };
 
+/**
+ * An MCP server a user added (the ai app's `ai_mcp_servers`), as `userMcpServers` hands it over:
+ * its address and its headers' values, or why it can't be called (`error`, e.g. a private address).
+ */
+export type UserMcpServer = {
+  id: string;
+  name: string;
+  url: string;
+  description?: string | null;
+  headers?: Record<string, string>;
+  error?: string;
+};
+
+/** What the router serves for a request: an app, or a user's own server dressed as one. */
+type ScopeApp = RegistryApp & { user?: { headers: Record<string, string>; error?: string } };
+
 /** The router's `apps.json` (buildAppRegistry()). */
 export type AppRegistry = { version: 1; apps: Record<string, RegistryApp> };
 
@@ -78,6 +94,13 @@ export type AppRouterOptions = {
   callFunction: (request: CallRequest & { function: string }) => Promise<InvokeResult>;
   /** Reads a server secret, for the headers of apps' own MCP servers. */
   secret?: (name: string) => string | undefined;
+  /**
+   * The caller's own MCP servers, whose tools join the apps' on `/mcp` (named
+   * `mcp_<first 8 of its id>__<tool>`) and in the catalogue. Only asked for callers with their own
+   * session (not OAuth clients). The router follows no redirects from them; checking that an
+   * address may be called (public HTTPS, not the stack's own network) is up to this function.
+   */
+  userMcpServers?: (caller: RouterCaller) => Promise<UserMcpServer[]>;
   /** For apps' own MCP servers (default: the global fetch). */
   fetch?: typeof fetch;
   /** OAuth authorization servers MCP clients get tokens from (the app API's address). */
@@ -88,6 +111,11 @@ export type AppRouterOptions = {
   /** How long an app's own MCP server may take, in milliseconds (default 20 s). */
   remoteTimeoutMs?: number;
 };
+
+/** The app id a user's MCP server's tools go under: `mcp_` and the first 8 hex digits of its id. */
+export function userMcpAppId(serverId: string): string {
+  return `mcp_${serverId.replace(/-/g, "").slice(0, 8).toLowerCase()}`;
+}
 
 export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -218,13 +246,19 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
 
   // ── Apps' own MCP servers (Streamable HTTP, as a client) ───────────────────────────────────
 
-  async function remote(app: RegistryApp, method: string, params: unknown): Promise<unknown> {
+  async function remote(app: ScopeApp, method: string, params: unknown): Promise<unknown> {
     const endpoint = app.endpoint!;
+    if (app.user?.error) throw new Error(app.user.error);
     const base: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json, text/event-stream" };
-    for (const [header, secretName] of Object.entries(endpoint.headers ?? {})) {
-      const value = options.secret?.(secretName);
-      if (value) base[header] = value;
+    if (app.user) Object.assign(base, app.user.headers);
+    else {
+      for (const [header, secretName] of Object.entries(endpoint.headers ?? {})) {
+        const value = options.secret?.(secretName);
+        if (value) base[header] = value;
+      }
     }
+    // A user's server may not bounce the router somewhere its address check didn't cover.
+    const redirect: RequestRedirect = app.user ? "error" : "follow";
     const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(options.remoteTimeoutMs ?? 20_000) : undefined;
     let session: string | null = null;
     let protocol: string | null = null;
@@ -234,13 +268,14 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
         headers: { ...base, ...(session ? { "Mcp-Session-Id": session } : {}), ...(protocol ? { "MCP-Protocol-Version": protocol } : {}) },
         body: JSON.stringify({ jsonrpc: "2.0", ...message }),
         signal,
+        redirect,
       });
       session = response.headers.get("mcp-session-id") ?? session;
       if (!("id" in message)) {
         await response.body?.cancel();
         return null;
       }
-      if (!response.ok) throw new Error(`${app.id}'s MCP server answered ${response.status}`);
+      if (!response.ok) throw new Error(`${app.user ? app.name : app.id}'s MCP server answered ${response.status}`);
       const text = await response.text();
       const type = response.headers.get("content-type") ?? "";
       const messages: JsonRpcResponse[] = [];
@@ -274,14 +309,43 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     } finally {
       if (session) {
         // Ends the session; servers without sessions may answer 405, which is fine.
-        doFetch(endpoint.url, { method: "DELETE", headers: { ...base, "Mcp-Session-Id": session } }).then((r) => r.body?.cancel(), () => undefined);
+        doFetch(endpoint.url, { method: "DELETE", headers: { ...base, "Mcp-Session-Id": session }, redirect }).then((r) => r.body?.cancel(), () => undefined);
       }
     }
   }
 
+  /** The caller's own MCP servers, as apps (none for OAuth clients, or without `userMcpServers`). */
+  async function userApps(caller: RouterCaller): Promise<ScopeApp[]> {
+    if (!options.userMcpServers || caller.scopes !== null) return [];
+    let servers: UserMcpServer[];
+    try {
+      servers = await options.userMcpServers(caller);
+    } catch (error) {
+      console.error("app router: the user's MCP servers:", error);
+      return [];
+    }
+    const seen = new Set(Object.keys(apps));
+    return servers.flatMap((server): ScopeApp[] => {
+      const id = userMcpAppId(server.id);
+      if (seen.has(id)) return [];
+      seen.add(id);
+      return [
+        {
+          id,
+          name: server.name,
+          ...(server.description ? { description: server.description } : {}),
+          functions: {},
+          tools: [],
+          endpoint: { url: server.url },
+          user: { headers: server.headers ?? {}, ...(server.error ? { error: server.error } : {}) },
+        },
+      ];
+    });
+  }
+
   // ── MCP server ────────────────────────────────────────────────────────────────────────────
 
-  function describeTool(app: RegistryApp, tool: RegistryTool, qualified: boolean): McpTool {
+  function describeTool(app: ScopeApp, tool: RegistryTool, qualified: boolean): McpTool {
     return {
       name: qualified ? qualifiedToolName(app.id, tool.name) : tool.name,
       ...(tool.title ? { title: tool.title } : {}),
@@ -296,17 +360,21 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     };
   }
 
-  async function listTools(scope: RegistryApp[], caller: RouterCaller, qualified: boolean): Promise<McpTool[]> {
+  /** The tools an app's own MCP server lists (none it shadows), named for the scope. */
+  async function remoteTools(app: ScopeApp, qualified: boolean): Promise<McpTool[]> {
+    const result = (await remote(app, "tools/list", {})) as { tools?: McpTool[] } | null;
+    return (result?.tools ?? [])
+      .filter((tool) => tool && typeof tool.name === "string" && !app.tools.some((t) => t.name === tool.name))
+      .map((tool) => ({ ...tool, name: qualified ? qualifiedToolName(app.id, tool.name) : tool.name, description: qualified ? `${app.name}: ${tool.description ?? ""}` : tool.description }));
+  }
+
+  async function listTools(scope: ScopeApp[], caller: RouterCaller, qualified: boolean): Promise<McpTool[]> {
     const lists = await Promise.all(
       scope.map(async (app) => {
         const own = app.tools.filter((tool) => mayCall(caller, tool.scopes)).map((tool) => describeTool(app, tool, qualified));
         if (!app.endpoint) return own;
         try {
-          const result = (await remote(app, "tools/list", {})) as { tools?: McpTool[] } | null;
-          const theirs = (result?.tools ?? [])
-            .filter((tool) => tool && typeof tool.name === "string" && !app.tools.some((t) => t.name === tool.name))
-            .map((tool) => ({ ...tool, name: qualified ? qualifiedToolName(app.id, tool.name) : tool.name, description: qualified ? `${app.name}: ${tool.description ?? ""}` : tool.description }));
-          return [...own, ...theirs];
+          return [...own, ...(await remoteTools(app, qualified))];
         } catch (error) {
           console.error(`app router: ${app.id}'s MCP server:`, error);
           return own;
@@ -316,7 +384,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     return lists.flat();
   }
 
-  async function callTool(scope: RegistryApp[], caller: RouterCaller, qualified: boolean, params: Record<string, unknown>, request: Request): Promise<McpToolResult> {
+  async function callTool(scope: ScopeApp[], caller: RouterCaller, qualified: boolean, params: Record<string, unknown>, request: Request): Promise<McpToolResult> {
     if (typeof params.name !== "string") throw new RpcError(-32602, "The tool's name is missing");
     const input = params.arguments ?? {};
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new RpcError(-32602, "The arguments must be an object");
@@ -338,7 +406,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     return "error" in result ? toolError(result.error.message) : toolResult(result.data);
   }
 
-  async function answer(message: JsonRpcRequest, scope: RegistryApp[], caller: RouterCaller, qualified: boolean, request: Request): Promise<JsonRpcResponse | null> {
+  async function answer(message: JsonRpcRequest, scope: ScopeApp[], caller: RouterCaller, qualified: boolean, request: Request): Promise<JsonRpcResponse | null> {
     const id = message.id ?? null;
     const isRequest = message.id !== undefined;
     try {
@@ -388,10 +456,12 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     }
   }
 
-  async function handleMcp(request: Request, scope: RegistryApp[], qualified: boolean): Promise<Response> {
+  async function handleMcp(request: Request, appScope: RegistryApp[], qualified: boolean): Promise<Response> {
     if (request.method !== "POST") return problem(405, "Method Not Allowed", "This MCP server answers POST only (no event stream).", { Allow: "POST" });
     const caller = await callerOf(request);
     if (!caller) return problem(401, "Unauthorized", "Send an access token: Authorization: Bearer <token>", challenge(request, caller === null ? "invalid_token" : undefined));
+    // The aggregate server also has the caller's own MCP servers.
+    const scope: ScopeApp[] = qualified ? [...appScope, ...(await userApps(caller))] : appScope;
     const body = await readJson(request);
     if ("error" in body) {
       if (body.error.status === 400) return json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } }, 400);
@@ -455,7 +525,29 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
       mcp: `${base}/apps/${app.id}/mcp`,
       ownMcpServer: !!app.endpoint,
     }));
-    return json({ mcp: `${base}/mcp`, apps: list });
+    const own = await Promise.all(
+      (await userApps(caller)).map(async (app) => {
+        let tools: McpTool[] = [];
+        let error: string | undefined;
+        try {
+          tools = await remoteTools(app, true);
+        } catch (caught) {
+          error = caught instanceof Error ? caught.message : String(caught);
+        }
+        return {
+          id: app.id,
+          name: app.name,
+          ...(app.description ? { description: app.description } : {}),
+          functions: [],
+          tools,
+          mcp: `${base}/mcp`,
+          ownMcpServer: true,
+          userServer: true,
+          ...(error ? { error } : {}),
+        };
+      }),
+    );
+    return json({ mcp: `${base}/mcp`, apps: [...list, ...own] });
   }
 
   return async (request: Request) => {

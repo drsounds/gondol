@@ -21,10 +21,15 @@
 // APP_API_PUBLIC_URL (the OAuth server MCP clients are pointed at), APP_ROUTER_FORWARD_HEADERS
 // (request headers passed on to functions, e.g. `x-spacify-workspace`) and whatever secrets apps'
 // own MCP servers name in their manifests.
+//
+// Users' own MCP servers (the ai app's ai_mcp_servers, with their header values from
+// ai_mcp_server_headers) join /mcp for callers with their own session; reading them takes
+// SUPABASE_SERVICE_ROLE_KEY. Their addresses must be public HTTPS, unless MCP_ALLOWED_HOSTS lists the
+// host (comma separated, host or host:port) or MCP_ALLOW_PRIVATE=true.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { SignJWT } from "npm:jose@5";
 import { statusForDbError } from "../_shared/gondol-api/gateway.ts";
-import { createAppRouter, type AppRegistry, type RouterCaller } from "../_shared/gondol-api/router.ts";
+import { createAppRouter, type AppRegistry, type RouterCaller, type UserMcpServer } from "../_shared/gondol-api/router.ts";
 import registry from "../_shared/gondol-api/apps.json" with { type: "json" };
 
 const env = (name: string) => Deno.env.get(name) || undefined;
@@ -60,6 +65,129 @@ async function bearerFor(caller: RouterCaller | null): Promise<string | null> {
     .sign(secret);
 }
 
+// ── Users' own MCP servers ───────────────────────────────────────────────────────────────────
+
+function isPrivateIpv4(address: string): boolean {
+  const parts = address.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+  const [a, b, c] = parts;
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && ((b === 0 && (c === 0 || c === 2)) || b === 168)) ||
+    (a === 192 && b === 88 && c === 99) ||
+    (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100))) ||
+    (a === 203 && b === 0 && c === 113) ||
+    a >= 224
+  );
+}
+
+function isPrivateIpv6(address: string): boolean {
+  const value = address.toLowerCase().split("%")[0];
+  if (!value) return true;
+  if (value.startsWith("::ffff:")) {
+    const mapped = value.slice(7);
+    if (mapped.includes(".")) return isPrivateIpv4(mapped);
+    const groups = mapped.split(":");
+    if (groups.length === 2 && groups.every((group) => /^[\da-f]{1,4}$/.test(group))) {
+      const high = Number.parseInt(groups[0], 16);
+      const low = Number.parseInt(groups[1], 16);
+      return isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`);
+    }
+    return true;
+  }
+  const groups = value.split(":");
+  const firstGroup = Number.parseInt(groups[0] || "0", 16);
+  const secondGroup = Number.parseInt(groups[1] || "0", 16);
+  if (firstGroup === 0x2002) {
+    if (!/^[\da-f]{1,4}$/.test(groups[1] ?? "") || !/^[\da-f]{1,4}$/.test(groups[2] ?? "")) return true;
+    const high = Number.parseInt(groups[1], 16);
+    const low = Number.parseInt(groups[2], 16);
+    if (isPrivateIpv4(`${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`)) return true;
+  }
+  return (
+    value === "::" ||
+    value === "::1" ||
+    value.startsWith("fc") ||
+    value.startsWith("fd") ||
+    /^fe[89a-f]/.test(value) ||
+    value.startsWith("ff") ||
+    firstGroup < 0x2000 ||
+    firstGroup > 0x3fff ||
+    firstGroup === 0x3fff ||
+    (firstGroup === 0x2001 && secondGroup < 0x0200) ||
+    value.startsWith("2001:db8:")
+  );
+}
+
+const MCP_ALLOWED_HOSTS = (env("MCP_ALLOWED_HOSTS") ?? "")
+  .split(",")
+  .map((entry) => entry.trim().toLowerCase())
+  .filter(Boolean);
+
+/** Throws when the router may not call a user's MCP server at `value` (see the top of this file). */
+async function checkMcpUrl(value: string): Promise<void> {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("The MCP server's address isn't a valid URL");
+  }
+  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("The MCP server's address must be an HTTP(S) URL without credentials");
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
+  if (env("MCP_ALLOW_PRIVATE") === "true" || MCP_ALLOWED_HOSTS.includes(url.host.toLowerCase()) || MCP_ALLOWED_HOSTS.includes(hostname)) return;
+  const local = hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal");
+  const ipLiteral = hostname.includes(":") || /^\d+(?:\.\d+){3}$/.test(hostname);
+  if (url.protocol !== "https:" || local || ipLiteral) throw new Error("The server doesn't call this MCP address (only public HTTPS hosts, unless MCP_ALLOWED_HOSTS lists it)");
+  const records = await Promise.allSettled([Deno.resolveDns(hostname, "A"), Deno.resolveDns(hostname, "AAAA")]);
+  const addresses = records.flatMap((record) => (record.status === "fulfilled" ? record.value : []));
+  if (!addresses.length) throw new Error("Couldn't resolve the MCP server's host");
+  if (addresses.some((address) => (address.includes(":") ? isPrivateIpv6(address) : isPrivateIpv4(address)))) {
+    throw new Error("The server doesn't call this MCP address (a private network)");
+  }
+}
+
+/** The caller's enabled MCP servers with their headers (read with the service role, by owner). */
+async function userMcpServers(caller: RouterCaller): Promise<UserMcpServer[]> {
+  if (!admin) return [];
+  const { data, error } = await admin
+    .from("ai_mcp_servers")
+    .select("id, name, url, description")
+    .eq("user_id", caller.userId)
+    .eq("enabled", true)
+    .order("position")
+    .limit(20);
+  // 42P01: the host hasn't the table (no ai app migration).
+  if (error) {
+    if (error.code !== "42P01") console.error("app-router: ai_mcp_servers:", error.message);
+    return [];
+  }
+  const rows = (data ?? []) as { id: string; name: string; url: string; description: string | null }[];
+  if (!rows.length) return [];
+  const { data: secrets, error: secretError } = await admin
+    .from("ai_mcp_server_headers")
+    .select("server_id, headers")
+    .eq("user_id", caller.userId)
+    .in("server_id", rows.map((row) => row.id));
+  if (secretError) console.error("app-router: ai_mcp_server_headers:", secretError.message);
+  const headersOf = new Map(((secrets ?? []) as { server_id: string; headers: Record<string, unknown> }[]).map((row) => [row.server_id, row.headers]));
+  return await Promise.all(
+    rows.map(async (row): Promise<UserMcpServer> => {
+      const headers = Object.fromEntries(Object.entries(headersOf.get(row.id) ?? {}).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+      try {
+        await checkMcpUrl(row.url);
+        return { ...row, headers };
+      } catch (caught) {
+        return { ...row, error: caught instanceof Error ? caught.message : String(caught) };
+      }
+    }),
+  );
+}
+
 function forwarded(request: Request): Record<string, string> {
   const out: Record<string, string> = {};
   for (const name of FORWARD) {
@@ -75,6 +203,7 @@ const handler = createAppRouter({
   publicUrl: env("APP_ROUTER_PUBLIC_URL"),
   authorizationServers: env("APP_API_PUBLIC_URL") ? [env("APP_API_PUBLIC_URL")!] : undefined,
   secret: env,
+  userMcpServers,
   headers: {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": ["authorization", "content-type", "x-client-info", "apikey", "mcp-protocol-version", "mcp-session-id", ...FORWARD].join(", "),

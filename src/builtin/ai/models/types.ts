@@ -29,7 +29,7 @@ export type AiMetrics = {
   /** Completion tokens per second. */
   tokensPerSecond?: number;
   /** The apps' tools the model called for the answer, in order. */
-  tools?: { name: string; title?: string; ok: boolean }[];
+  tools?: { name: string; title?: string; ok: boolean; denied?: boolean }[];
 };
 
 /** A message of a conversation (`ai_messages`). */
@@ -97,6 +97,43 @@ export type AiServiceOptions = {
 /** What the client writes to ai_services. */
 export type AiServiceWrite = Partial<Pick<AiService, "name" | "provider" | "base_url" | "enabled" | "position" | "options">>;
 
+/**
+ * A tool the user let the AI run without asking (`ai_tool_permissions`): in one conversation
+ * (`conversation_id`), or everywhere (null). `tool` is its name on the app router's MCP server
+ * (`<app>__<tool>`).
+ */
+export type AiToolPermission = {
+  id: string;
+  user_id: string;
+  tool: string;
+  /** Its title when it was allowed, to list it by. */
+  title: string | null;
+  conversation_id: string | null;
+  created_at: string;
+};
+
+/**
+ * An MCP server the user added (`ai_mcp_servers`): its tools join the apps' in the chat, through
+ * the app router. Its headers (a bearer token, an API key) are write-only like a service's key:
+ * the values live in `ai_mcp_server_headers`, which the client can't read, set with
+ * `set_ai_mcp_server_headers()`; `header_names` says which are set.
+ */
+export type AiMcpServer = {
+  id: string;
+  user_id: string;
+  name: string;
+  /** Its Streamable HTTP address, e.g. https://mcp.example.com/mcp. */
+  url: string;
+  description: string | null;
+  header_names: string[];
+  enabled: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiMcpServerWrite = Partial<Pick<AiMcpServer, "name" | "url" | "description" | "enabled" | "position">>;
+
 type Table<Row, Required extends keyof Row> = {
   Row: Row;
   Insert: Partial<Row> & Pick<Row, Required>;
@@ -119,10 +156,18 @@ export type AiDatabase = {
         Update: Omit<AiServiceWrite, "options"> & { options?: Json };
         Relationships: [];
       };
+      ai_tool_permissions: Table<AiToolPermission, "tool">;
+      ai_mcp_servers: {
+        Row: AiMcpServer;
+        Insert: AiMcpServerWrite & Pick<AiMcpServer, "name" | "url">;
+        Update: AiMcpServerWrite;
+        Relationships: [];
+      };
     };
     Views: { [_ in never]: never };
     Functions: {
       set_ai_service_key: { Args: { p_service_id: string; p_api_key: string | null }; Returns: undefined };
+      set_ai_mcp_server_headers: { Args: { p_server_id: string; p_set: Json; p_remove: string[] }; Returns: string[] };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
