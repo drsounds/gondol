@@ -185,6 +185,7 @@
     "./entities/EntityRow": "./src/entities/EntityRow.tsx",
     "./entities/EntitySheet": "./src/entities/EntitySheet.tsx",
     "./entities/EntitySlugSheet": "./src/entities/EntitySlugSheet.tsx",
+    "./entities/ShareSheet": "./src/entities/ShareSheet.tsx",
     "./entities/FormActions": "./src/entities/FormActions.tsx",
     "./entities/dragEntity": "./src/entities/dragEntity.tsx",
     "./entities/extensions": "./src/entities/extensions.tsx",

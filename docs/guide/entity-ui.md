@@ -123,7 +123,7 @@ function NoteSheet({ note, onClose }: { note?: Note; onClose: () => void }) {
 | `onSubmit` | Wraps the body and footer in a `<form>`, so the footer's submit button works. |
 | `footer` | Usually `FormActions`. |
 | `preview` | The right-hand panel, always in a fixed dark theme. |
-| `uri` | The entity's URI: the header gets the entity's actions menu with "Copy URI" and the rest. |
+| `uri` | The entity's URI: the header gets the entity's actions menu with "Share" and the rest. |
 | `actions` | Extra items for the header's menu. Save and delete stay in the footer. |
 
 `FormActions` puts delete and cancel on the left and the primary submit on the right.
@@ -159,10 +159,20 @@ Passing `uri` adds, automatically:
 
 - the app's entity-wide actions (see [below](#entity-wide-actions)),
 - "Schedule soft deletion", "Cancel scheduled deletion" or "Restore" (see [Lifecycle](#lifecycle)),
-- "Copy URI" and "Copy URL", which copy the slug form,
+- "Share", which opens the [share sheet](#share-sheet),
 
 and makes the row draggable, hides it when the [global filter](./search-and-filters.md#the-global-filter)
 excludes it, and dims it when it is soft-deleted or starts in the future.
+
+## Share sheet
+
+`ShareSheet` (`gondol/entities/ShareSheet`) is what "Share" opens, styled after the Spotify app's
+share menu: the entity on top, round buttons for "Copy link" (its URL) and "Copy URI" (both in the
+slug form) and, where the browser has one, the system share menu, then "Send to": the places the
+app returns from the `useShareTargets` extension (agents, channels, threads, …), searchable and
+grouped, to pick one or more of, add a message and send. It is a bottom sheet on phones and a dialog
+on wider screens. `<ShareButton uri name/>` is a round button that opens it, for an entity's own
+page; it hides itself where the site doesn't offer the `share` aspect.
 
 ## Entity-wide actions
 
@@ -279,7 +289,8 @@ them as hooks through `configureGondol({ entities: { extensions } })`:
 | `useTags()` | Tag conditions in the global filter and in sites offer the user's tags. |
 | `useTagNamesByUri(enabled)` | Tag conditions read each entity's tag names (only fetched while `enabled`). |
 | `useLike(uri)` | Liked rows show the filled saved glyph next to the "⋯", which unlikes them. |
-| `useRestrictions()` | A lookup by URI of restricted entities (a quarantine, say): `dimmed` ones are faded to 0.2 wherever `ActionMenu` and `EntityPicker` show them (like soft-deleted ones), and `noSharing` disables their "Copy URI" and "Copy URL". `useEntityLifecycle().restrictionFor(uri)` reads it. |
+| `useShareTargets(enabled)` | The share sheet's "Send to" list: `{ targets, isLoading, send(target, entity, message) }`. Each target has a `key`, a `group` heading, a `name`, an optional `detail` line and `uri` (for its art); `entity` carries the in-app `uri`, `name`, `shareUri` and `url`. Without it the sheet only copies. |
+| `useRestrictions()` | A lookup by URI of restricted entities (a quarantine, say): `dimmed` ones are faded to 0.2 wherever `ActionMenu` and `EntityPicker` show them (like soft-deleted ones), and `noSharing` disables their "Share". `useEntityLifecycle().restrictionFor(uri)` reads it. |
 
 They are called as React hooks, so register them once and never swap them. Without them, entities
 have no covers and tag conditions have no tags to offer.

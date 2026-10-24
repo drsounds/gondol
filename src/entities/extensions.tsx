@@ -25,10 +25,47 @@ export interface EntityExtensions {
   useLike(uri: string | undefined, name?: string): EntityLike | null;
   /**
    * Restrictions the app puts on entities (e.g. a quarantine), as a lookup by URI: restricted
-   * entities are faded like soft-deleted ones (`dimmed`) and their "Copy URI"/"Copy URL" are
+   * entities are faded like soft-deleted ones (`dimmed`) and their "Share" is
    * disabled (`noSharing`). Called once per component, so it should read from a shared cache.
    */
   useRestrictions(): (uri: string | undefined) => EntityRestriction | null;
+  /**
+   * Where the share sheet (ShareSheet.tsx) can send an entity besides the clipboard: the app's
+   * agents, channels, threads, … Only fetched while `enabled` (the sheet is open).
+   */
+  useShareTargets(enabled: boolean): ShareTargets;
+}
+
+/** One place an entity can be sent to from the share sheet (an agent, a channel, a thread, …). */
+export interface ShareTarget {
+  /** Stable and unique among the targets. */
+  key: string;
+  /** What kind of place it is, as a heading for its group ("Agents", "Channels", "Threads"). */
+  group: string;
+  name: string;
+  /** A second, muted line (an agent's title, a thread's channel). */
+  detail?: string;
+  /** spacify: URI of the target itself, for its art. */
+  uri?: string;
+}
+
+/** The entity being shared, in every form a target may want. */
+export interface SharedEntity {
+  /** The in-app URI (by uuid), as mentions and links store it. */
+  uri: string;
+  name: string;
+  /** The URI to show people: spacify:<type>:<slug or identifier>. */
+  shareUri: string;
+  /** Its web address, null for types without a page. */
+  url: string | null;
+}
+
+/** What `EntityExtensions.useShareTargets` returns. */
+export interface ShareTargets {
+  targets: ShareTarget[];
+  isLoading?: boolean;
+  /** Sends `entity` to `target`, with the user's optional `message`. */
+  send(target: ShareTarget, entity: SharedEntity, message: string): Promise<void>;
 }
 
 /** Whether an entity is liked (see `EntityExtensions.useLike`). */
@@ -45,13 +82,15 @@ export interface EntityLike {
 export interface EntityRestriction {
   /** Fade the entity wherever it's listed (opacity 0.2, like a soft-deleted one). */
   dimmed: boolean;
-  /** Disable the ways to share it ("Copy URI", "Copy URL", and the app's own sharing actions). */
+  /** Disable the ways to share it ("Share", and the app's own sharing actions). */
   noSharing: boolean;
   /** Why, for a tooltip or a note (e.g. the quarantine's name). */
   reason?: string;
 }
 
 const NO_RESTRICTION = () => null;
+
+const NO_SHARE_TARGETS: ShareTargets = { targets: [], send: async () => {} };
 
 const EMPTY_TAG_NAMES = new Map<string, string[]>();
 
@@ -61,6 +100,7 @@ let extensions: EntityExtensions = {
   useTagNamesByUri: () => EMPTY_TAG_NAMES,
   useLike: () => null,
   useRestrictions: () => NO_RESTRICTION,
+  useShareTargets: () => NO_SHARE_TARGETS,
 };
 
 export function registerEntityExtensions(next: Partial<EntityExtensions>): void {
