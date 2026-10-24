@@ -1,0 +1,115 @@
+/* The App Studio (src/builtin/studio): its lists, sheets and the pages of built apps. */
+
+.studio .link-button,
+.studio-lite .link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio .link-button:hover {
+  text-decoration: underline;
+}
+
+.studio-section {
+  margin-top: 1.5rem;
+}
+
+.studio-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.studio-field__label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--bungalow-color-ink);
+}
+
+.studio-field__hint {
+  font-size: 0.8125rem;
+}
+
+.studio-field textarea {
+  height: auto;
+  width: 100%;
+  resize: vertical;
+}
+
+.studio-field__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  tab-size: 2;
+}
+
+.studio-field--choices,
+.studio-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.studio-fields__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.5rem;
+  align-items: end;
+  padding: 0.75rem;
+  border: 1px solid var(--bungalow-color-border);
+  border-radius: 0.5rem;
+}
+
+.studio-fields__row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studio-records {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.studio-record-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.studio-page {
+  min-width: 0;
+}
+
+.studio-lite__bar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.studio-prompt {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8125rem;
+  max-height: 60vh;
+  overflow: auto;
+  color: var(--bungalow-color-muted);
+}
+
+.studio-preview {
+  min-width: 0;
+}
+
+.studio-field textarea.studio-field__code {
+  min-height: 18rem;
+}

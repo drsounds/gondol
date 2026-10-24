@@ -1,9 +1,15 @@
 import { Fragment, useMemo, type ReactNode } from "react";
 import { parseMarkdown, type MdBlock, type MdInline } from "../../../../models/markdown";
+import { GenerativeUi, detectGenUiFormat, type GenUiFormat } from "../../../../../../genui/GenerativeUi";
+import { useGenUiHost } from "../../../../../../genui/context";
 
 /**
  * An answer's markdown, formatted (models/markdown.ts parses it). Everything is a React element, so
  * nothing in the text is ever read as HTML; links open in a new tab.
+ *
+ * A fenced block in `a2ui`, `open-json-ui` (or `json` that reads as either) renders as that
+ * generated UI, its actions going to the nearest GenUiHost (the chat sends them back as a message).
+ * HTML (`mcp-ui`) blocks render in a sandboxed frame.
  */
 export function Markdown({ source }: { source: string }) {
   const blocks = useMemo(() => parseMarkdown(source), [source]);
@@ -22,13 +28,16 @@ function renderBlock(block: MdBlock): ReactNode {
     }
     case "paragraph":
       return <p>{renderInline(block.children)}</p>;
-    case "code":
+    case "code": {
+      const ui = genUiFormatOf(block.lang, block.text);
+      if (ui) return <GenUiBlock format={ui} text={block.text} />;
       return (
         <pre className="ai-markdown__pre" data-lang={block.lang || undefined}>
           {block.lang ? <span className="ai-markdown__lang">{block.lang}</span> : null}
           <code>{block.text}</code>
         </pre>
       );
+    }
     case "quote":
       return <blockquote>{renderBlocks(block.children)}</blockquote>;
     case "list": {
@@ -108,4 +117,43 @@ function renderInline(pieces: MdInline[]): ReactNode {
         return <br key={index} />;
     }
   });
+}
+
+const GENUI_LANGS: Record<string, GenUiFormat> = {
+  a2ui: "a2ui",
+  "a2ui+json": "a2ui",
+  "open-json-ui": "open_json_ui",
+  openjsonui: "open_json_ui",
+  "mcp-ui": "mcp_ui",
+  mcpui: "mcp_ui",
+};
+
+/** The generated-UI format a fenced block is in, if any (a `json` block only when it reads as one). */
+function genUiFormatOf(lang: string | undefined, text: string): GenUiFormat | null {
+  const key = (lang ?? "").trim().toLowerCase();
+  if (GENUI_LANGS[key]) return GENUI_LANGS[key];
+  if (key !== "json" && key !== "jsonl") return null;
+  try {
+    const format = detectGenUiFormat(key === "jsonl" ? text : JSON.parse(text));
+    return format === "mcp_ui" ? null : format;
+  } catch {
+    return null;
+  }
+}
+
+function GenUiBlock({ format, text }: { format: GenUiFormat; text: string }) {
+  const host = useGenUiHost();
+  const document = useMemo(() => {
+    if (format === "mcp_ui") return text;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }, [format, text]);
+  return (
+    <div className="ai-message__ui">
+      <GenerativeUi format={format} document={document} onAction={host.onAction} onUiAction={host.onUiAction} catalog={host.catalog} />
+    </div>
+  );
 }

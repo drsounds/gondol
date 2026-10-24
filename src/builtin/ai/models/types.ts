@@ -30,6 +30,8 @@ export type AiMetrics = {
   tokensPerSecond?: number;
   /** The apps' tools the model called for the answer, in order. */
   tools?: { name: string; title?: string; ok: boolean; denied?: boolean }[];
+  /** MCP-UI resources the tools returned (`ui://…`), shown under the answer. */
+  ui?: { tool: string; resource: { uri: string; mimeType?: string; text?: string; blob?: string; _meta?: Record<string, unknown> } }[];
 };
 
 /** A message of a conversation (`ai_messages`). */

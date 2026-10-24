@@ -1,0 +1,729 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "studio",
+  "slug": "studio",
+  "name": {
+    "en": "App Studio",
+    "sv": "Appstudio"
+  },
+  "description": {
+    "en": "Lightweight apps that you, or agents you ask, build from A2UI, Open-JSON-UI and MCP-UI pages, with entity types and relations of their own and entries in the main menu.",
+    "sv": "Lättviktiga appar som du, eller agenter du ber, bygger av sidor i A2UI, Open-JSON-UI och MCP-UI, med egna entitetstyper och relationer och poster i huvudmenyn."
+  },
+  "iconName": "brush",
+  "defaultFeatureId": "studio",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": [
+    "creator",
+    "admin",
+    "operator"
+  ],
+  "features": [
+    {
+      "id": "studio",
+      "name": {
+        "en": "App Studio",
+        "sv": "Appstudio"
+      },
+      "description": {
+        "en": "Apps built from generated UI, by you or your agents",
+        "sv": "Appar byggda av genererat gränssnitt, av dig eller dina agenter"
+      },
+      "path": "studio",
+      "iconName": "brush",
+      "entityTypes": [
+        "lite_app",
+        "lite_record"
+      ],
+      "actions": [
+        {
+          "id": "studio.open",
+          "title": "Open App Studio",
+          "category": "App Studio",
+          "iconName": "brush",
+          "navigate": "/studio",
+          "keywords": [
+            "apps",
+            "a2ui",
+            "mcp-ui",
+            "builder"
+          ],
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "studio.new",
+          "title": "New app",
+          "category": "App Studio",
+          "iconName": "plus",
+          "navigate": "/studio/new",
+          "keywords": [
+            "build",
+            "lite app"
+          ],
+          "aspects": [
+            "create"
+          ]
+        },
+        {
+          "id": "studio.ask",
+          "title": "Ask an agent to build an app",
+          "category": "App Studio",
+          "iconName": "sparkle",
+          "navigate": "/studio/ask",
+          "keywords": [
+            "agent",
+            "ai",
+            "generate"
+          ],
+          "aspects": [
+            "create"
+          ]
+        }
+      ],
+      "create": [
+        {
+          "key": "lite_app",
+          "label": "entity.lite_app",
+          "section": "nav.studio",
+          "iconName": "brush",
+          "path": "/studio/new"
+        }
+      ],
+      "browse": {
+        "label": "nav.studio",
+        "iconName": "brush",
+        "hue": 290
+      }
+    }
+  ],
+  "entities": {
+    "lite_app": {
+      "slug": "lite-app",
+      "view": "/studio/{key}",
+      "edit": "/studio/{key}/edit",
+      "art": {
+        "iconName": "brush",
+        "hue": 290
+      },
+      "source": {
+        "table": "lite_apps",
+        "columns": "id, name",
+        "label": "name"
+      }
+    },
+    "lite_record": {
+      "slug": "lite-record",
+      "view": "/studio/records/{key}",
+      "art": {
+        "iconName": "cube",
+        "hue": 200
+      },
+      "source": {
+        "table": "lite_records",
+        "columns": "id, title",
+        "label": "title"
+      }
+    }
+  },
+  "staticPaths": [
+    "/studio/records"
+  ],
+  "api": {
+    "scopes": {
+      "studio:read": {
+        "en": "See the apps you've built and their records",
+        "sv": "Se apparna du har byggt och deras poster"
+      },
+      "studio:write": {
+        "en": "Build apps for you and change their records",
+        "sv": "Bygga appar åt dig och ändra deras poster"
+      }
+    },
+    "paths": {}
+  },
+  "functions": {
+    "list_apps": {
+      "title": "List built apps",
+      "description": "The apps the user has built with the studio: id, spacify: URI, slug, name, description, whether they're in the menu, their pages (key, title, format), entity types and relations.",
+      "rpc": "api_studio_list_apps",
+      "scopes": [
+        "studio:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "readOnly": true
+    },
+    "get_app": {
+      "title": "Get an app",
+      "description": "An app with everything in it: its pages with their documents, its entity types with their fields, its relations and how many records each type has.",
+      "rpc": "api_studio_get_app",
+      "scopes": [
+        "studio:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "readOnly": true
+    },
+    "save_app": {
+      "title": "Create or change an app",
+      "description": "Create an app (no id) or change one (its id): a name, an optional slug for its address, a description, an icon (a bungalow glyph such as cube, star, book, chart, calendar, heart is 'like'), a hue 0-360, whether it shows in the main menu, and instructions saying what it is for. Then add pages, entity types and relations. Returns the app.",
+      "rpc": "api_studio_save_app",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000
+          },
+          "icon_name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "hue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          },
+          "in_menu": {
+            "type": "boolean"
+          },
+          "menu_order": {
+            "type": "integer"
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "builder_uri": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "The spacify: URI of the agent building it (yours), so the app's other actions come to you."
+          }
+        }
+      }
+    },
+    "save_page": {
+      "title": "Create or change a page",
+      "description": "A page of an app, by its key (its address: /lite/<app>/<key>): a title, a format (a2ui, open_json_ui or mcp_ui), its document, an icon, whether it is a menu entry and its position. A page's document is in one of three formats. a2ui: A2UI v0.8 messages, a list of {surfaceUpdate: {surfaceId, components: [{id, component: {Text: {text: {literalString}}}}]}}, {dataModelUpdate}, {beginRendering: {surfaceId, root}}. Standard components: Text (usageHint h1-h5, caption, body), Image, Icon, Video, AudioPlayer, Row, Column, List (children: {explicitList: [ids]} or {template: {componentId, dataBinding: '/path'}}), Card (child), Tabs (tabItems), Divider, Modal, Button (child, primary, action {name, context: [{key, value}]}), CheckBox, TextField, DateTimeInput, MultipleChoice, Slider, plus Table (columns [{key,label}], rows bound to a list). open_json_ui: one nested tree {type: 'card'|'column'|'row'|'text'|'heading'|'button'|'input'|'list'|'table'|..., props, children}; values may be {path: '/x'}. mcp_ui: an HTML page as a JSON string, run in a sandboxed frame (the host's colours are the CSS variables --gondol-fg, --gondol-bg, --gondol-surface, --gondol-muted, --gondol-border, --gondol-accent and --gondol-accent-contrast); it may call window.mcpUi.tool(name, params) (the app router's tools, e.g. studio__list_records), mcpUi.prompt(text), mcpUi.link(url) and read mcpUi.data. Every page's data model has /app, /page, /types and /records/<type key> (each record: id, uri, title and its fields). Studio components: RecordList {type, title?} (the records of a type with New/Edit), RecordForm {type, submitLabel?} (creates a record). Button actions the app runs itself: create_record {type, ...fields}, update_record {id, ...fields}, delete_record {id}, new_record {type} (opens its sheet), edit_record {id}, navigate {page} or {path}, open_uri {uri}; any other action goes to the agent that built the app.",
+      "rpc": "api_studio_save_page",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The page's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "a2ui",
+              "open_json_ui",
+              "mcp_ui"
+            ]
+          },
+          "document": {
+            "type": [
+              "object",
+              "array",
+              "string"
+            ],
+            "description": "The page: A2UI messages, an Open-JSON-UI tree, or HTML (mcp_ui) as a string."
+          },
+          "icon_name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "in_menu": {
+            "type": "boolean"
+          },
+          "position": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "app",
+          "key",
+          "format",
+          "document"
+        ]
+      }
+    },
+    "delete_page": {
+      "title": "Delete a page",
+      "description": "Delete a page of an app.",
+      "rpc": "api_studio_delete_page",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The page's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          }
+        },
+        "required": [
+          "app",
+          "key"
+        ]
+      },
+      "destructive": true
+    },
+    "save_entity_type": {
+      "title": "Create or change an entity type",
+      "description": "An entity type of an app (recipe, plant, …) by its key, with its fields. The records of the type are entities like any other: searchable, in playlists and the library. title_field names the field that is a record's name (default the first text field).",
+      "rpc": "api_studio_save_entity_type",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The entity type's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "plural_name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "icon_name": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "fields": {
+            "type": "array",
+            "maxItems": 60,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "type"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,39}$"
+                },
+                "label": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "long_text",
+                    "number",
+                    "integer",
+                    "boolean",
+                    "date",
+                    "datetime",
+                    "url",
+                    "email",
+                    "select",
+                    "multiselect",
+                    "uri"
+                  ]
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "options": {
+                  "type": "array",
+                  "maxItems": 100,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "description": "The choices of a select or multiselect field."
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 500
+                }
+              }
+            }
+          },
+          "title_field": {
+            "type": "string",
+            "maxLength": 40
+          }
+        },
+        "required": [
+          "app",
+          "key",
+          "name",
+          "fields"
+        ]
+      }
+    },
+    "delete_entity_type": {
+      "title": "Delete an entity type",
+      "description": "Delete an entity type with all its records and relations.",
+      "rpc": "api_studio_delete_entity_type",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The entity type's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          }
+        },
+        "required": [
+          "app",
+          "key"
+        ]
+      },
+      "destructive": true
+    },
+    "save_relation": {
+      "title": "Create or change a relation",
+      "description": "A relation from one of the app's entity types to another of them (to_type) or to any entity type of the host (to_entity_type, e.g. 'organization'), one or many. A record keeps it in its data under the relation's key: the related record's id (or a spacify: URI), or a list of them for many.",
+      "rpc": "api_studio_save_relation",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The relation's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "from_type": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "to_type": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "to_entity_type": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "one",
+              "many"
+            ]
+          }
+        },
+        "required": [
+          "app",
+          "key",
+          "label",
+          "from_type"
+        ]
+      }
+    },
+    "delete_relation": {
+      "title": "Delete a relation",
+      "description": "Delete a relation (records keep the values in their data).",
+      "rpc": "api_studio_delete_relation",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$",
+            "description": "The relation's key: lower-case letters, digits, - and _, starting with a letter. Saving with a key that exists changes that one."
+          }
+        },
+        "required": [
+          "app",
+          "key"
+        ]
+      },
+      "destructive": true
+    },
+    "list_records": {
+      "title": "List records",
+      "description": "An app's records of one entity type, newest first, with their fields.",
+      "rpc": "api_studio_list_records",
+      "scopes": [
+        "studio:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": [
+          "app",
+          "type"
+        ]
+      },
+      "readOnly": true
+    },
+    "save_record": {
+      "title": "Create or change a record",
+      "description": "A record of an entity type: its fields as an object (no id creates one, an id changes it; fields not given stay as they are).",
+      "rpc": "api_studio_save_record",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "app",
+          "type",
+          "data"
+        ]
+      }
+    },
+    "delete_record": {
+      "title": "Delete a record",
+      "description": "Delete a record.",
+      "rpc": "api_studio_delete_record",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "destructive": true
+    },
+    "delete_app": {
+      "title": "Delete an app",
+      "description": "Delete an app with its pages, entity types and records.",
+      "rpc": "api_studio_delete_app",
+      "scopes": [
+        "studio:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "The app's id, slug or identifier (from list_apps or save_app)."
+          }
+        },
+        "required": [
+          "app"
+        ]
+      },
+      "destructive": true
+    }
+  },
+  "mcp": {
+    "instructions": "The App Studio holds lightweight apps the user (or you) builds: pages of generated UI (A2UI, Open-JSON-UI or MCP-UI HTML) that show in the main menu, with entity types, relations and records of their own. When the user asks for an app, a tracker, a tool or a page, build it here: save_app, then save_entity_type for the things it keeps, save_relation between them, and save_page for each page (a list and a form are a good start). Read get_app before changing an app. A page's document is in one of three formats. a2ui: A2UI v0.8 messages, a list of {surfaceUpdate: {surfaceId, components: [{id, component: {Text: {text: {literalString}}}}]}}, {dataModelUpdate}, {beginRendering: {surfaceId, root}}. Standard components: Text (usageHint h1-h5, caption, body), Image, Icon, Video, AudioPlayer, Row, Column, List (children: {explicitList: [ids]} or {template: {componentId, dataBinding: '/path'}}), Card (child), Tabs (tabItems), Divider, Modal, Button (child, primary, action {name, context: [{key, value}]}), CheckBox, TextField, DateTimeInput, MultipleChoice, Slider, plus Table (columns [{key,label}], rows bound to a list). open_json_ui: one nested tree {type: 'card'|'column'|'row'|'text'|'heading'|'button'|'input'|'list'|'table'|..., props, children}; values may be {path: '/x'}. mcp_ui: an HTML page as a JSON string, run in a sandboxed frame (the host's colours are the CSS variables --gondol-fg, --gondol-bg, --gondol-surface, --gondol-muted, --gondol-border, --gondol-accent and --gondol-accent-contrast); it may call window.mcpUi.tool(name, params) (the app router's tools, e.g. studio__list_records), mcpUi.prompt(text), mcpUi.link(url) and read mcpUi.data. Every page's data model has /app, /page, /types and /records/<type key> (each record: id, uri, title and its fields). Studio components: RecordList {type, title?} (the records of a type with New/Edit), RecordForm {type, submitLabel?} (creates a record). Button actions the app runs itself: create_record {type, ...fields}, update_record {id, ...fields}, delete_record {id}, new_record {type} (opens its sheet), edit_record {id}, navigate {page} or {path}, open_uri {uri}; any other action goes to the agent that built the app.",
+    "tools": [
+      {
+        "name": "list_apps",
+        "function": "list_apps"
+      },
+      {
+        "name": "get_app",
+        "function": "get_app"
+      },
+      {
+        "name": "save_app",
+        "function": "save_app"
+      },
+      {
+        "name": "save_page",
+        "function": "save_page"
+      },
+      {
+        "name": "delete_page",
+        "function": "delete_page"
+      },
+      {
+        "name": "save_entity_type",
+        "function": "save_entity_type"
+      },
+      {
+        "name": "delete_entity_type",
+        "function": "delete_entity_type"
+      },
+      {
+        "name": "save_relation",
+        "function": "save_relation"
+      },
+      {
+        "name": "delete_relation",
+        "function": "delete_relation"
+      },
+      {
+        "name": "list_records",
+        "function": "list_records"
+      },
+      {
+        "name": "save_record",
+        "function": "save_record"
+      },
+      {
+        "name": "delete_record",
+        "function": "delete_record"
+      },
+      {
+        "name": "delete_app",
+        "function": "delete_app"
+      }
+    ]
+  }
+}

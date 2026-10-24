@@ -48,6 +48,9 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
         };
       });
 
+      // An app whose pages all stay out of the menu (and that has no menu widgets) gets no section.
+      if (!items.length && !bundle.widgets?.menuWidgets?.length) continue;
+
       sections.push({
         id: bundle.id,
         appId: bundle.id,

@@ -4,7 +4,7 @@ import { Alert, Button, Icon, Select } from "../../../../../../design-system/bun
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
-import { fetchAppCatalog } from "../../../../../../api/client";
+import { callAppTool, fetchAppCatalog } from "../../../../../../api/client";
 import { ActionMenu, type MenuAction } from "../../../../../../entities/ActionMenu";
 import { entityIdentifier, uuidFromIdentifier } from "../../../../../../entities/slugs";
 import { copyText, showToast } from "../../../../../../shell/clipboard";
@@ -33,7 +33,12 @@ import {
   type AiSettings,
   type AiToolApproval,
   type AiToolDecision,
+  takeAiDraft,
+  toolNeedsApproval,
 } from "../../../../models";
+import { GenUiHost, useGenUiHost, type GenUiHostValue } from "../../../../../../genui/context";
+import { McpUiResource } from "../../../../../../genui/McpUiResource";
+import type { UiAction } from "../../../../../../genui/mcpUi";
 import { Markdown } from "../components/Markdown";
 import { AiSettingsSheet } from "../components/AiSettingsSheet";
 import { AiDeletedMessagesSheet, AiMessageSheet } from "../components/AiMessageSheets";
@@ -122,8 +127,51 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const provider = getAiProvider(target.provider);
 
   const chatTarget: AiChatTarget = { conversation, provider: target.provider, service, model: target.model || null };
+  // A message another app handed over (setAiDraft) for a new conversation.
+  const [draft] = useState(() => (conversationId ? "" : takeAiDraft()));
+  /**
+   * Generated UIs in answers (A2UI and Open-JSON-UI blocks, MCP-UI views from tools): a user action
+   * goes back to the model as a message; a view's tool call runs as the user (asking first when the
+   * settings say so) and its answer goes back to the view.
+   */
+  const genUiHost = useMemo<GenUiHostValue>(() => {
+    const say = (text: string) => {
+      if (chat.busy || !target.model) return;
+      void chat.send(text, chatTarget);
+    };
+    return {
+      onAction: (action) => say(`User action:\n\`\`\`json\n${JSON.stringify({ userAction: action }, null, 2)}\n\`\`\``),
+      onUiAction: async (action: UiAction) => {
+        switch (action.type) {
+          case "prompt":
+            if (action.payload.prompt) say(action.payload.prompt);
+            return undefined;
+          case "intent":
+            say(`Intent: ${action.payload.intent}\n\`\`\`json\n${JSON.stringify(action.payload.params ?? {}, null, 2)}\n\`\`\``);
+            return undefined;
+          case "link":
+            if (/^https?:\/\//i.test(action.payload.url)) window.open(action.payload.url, "_blank", "noopener,noreferrer");
+            return undefined;
+          case "notify":
+            showToast(action.payload.message);
+            return undefined;
+          case "tool": {
+            const tool = appTools.tools?.tools.find((tl) => tl.name === action.payload.toolName);
+            if (!tool) throw new Error(`There is no tool named ${action.payload.toolName}`);
+            if (toolNeedsApproval(tool, settings) && !window.confirm(t("ai.uiToolConfirm", { tool: tool.title ?? tool.name }))) {
+              throw new Error("The user didn't let this tool run.");
+            }
+            return callAppTool(tool.name, action.payload.params ?? {});
+          }
+        }
+      },
+    };
+    // chatTarget is rebuilt every render from what's listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat, target.model, target.provider, target.serviceId, conversation, service, appTools.tools, settings, t]);
   const composer = (
     <Composer
+      initialText={draft}
       busy={chat.busy}
       disabled={!target.model}
       sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
@@ -196,6 +244,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   ) : null;
 
   return (
+    <GenUiHost value={genUiHost}>
     <div className={`ai-chat${onTop ? " ai-chat--composer-top" : ""}${threadId ? " ai-chat--thread" : ""}`}>
       <aside className="ai-chat__conversations" aria-label={t("ai.conversations")}>
         <Button type="button" variant="outline" size="sm" className="ai-chat__new" onClick={() => go("/ai/new")}>
@@ -371,6 +420,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
       ) : null}
       {showDeleted ? <AiDeletedMessagesSheet messages={all} onClose={() => go(here)} onOpenThread={(id) => go(threadPath(id))} /> : null}
     </div>
+    </GenUiHost>
   );
 }
 
@@ -460,6 +510,8 @@ function MessageBubble({
 }) {
   const { t } = useI18n();
   const tools = message.metrics?.tools ?? [];
+  const views = message.metrics?.ui ?? [];
+  const host = useGenUiHost();
   const repliesLink =
     replies && onOpenThread ? (
       <button type="button" className="ai-message__replies" onClick={onOpenThread}>
@@ -482,6 +534,13 @@ function MessageBubble({
         ) : null}
         {actions?.length ? <ActionMenu name={t(message.role === "user" ? "ai.message.yours" : "ai.message.answer")} actions={actions} /> : null}
       </div>
+      {views.length ? (
+        <div className="ai-message__ui">
+          {views.map((view, index) => (
+            <McpUiResource key={`${view.resource.uri}-${index}`} resource={view.resource} toolName={view.tool} onAction={host.onUiAction} catalog={host.catalog} onA2uiAction={host.onAction} />
+          ))}
+        </div>
+      ) : null}
       {tools.length ? (
         <div className="ai-message__meta ai-message__tool">
           {t("ai.usedTools", {
@@ -617,6 +676,7 @@ function AppsPanel({ settings, toolSupport, error, onAddServer }: { settings: Ai
 }
 
 function Composer({
+  initialText = "",
   busy,
   disabled,
   sendWith,
@@ -625,6 +685,7 @@ function Composer({
   onSend,
   onStop,
 }: {
+  initialText?: string;
   busy: boolean;
   disabled: boolean;
   sendWith: "enter" | "modEnter";
@@ -634,7 +695,7 @@ function Composer({
   onStop: () => void;
 }) {
   const { t } = useI18n();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText);
   const submit = () => {
     if (!text.trim() || busy || disabled) return;
     onSend(text);
