@@ -1,0 +1,417 @@
+/* The agents app (builtin/agents): the list, chats, threads, profile, sheets and the intercom. */
+
+
+/* ---- Agents (src/apps/agents) ---------------------------------------------------------------- */
+
+/* An agent's avatar: its image or initial in a circle, with a spark marking it as an AI and an
+   optional dot for whether it's at work. */
+.agent-avatar {
+  align-items: center;
+  background: linear-gradient(135deg, hsl(var(--tile-hue) 60% 50%), hsl(calc(var(--tile-hue) + 35) 55% 34%));
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  flex-shrink: 0;
+  font-weight: 700;
+  height: 2.25rem;
+  justify-content: center;
+  position: relative;
+  width: 2.25rem;
+}
+.agent-avatar img { border-radius: 50%; height: 100%; object-fit: cover; width: 100%; }
+.agent-avatar--sm { font-size: 0.75rem; height: 1.75rem; width: 1.75rem; }
+.agent-avatar--lg { font-size: 1.5rem; height: 3.5rem; width: 3.5rem; }
+.agent-avatar--xl { font-size: 2.5rem; height: 6rem; width: 6rem; }
+.agent-avatar__spark {
+  align-items: center;
+  background: var(--bungalow-color-primary);
+  border: 2px solid var(--bungalow-color-surface);
+  border-radius: 50%;
+  bottom: -2px;
+  color: var(--bungalow-color-primary-contrast);
+  display: inline-flex;
+  font-size: 0.55rem;
+  height: 1rem;
+  justify-content: center;
+  position: absolute;
+  right: -2px;
+  width: 1rem;
+}
+.agent-avatar--sm .agent-avatar__spark { font-size: 0.45rem; height: 0.8rem; width: 0.8rem; }
+.agent-avatar--xl .agent-avatar__spark { font-size: 0.8rem; height: 1.6rem; width: 1.6rem; }
+.agent-avatar__dot {
+  background: var(--bungalow-color-muted);
+  border: 2px solid var(--bungalow-color-surface);
+  border-radius: 50%;
+  height: 0.7rem;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 0.7rem;
+}
+.agent-avatar__dot--on { background: var(--bungalow-color-success); }
+.agent-avatar--xl .agent-avatar__dot { height: 1.1rem; width: 1.1rem; }
+
+.agent-name-cell { align-items: center; display: inline-flex; gap: var(--bungalow-space-2); }
+.agent-preview__head { align-items: center; display: flex; gap: var(--bungalow-space-3); }
+.agent-preview__instructions { white-space: pre-wrap; }
+
+.agent-profile { align-items: center; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-4); }
+.agent-profile__text { display: flex; flex: 1 1 14rem; flex-direction: column; gap: var(--bungalow-space-1); min-width: 0; }
+.agent-profile__text .panel-title { margin: 0; }
+.agent-profile__badges { align-items: center; }
+.agent-profile__actions { align-items: center; }
+.agent-facts { display: grid; gap: var(--bungalow-space-3); grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); margin: 0; }
+.agent-facts dt { color: var(--bungalow-color-muted); font-size: 0.8rem; }
+.agent-facts dd { margin: 0; }
+
+.agent-hours { display: flex; flex-direction: column; gap: var(--bungalow-space-2); }
+.agent-hours__row { align-items: center; display: grid; gap: var(--bungalow-space-3); grid-template-columns: 9rem 1fr; min-height: 2.25rem; }
+.agent-hours__times { align-items: center; display: inline-flex; gap: var(--bungalow-space-2); }
+.agent-hours__times input { max-width: 8rem; }
+
+.agent-talk { flex-wrap: wrap; }
+.agent-threads { list-style: none; margin: 0; padding: 0; }
+.agent-thread {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: var(--bungalow-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  gap: var(--bungalow-space-3);
+  padding: var(--bungalow-space-2);
+  text-align: left;
+  width: 100%;
+}
+.agent-thread:hover { background: var(--bungalow-color-surface-strong); }
+.agent-thread__text { display: flex; flex-direction: column; min-width: 0; }
+
+.agent-runs { display: flex; flex-direction: column; gap: var(--bungalow-space-3); list-style: none; margin: 0; padding: 0; }
+.agent-run { border-top: 1px solid var(--bungalow-color-border); padding-top: var(--bungalow-space-2); }
+.agent-run__head { align-items: center; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
+.agent-run__output { margin: var(--bungalow-space-1) 0 0; max-height: 8rem; overflow: hidden; white-space: pre-wrap; }
+
+/* A direct thread with an agent, messenger style: the agent on the left, the other side on the right. */
+.agent-chat { display: flex; flex-direction: column; gap: var(--bungalow-space-3); min-height: 70vh; }
+.agent-chat__head { align-items: center; border-bottom: 1px solid var(--bungalow-color-border); display: flex; gap: var(--bungalow-space-3); padding-bottom: var(--bungalow-space-3); }
+.agent-chat__title { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.agent-chat__messages { display: flex; flex: 1; flex-direction: column; gap: var(--bungalow-space-3); max-height: 65vh; overflow-y: auto; padding: var(--bungalow-space-2) 0; }
+.agent-chat__empty, .agent-chat__typing { align-self: center; }
+.agent-chat__composer { align-items: flex-end; display: flex; gap: var(--bungalow-space-2); }
+.agent-chat__composer textarea { flex: 1; resize: vertical; }
+.agent-bubble { align-items: flex-end; display: flex; gap: var(--bungalow-space-2); max-width: min(40rem, 88%); }
+.agent-bubble--agent { align-self: flex-start; }
+.agent-bubble--other { align-self: flex-end; flex-direction: row-reverse; }
+.agent-bubble__body {
+  background: var(--bungalow-color-surface-strong);
+  border-radius: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+  min-width: 0;
+  padding: var(--bungalow-space-2) var(--bungalow-space-3);
+}
+.agent-bubble--agent .agent-bubble__body { border-bottom-left-radius: 0.3rem; }
+.agent-bubble--other .agent-bubble__body { background: var(--bungalow-color-primary); border-bottom-right-radius: 0.3rem; color: var(--bungalow-color-primary-contrast); }
+.agent-bubble--other .agent-bubble__body .muted { color: inherit; opacity: 0.75; }
+.agent-bubble__meta { display: flex; font-size: 0.75rem; font-weight: 600; gap: var(--bungalow-space-2); }
+.agent-bubble__text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.agent-bubble__tools { font-size: 0.75rem; }
+@media (max-width: 40rem) {
+  .agent-hours__row { grid-template-columns: 1fr; }
+  .agent-chat__messages { max-height: none; }
+  .agent-profile__actions { width: 100%; }
+  /* As a list row the agent's own avatar (with its working dot) takes the cover art's place. */
+  .agents-table .action-row__art { display: none; }
+  .agents-table .agent-name-cell .agent-avatar {
+    font-size: 1.1rem;
+    height: 2.75rem;
+    inset-inline-start: var(--bungalow-space-2);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 2.75rem;
+  }
+}
+
+
+/* Threads, the message menu and several conversations with an agent (AgentChat, AgentChatPage). */
+.agent-bubble .action-menu-trigger--row { align-self: center; }
+.agent-bubble__replies {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.agent-bubble--deleted .agent-bubble__body,
+.agent-bubble--other.agent-bubble--deleted .agent-bubble__body {
+  background: none;
+  border: 1px dashed var(--bungalow-color-border);
+  color: var(--bungalow-color-muted);
+  font-style: italic;
+}
+.agent-chat__icon-button {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font: inherit;
+  font-size: 1.05rem;
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+.agent-chat__icon-button:hover { background: var(--bungalow-color-surface-strong); }
+.agent-chat-page__grid { display: grid; flex: 1; gap: var(--bungalow-space-4); grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); min-height: 0; }
+.agent-chat-page__list { display: flex; flex-direction: column; gap: var(--bungalow-space-2); min-width: 0; }
+.agent-chat-page__list > .bungalow-button { align-self: flex-start; }
+.agent-chat-page__conversations { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; max-height: 65vh; overflow-y: auto; padding: 0; }
+.agent-chat-page__conversation-row { align-items: center; display: flex; gap: var(--bungalow-space-1); }
+.agent-chat-page__conversation {
+  background: none;
+  border: 0;
+  border-radius: var(--bungalow-radius-sm);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  font: inherit;
+  min-width: 0;
+  padding: var(--bungalow-space-2);
+  text-align: start;
+}
+.agent-chat-page__conversation:hover,
+.agent-chat-page__conversation[aria-current="page"] { background: var(--bungalow-color-surface-strong); }
+.agent-chat-page__conversation[aria-current="page"] .agent-chat-page__conversation-title { font-weight: 700; }
+.agent-chat-page__conversation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-chat-page__conversation .muted { font-size: 0.75rem; }
+.agent-chat-page__chat { display: flex; flex-direction: column; min-width: 0; }
+.agent-chat__list-toggle { display: none; }
+.agent-chat__body { display: grid; flex: 1; gap: var(--bungalow-space-4); grid-template-columns: minmax(0, 1fr); min-height: 0; }
+.agent-chat__body--thread:not(.agent-chat__body--compact) { grid-template-columns: minmax(0, 1fr) minmax(16rem, 24rem); }
+.agent-chat__body--compact.agent-chat__body--thread > .agent-chat__line { display: none; }
+.agent-chat__line { display: flex; flex-direction: column; gap: var(--bungalow-space-3); min-height: 0; min-width: 0; }
+.agent-chat__thread { display: flex; flex-direction: column; gap: var(--bungalow-space-3); min-height: 0; min-width: 0; }
+.agent-chat__body--thread:not(.agent-chat__body--compact) .agent-chat__thread { border-inline-start: 1px solid var(--bungalow-color-border); padding-inline-start: var(--bungalow-space-3); }
+.agent-chat__thread-head { align-items: center; display: flex; gap: var(--bungalow-space-2); }
+.agent-chat__thread-title { flex: 1; }
+.agent-chat__thread-body { display: flex; flex: 1; flex-direction: column; gap: var(--bungalow-space-3); max-height: 65vh; overflow-y: auto; padding: var(--bungalow-space-1) 0; }
+.agent-chat__thread-body .agent-bubble { max-width: 94%; }
+.agent-chat__thread-divider { border-top: 1px solid var(--bungalow-color-border); font-size: 0.75rem; padding-top: var(--bungalow-space-2); text-transform: uppercase; }
+.agent-chat__ancestors { display: flex; flex-direction: column; gap: 2px; }
+.agent-chat__ancestors-label { font-size: 0.75rem; }
+.agent-chat__ancestor {
+  background: none;
+  border: 0;
+  border-inline-start: 2px solid var(--bungalow-color-border);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: var(--bungalow-space-1) var(--bungalow-space-2);
+  text-align: start;
+}
+.agent-chat__ancestor span { color: var(--bungalow-color-muted); display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.agent-chat__ancestor:hover { background: var(--bungalow-color-surface-strong); }
+.agent-chat__composer .bungalow-help { flex-basis: 100%; }
+.agent-chat__composer { flex-wrap: wrap; }
+.agent-chat__preview .agent-bubble { margin-top: var(--bungalow-space-2); max-width: 100%; }
+@media (max-width: 64rem) {
+  .agent-chat__body--thread:not(.agent-chat__body--compact) { grid-template-columns: minmax(0, 1fr); }
+  .agent-chat__body--thread > .agent-chat__line { display: none; }
+  .agent-chat__body--thread .agent-chat__thread { border-inline-start: 0 !important; padding-inline-start: 0 !important; }
+}
+
+@media (max-width: 48rem) {
+  .agent-chat-page__grid { grid-template-columns: minmax(0, 1fr); }
+  .agent-chat-page__list { display: none; }
+  .agent-chat__list-toggle { display: inline-flex; }
+  .agent-chat-page--list .agent-chat-page__list { display: flex; }
+  .agent-chat-page--list .agent-chat-page__chat { display: none; }
+}
+
+
+/* The agents' intercom (AgentIntercom): a launcher at the bottom right in the accent colour, chat
+ * bubbles that can be dragged anywhere and thrown away, and their popups. Sits above the shell's
+ * own bottom bars (--intercom-bottom). */
+.intercom { --intercom-bottom: 16px; font-family: var(--bungalow-font-sans); }
+.intercom__launcher {
+  align-items: center;
+  background: var(--bungalow-color-primary);
+  border: 0;
+  border-radius: 999px;
+  bottom: var(--intercom-bottom);
+  box-shadow: var(--bungalow-shadow-raised), 0 6px 18px rgb(0 0 0 / 0.25);
+  color: var(--bungalow-color-primary-contrast);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 1.3rem;
+  height: 56px;
+  inset-inline-end: 16px;
+  justify-content: center;
+  position: fixed;
+  transition: transform 0.15s ease;
+  width: 56px;
+  z-index: 900;
+}
+.intercom__launcher:hover { transform: scale(1.06); }
+.intercom__launcher svg { height: 1.5rem; width: 1.5rem; }
+.intercom__head { height: 52px; position: fixed; touch-action: none; transition: left 0.2s ease, top 0.2s ease; width: 52px; z-index: 901; }
+.intercom__head--dragging { transition: none; z-index: 903; }
+.intercom__head-button {
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.3);
+  cursor: grab;
+  height: 52px;
+  padding: 0;
+  position: relative;
+  touch-action: none;
+  width: 52px;
+}
+.intercom__head--dragging .intercom__head-button { cursor: grabbing; transform: scale(1.08); }
+.intercom__head-button .agent-avatar { height: 52px; width: 52px; }
+.intercom__head--open .intercom__head-button { outline: 3px solid var(--bungalow-color-primary); outline-offset: 2px; }
+.intercom__unread {
+  background: var(--bungalow-color-danger);
+  border: 2px solid var(--bungalow-color-canvas);
+  border-radius: 999px;
+  height: 0.9rem;
+  inset-inline-end: 0;
+  position: absolute;
+  top: 0;
+  width: 0.9rem;
+}
+.intercom__head-dismiss {
+  align-items: center;
+  background: var(--bungalow-color-ink);
+  border: 0;
+  border-radius: 999px;
+  color: var(--bungalow-color-canvas);
+  cursor: pointer;
+  display: none;
+  font-size: 0.6rem;
+  height: 1.25rem;
+  inset-inline-start: -0.25rem;
+  justify-content: center;
+  position: absolute;
+  top: -0.25rem;
+  width: 1.25rem;
+}
+.intercom__head:hover .intercom__head-dismiss,
+.intercom__head:focus-within .intercom__head-dismiss { display: inline-flex; }
+.intercom__head--dragging .intercom__head-dismiss { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .intercom__head:hover .intercom__head-dismiss { display: none; }
+}
+
+.intercom__bin {
+  align-items: center;
+  background: rgb(0 0 0 / 0.55);
+  border: 2px solid rgb(255 255 255 / 0.85);
+  border-radius: 999px;
+  color: #fff;
+  display: flex;
+  font-size: 1.25rem;
+  height: 56px;
+  justify-content: center;
+  position: fixed;
+  transition: transform 0.12s ease, background 0.12s ease;
+  width: 56px;
+  z-index: 902;
+}
+.intercom__bin--over { background: var(--bungalow-color-danger); transform: scale(1.2); }
+.intercom__popup {
+  background: var(--bungalow-color-canvas);
+  border: 1px solid var(--bungalow-color-border);
+  border-radius: 1rem;
+  bottom: calc(var(--intercom-bottom) + 68px);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.3);
+  color: var(--bungalow-color-ink);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+  height: min(34rem, calc(100vh - var(--intercom-bottom) - 100px));
+  overflow: hidden;
+  padding: var(--bungalow-space-3);
+  position: fixed;
+  width: min(23rem, calc(100vw - 32px));
+  z-index: 904;
+}
+/* Beside the column of bubbles and the launcher, so neither is covered. */
+.intercom__popup--right { inset-inline-end: 80px; }
+.intercom__popup--left { inset-inline-start: 80px; }
+.intercom__popup-head { align-items: center; border-bottom: 1px solid var(--bungalow-color-border); display: flex; gap: var(--bungalow-space-2); padding-bottom: var(--bungalow-space-2); }
+.intercom__popup-head .agent-chat__icon-button { height: 1.9rem; width: 1.9rem; }
+.intercom__popup-title { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.intercom__popup-title strong,
+.intercom__popup-title .muted { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intercom__popup-title .muted { font-size: 0.75rem; }
+.intercom__popup .agent-chat__body { min-height: 0; }
+.intercom__popup .agent-chat__line,
+.intercom__popup .agent-chat__thread { height: 100%; }
+.intercom__popup .agent-chat__messages,
+.intercom__popup .agent-chat__thread-body { flex: 1; max-height: none; min-height: 0; }
+.intercom__popup .agent-bubble { max-width: 92%; }
+.intercom__popup .agent-bubble__body { font-size: 0.9rem; }
+.intercom__popup .agent-chat__composer textarea { min-height: 2.5rem; }
+.intercom__loading { margin: auto; }
+.intercom__list { height: auto; max-height: min(30rem, calc(100vh - var(--intercom-bottom) - 100px)); }
+.intercom__list-head { border-bottom: 0; }
+.intercom__agents { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; overflow-y: auto; padding: 0; }
+.intercom__agent {
+  align-items: center;
+  background: none;
+  border: 0;
+  border-radius: 0.75rem;
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  gap: var(--bungalow-space-3);
+  padding: var(--bungalow-space-2);
+  text-align: start;
+  width: 100%;
+}
+.intercom__agent:hover,
+.intercom__agent[aria-current="page"] { background: var(--bungalow-color-surface-strong); }
+.intercom__agent-text { display: flex; flex-direction: column; min-width: 0; }
+.intercom__agent-text .muted { font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.intercom__list-foot { border-top: 1px solid var(--bungalow-color-border); padding-top: var(--bungalow-space-2); }
+.intercom__link { background: none; border: 0; color: var(--bungalow-color-primary); cursor: pointer; font: inherit; font-weight: 600; padding: var(--bungalow-space-1) 0; }
+.intercom__empty { display: flex; flex-direction: column; gap: var(--bungalow-space-2); }
+@media (max-width: 40rem) {
+  .intercom__popup,
+  .intercom__popup--left,
+  .intercom__popup--right {
+    border-radius: 1rem 1rem 0 0;
+    bottom: var(--intercom-bottom);
+    height: min(80vh, calc(100vh - var(--intercom-bottom) - 24px));
+    inset-inline: 0;
+    width: auto;
+  }
+  .intercom__list { height: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intercom__head,
+  .intercom__launcher,
+  .intercom__bin { transition: none; }
+}

@@ -55,7 +55,11 @@ export default {
       {
         text: "Built-in apps",
         items: [
+          { text: "The search app", link: "/guide/search" },
+          { text: "The library app", link: "/guide/library" },
+          { text: "The playlists app", link: "/guide/playlists" },
           { text: "The ai app", link: "/guide/ai" },
+          { text: "The agents app", link: "/guide/agents" },
           { text: "The streams app", link: "/guide/streams" },
           { text: "The analytics app", link: "/guide/analytics" },
           { text: "The oauth app", link: "/guide/oauth" },

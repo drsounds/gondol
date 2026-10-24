@@ -1,19 +1,20 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { ActionMenu } from "../entities/ActionMenu";
-import { EntityArt } from "../entities/EntityArt";
-import { Spinner } from "../shell/Spinner";
-import { Alert, Icon, type IconName } from "../design-system/bungalow-79d923";
-import { supabase } from "../supabase/client";
-import type { SearchRouteSearch } from "../navigation/dateRangeSearch";
-import { useI18n, type MessageKey } from "../i18n/i18n";
-import { featureForPath, useSiteEntityFilter, useSiteShows } from "../sites/sites";
-import { useSiteOffers } from "../sites/capabilities";
-import { useActiveBundles } from "../apps/hooks";
-import { featureCapability } from "../apps/registry";
-import { deactivateSearchField, searchFieldProps, useSearchFieldActive } from "./searchFieldActive";
-import { toEntityUri, type EntityType } from "../entities/uri";
+import { ActionMenu } from "../../../../../../entities/ActionMenu";
+import { EntityArt } from "../../../../../../entities/EntityArt";
+import { Spinner } from "../../../../../../shell/Spinner";
+import { Alert, Icon } from "../../../../../../design-system/bungalow-79d923";
+import { supabase } from "../../../../../../supabase/client";
+import type { SearchRouteSearch } from "../../../../../../navigation/dateRangeSearch";
+import { useI18n, type MessageKey } from "../../../../../../i18n/i18n";
+import { featureForPath, useSiteEntityFilter, useSiteShows } from "../../../../../../sites/sites";
+import { useSiteOffers } from "../../../../../../sites/capabilities";
+import { useActiveBundles } from "../../../../../../apps/hooks";
+import { featureCapability } from "../../../../../../apps/registry";
+import { deactivateSearchField, searchFieldProps, useSearchFieldActive } from "../../../../../../search/searchFieldActive";
+import { toEntityUri, type EntityType } from "../../../../../../entities/uri";
+import type { SearchBrowseTile } from "../../../../../../apps/shellHooks";
 
 interface Props {
   /** Opens an entity by its URI (the shell's resolver, which also handles shell-sheet types). */
@@ -34,7 +35,7 @@ export interface SearchResult {
 }
 
 /** A "Browse all" tile shown before anything is typed, like Spotify's genre grid. */
-export type SearchBrowseTile = { label: MessageKey; path: string; icon: IconName; hue: number };
+export type { SearchBrowseTile };
 
 
 const RECENT_STORAGE_KEY = "cashflow-recent-searches";
