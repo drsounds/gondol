@@ -45,6 +45,8 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **The ai app**: LLM support and an AI chat on Ollama, with conversations, messages, models and providers
 - ✅ **The streams app**: what the user does as streams (subject, predicate, object, context, motivation, start and end, quantity) with yin/yang entries
 - ✅ **The analytics app**: stream analytics filtered by period, time of day, entity type and conditions on subject, predicate, object, context, motivation and task
+- ✅ **Generative UI**: A2UI (v0.8 messages, the standard catalogue plus your own components), Open-JSON-UI trees and MCP-UI / MCP Apps resources (sandboxed HTML views with a `window.mcpUi` helper), rendered in the AI chat from answers and tool results
+- ✅ **The studio app**: lightweight apps built from generated UI pages, with entity types, relations and records of their own, in the main menu; built by the user or by agents through MCP tools
 - ✅ **App APIs and OAuth**: apps declare HTTP APIs in their manifests (OpenAPI), served by one gateway; the oauth app gives HTML5 and other apps credentials (secrets shown once, stored hashed) and a consent page
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
@@ -188,7 +190,8 @@ and `useNavCollapsed`.
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
 | `api/` | Apps' HTTP APIs: the manifest's `api` (OpenAPI), the document builder and the gateway that serves it with OAuth 2 |
-| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics) and `oauth` (credentials for apps, the consent page, connected apps) |
+| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps) and `studio` (apps built from generated UI) |
+| `genui/` | Generative UI: the A2UI renderer (`A2uiView`), Open-JSON-UI conversion, MCP-UI resources (`McpUiResource`), `GenerativeUi` |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |
@@ -203,7 +206,7 @@ and `useNavCollapsed`.
 
 Gondol's queries expect these in the app's Supabase project (typed in `src/supabase/types.ts`):
 
-- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`; with the streams app, `streams` and `stream_entries`).
+- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`; with the streams app, `streams` and `stream_entries`; with the studio app, `lite_apps`, `lite_app_pages`, `lite_entity_types`, `lite_entity_relations` and `lite_records`).
 - Functions: `entity_lifecycle_states()`, `entity_slugs()`, `global_filter_excluded()`,
   `search_entities()`, `set_entity_soft_deleted_at()` and `site_for_domain()`.
 

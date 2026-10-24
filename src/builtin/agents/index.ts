@@ -1,5 +1,6 @@
 import { defineApp, lazyWidget } from "../../apps/defineApp";
 import manifest from "./manifest.json";
+import { studioAgentsResolution } from "./models/studioBridge";
 
 const AgentIntercom = lazyWidget(() => import("./features/agents/src/widgets/AgentIntercom").then((m) => m.AgentIntercom));
 
@@ -27,6 +28,8 @@ export const agentsApp = defineApp({
     // The intercom: the agents' launcher, chat bubbles and popups over every page.
     overlayWidgets: [AgentIntercom],
   },
+  // The App Studio's "Ask an agent", when the studio app is on.
+  resolutions: [studioAgentsResolution],
   entitySources: {
     agent: {
       table: "agents",

@@ -13,6 +13,7 @@ import {
 import { threadContext } from "./threads";
 import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings, type AiToolCall } from "./providers";
 import { callAppTool, toolResultText } from "../../../api/client";
+import { isUiResource, uiResourcesOf } from "../../../genui/mcpUi";
 import { aiToolsFor, instructionsWithApps, toolNeedsApproval, type AppTools, type McpTool } from "./tools";
 import { aiToolPermissionsKey, allowAiTool, isToolAllowed, useAiToolPermissions, type AiToolDecision } from "./permissions";
 import type { AiConversation, AiMessage, AiMetrics, AiService } from "./types";
@@ -21,6 +22,9 @@ import type { AiConversation, AiMessage, AiMetrics, AiService } from "./types";
 const MAX_TOOL_ROUNDS = 8;
 /** The most of a tool's result a model gets, in characters. */
 const MAX_TOOL_RESULT = 20_000;
+/** MCP-UI views kept with an answer: at most this many, of at most this many characters each. */
+const MAX_TOOL_VIEWS = 4;
+const MAX_TOOL_VIEW_SIZE = 200_000;
 
 export interface AiChatTarget {
   conversation: AiConversation | null;
@@ -146,6 +150,7 @@ export function useAiChat(
       let failure: string | null = null;
       let metrics: AiMetrics | null = null;
       const used: NonNullable<AiMetrics["tools"]> = [];
+      const views: NonNullable<AiMetrics["ui"]> = [];
       // What has streamed in so far, kept when the answer stops short.
       let live = "";
       const toolTitle = (call: AiToolCall) => appTools?.tools.find((t) => t.name === call.name)?.title ?? call.name;
@@ -164,7 +169,12 @@ export function useAiChat(
         } else {
           try {
             const result = await callAppTool(call.name, call.arguments, abort.signal);
-            text = toolResultText(result);
+            for (const found of uiResourcesOf(result)) {
+              const size = (found.resource.text ?? found.resource.blob ?? "").length;
+              if (views.length < MAX_TOOL_VIEWS && size <= MAX_TOOL_VIEW_SIZE) views.push({ tool: call.name, resource: found.resource });
+            }
+            // A view's HTML means nothing to the model; it hears that one was shown.
+            text = toolResultText({ ...result, content: result.content.map((part) => (isUiResource(part) ? { type: "text", text: `[A view (${part.resource.uri}) was shown to the user.]` } : part)) });
             ok = !result.isError;
           } catch (caught) {
             if (abort.signal.aborted) throw new AiProviderError("Stopped", "aborted");
@@ -222,7 +232,7 @@ export function useAiChat(
           content: partial,
           provider: provider.id,
           model: target.model,
-          metrics: used.length ? { ...(metrics ?? {}), tools: used } : metrics,
+          metrics: used.length ? { ...(metrics ?? {}), tools: used, ...(views.length ? { ui: views } : {}) } : metrics,
           error: failure,
         };
         if (place.replacing) {

@@ -389,6 +389,9 @@ export function useSite(): SiteValue {
 /** Whether the site lets an internal app run (its own list plus what those apps depend on). */
 export function siteAllowsApp(site: SiteConfig | null, appId: string, dependencies: (id: string) => string[] = () => []): boolean {
   if (!site?.enabled_apps) return true;
+  // An app made at run time goes with the app it is part of (a user-built app with the studio).
+  const partOf = getInternalApps().find((app) => app.id === appId)?.partOf;
+  if (partOf && partOf !== appId) return siteAllowsApp(site, partOf, dependencies);
   const allowed = new Set<string>();
   const visit = (id: string) => {
     if (allowed.has(id)) return;

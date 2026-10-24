@@ -164,6 +164,11 @@ export interface InternalAppBundle {
   hooks?: AppBundleHooks;
   /** The app's answers to the shell's hooks (./contributions.ts); defineApp adds the manifest's. */
   resolutions?: Resolution[];
+  /**
+   * For bundles made at run time (registerDynamicApps): the app they are part of, whose site
+   * settings they follow (a site with the studio app has the apps users built with it).
+   */
+  partOf?: string;
 }
 
 export interface DynamicMenuItem {
