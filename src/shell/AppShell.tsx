@@ -140,6 +140,28 @@ export function AppShell({
   const [menuHeight, setMenuHeight] = useState<number | null>(null);
   const sidebarColumnRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
+  const frameRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  // Fading tab bar (phones): the tab bar and the dock (the bottom widgets) float over the content,
+  // so the content needs their heights to leave room under its last row (base.css).
+  const fadingTabBar = !!preferences?.fadingTabBar;
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!fadingTabBar || !frame || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      frame.style.setProperty("--tab-bar-height", `${navRef.current?.offsetHeight ?? 0}px`);
+      frame.style.setProperty("--dock-height", `${dockRef.current?.offsetHeight ?? 0}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    if (navRef.current) observer.observe(navRef.current);
+    if (dockRef.current) observer.observe(dockRef.current);
+    measure();
+    return () => {
+      observer.disconnect();
+      frame.style.removeProperty("--tab-bar-height");
+      frame.style.removeProperty("--dock-height");
+    };
+  }, [fadingTabBar]);
   const resizeDrag = useRef<{ axis: "horizontal" | "vertical"; pointerId: number; start: number; size: number } | null>(null);
   // The menu grows by what the panels under it (Your Library) can still give up, down to their own
   // min-height (128px when they set none), so it never pushes them out of the column.
@@ -224,7 +246,7 @@ export function AppShell({
 
   return (
     <FeatureDotContext.Provider value={featureDot}>
-    <main className="bungalow-root app-frame">
+    <main ref={frameRef} className="bungalow-root app-frame">
       <header className="chrome-bar">
         {historyButtons}
         {searchForm}
@@ -359,8 +381,7 @@ export function AppShell({
           onKeyDown={(event) => resizeWithKeyboard("vertical", event)}
         />
       ) : null}
-      {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
-      <Widgets widgets={sidebarPanelWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
+      {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary), unless Your Library is turned off. */}
       {showLibrary
         ? sidebarPanelWidgets.map((Widget, idx) => <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />)
         : null}
@@ -399,7 +420,10 @@ export function AppShell({
       ) : null}
 
       {/* Dynamic bottom widgets (e.g. TaskPlayer), unless the player is hidden (ShellSettings.player). */}
-      {player === "hidden" ? null : <Widgets widgets={bottomWidgets} props={{ alwaysShow: player === "always" }} />}
+      {/* The dock is display: contents, except over the content under a fading tab bar (base.css). */}
+      <div ref={dockRef} className="app-dock">
+        {player === "hidden" ? null : <Widgets widgets={bottomWidgets} props={{ alwaysShow: player === "always" }} />}
+      </div>
 
       {overlays}
       {/* Sheets the apps own (e.g. an entity type that opens in its app's own sheet). */}

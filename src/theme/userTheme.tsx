@@ -144,6 +144,10 @@ export interface ShellSettings {
   darkTabBar?: boolean;
   /** Simple engine, light mode: dark frame and left menu on desktop. */
   darkFrame?: boolean;
+  /** Phones: the tab bar (and the player above it) float over the content on a background that
+   * fades from transparent to the tab bar's colour, like Spotify; the content runs the full
+   * height behind them (data-fading-tab-bar). Unset follows the site's default, else off. */
+  fadingTabBar?: boolean;
   desktopLayout?: DesktopLayout;
   /** Classic layout: floating panels inside a frame (true) or flush, edge to edge (default). */
   classicFrame?: boolean;
@@ -522,6 +526,7 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
   return {
     "data-dark-tab-bar": engine === "simple" && shell?.darkTabBar ? "" : null,
     "data-dark-frame": engine === "simple" && shell?.darkFrame ? "" : null,
+    "data-fading-tab-bar": shell?.fadingTabBar ? "" : null,
     "data-desktop-layout": classic ? "classic" : null,
     "data-classic-frame": classic && shell?.classicFrame ? "" : null,
     // High contrast and the foreground accent re-declare the colour tokens on every element
@@ -804,6 +809,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       classicFrame: desktopFromSite ? !!siteLayout?.classicFrame : own.classicFrame,
       darkTabBar: resolveSitePreference(siteLayout, "darkTabBar", own.darkTabBar),
       darkFrame: resolveSitePreference(siteLayout, "darkFrame", own.darkFrame),
+      fadingTabBar: resolveSitePreference(siteLayout, "fadingTabBar", own.fadingTabBar),
       savedIcon: resolveSitePreference(siteLayout, "savedIcon", own.savedIcon),
       player: resolveSitePreference(siteLayout, "player", own.player),
       sidebarLibrary: resolveSitePreference(siteLayout, "sidebarLibrary", own.sidebarLibrary),

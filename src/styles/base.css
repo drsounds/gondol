@@ -511,3 +511,54 @@ body {
   --button-color: var(--bungalow-color-ink) !important;
   --button-contrast: var(--bungalow-color-canvas) !important;
 }
+
+/* The dock (AppShell): the apps' bottom widgets, such as the player. It adds no box of its own,
+   so the widgets stay where the app's layout puts them, except under a fading tab bar. */
+.app-dock { display: contents; }
+
+/* Fading tab bar (ShellSettings.fadingTabBar, phones): like Spotify, the tab bar and the dock
+   float over the content on a background that fades from transparent into the tab bar's colour,
+   and the content runs the full height of the screen behind them. AppShell measures the two
+   (--tab-bar-height, --dock-height) so the content can leave room under its last row. */
+@media (max-width: 63.99rem) {
+  :root[data-fading-tab-bar] .app-frame { position: relative; }
+  :root[data-fading-tab-bar] .app-frame .bottom-nav {
+    background: none;
+    border-top: 0;
+    bottom: 0;
+    box-shadow: none;
+    left: 0;
+    position: absolute;
+    right: 0;
+  }
+  /* The fade reaches up behind the dock and a little above it. */
+  :root[data-fading-tab-bar] .app-frame .bottom-nav::before {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--chrome-bg) 0%, transparent) 0%,
+      color-mix(in srgb, var(--chrome-bg) 78%, transparent) 55%,
+      var(--chrome-bg) 100%
+    );
+    bottom: 0;
+    content: "";
+    height: calc(100% + var(--dock-height, 0px) + 1.5rem);
+    left: 0;
+    pointer-events: none;
+    position: absolute;
+    right: 0;
+    z-index: -1;
+  }
+  :root[data-fading-tab-bar] .app-frame .app-dock {
+    bottom: var(--tab-bar-height, 0px);
+    display: block;
+    left: 0;
+    position: absolute;
+    right: 0;
+    z-index: 11;
+  }
+  :root[data-fading-tab-bar] .app-frame .app-main::after {
+    content: "";
+    display: block;
+    flex: 0 0 calc(var(--tab-bar-height, 0px) + var(--dock-height, 0px));
+  }
+}
