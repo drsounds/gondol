@@ -63,6 +63,15 @@
 .service-finder__list .library-row__meta {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  text-align: start;
+}
+
+.service-finder__line {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .service-finder__more {

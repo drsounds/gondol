@@ -200,9 +200,10 @@ export function ServiceFinderPage(_props: AppFeaturePageProps) {
               art={<ServerArt server={server} />}
               meta={
                 <>
-                  <span className={byName.has(server.name) ? "service-finder__installed" : undefined}>{status(server)}</span>
-                  {" · "}
-                  {[server.name, server.version ? `v${server.version}` : ""].filter(Boolean).join(" · ")}
+                  <span className="service-finder__line">
+                    <span className={byName.has(server.name) ? "service-finder__installed" : undefined}>{status(server)}</span>
+                    {` · ${[server.name, server.version ? `v${server.version}` : ""].filter(Boolean).join(" · ")}`}
+                  </span>
                   {server.description ? <span className="service-finder__description">{server.description}</span> : null}
                 </>
               }

@@ -44,7 +44,11 @@ export async function listRegistryServers(
   return { servers, nextCursor: body.metadata?.nextCursor ?? body.metadata?.next_cursor ?? null };
 }
 
-/** A server's latest version, or null when the registry doesn't have it. */
+/**
+ * A server's latest version, or null when the registry doesn't have it. Some hops between the
+ * browser and a registry decode the `%2F` in a server's name, so when the direct address isn't
+ * found it's looked up by searching for the name.
+ */
 export async function getRegistryServer(registry: Pick<McpRegistry, "url">, name: string, signal?: AbortSignal): Promise<RegistryEntry | null> {
   try {
     const body = (await getJson(`${registryApiBase(registry.url)}/servers/${encodeURIComponent(name)}/versions/latest`, signal)) as
@@ -52,11 +56,11 @@ export async function getRegistryServer(registry: Pick<McpRegistry, "url">, name
       | RegistryServer;
     if (body && "server" in body && body.server) return body;
     if (body && "name" in body) return { server: body };
-    return null;
   } catch (error) {
-    if ((error as { status?: number }).status === 404) return null;
-    throw error;
+    if ((error as { status?: number }).status !== 404) throw error;
   }
+  const page = await listRegistryServers(registry, { search: name, limit: 100, signal });
+  return page.servers.find((entry) => entry.server.name === name) ?? null;
 }
 
 /** The remote the app router can call: the first Streamable HTTP one. */
