@@ -136,11 +136,35 @@ export type AiMcpServer = {
   header_names: string[];
   enabled: boolean;
   position: number;
+  /** The registry it was installed from (the Service Finder's `mcp_registries`), or null when added by hand. */
+  registry_id: string | null;
+  /** Its name in that registry, e.g. io.github.acme/weather. */
+  registry_server: string | null;
+  /** The version that was installed. */
+  registry_version: string | null;
+  website_url: string | null;
+  repository_url: string | null;
+  icon_url: string | null;
   created_at: string;
   updated_at: string;
 };
 
-export type AiMcpServerWrite = Partial<Pick<AiMcpServer, "name" | "url" | "description" | "enabled" | "position">>;
+export type AiMcpServerWrite = Partial<
+  Pick<
+    AiMcpServer,
+    | "name"
+    | "url"
+    | "description"
+    | "enabled"
+    | "position"
+    | "registry_id"
+    | "registry_server"
+    | "registry_version"
+    | "website_url"
+    | "repository_url"
+    | "icon_url"
+  >
+>;
 
 type Table<Row, Required extends keyof Row> = {
   Row: Row;

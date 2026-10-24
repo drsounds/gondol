@@ -4,7 +4,8 @@ import { useI18n } from "../../../../../../i18n/i18n";
 import { ActionMenu } from "../../../../../../entities/ActionMenu";
 import { EntitySheet } from "../../../../../../entities/EntitySheet";
 import { FormActions } from "../../../../../../entities/FormActions";
-import { useEntityModal } from "../../../../../../navigation/useEntityModal";
+import { useEntityModal, useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
+import { useRegisteredBundles } from "../../../../../../apps/hooks";
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { HEADER_NAME, mcpServerAppId, useAiMcpServers, useDeleteAiMcpServer, useSaveAiMcpServer, type AiMcpServer } from "../../../../models";
 
@@ -12,14 +13,28 @@ const errorText = (error: unknown) => (error instanceof Error ? error.message : 
 
 /**
  * The user's own MCP servers (`ai_mcp_servers`), listed on `/ai-models` under the services: their
- * tools join the apps' in the chat. `/ai-models/mcp/new` and `/ai-models/mcp/<id>/edit` are the
- * routed sheets; they close back to `/ai-models`.
+ * tools join the apps' in the chat and the agents'. `/ai-models/mcp/new` and
+ * `/ai-models/mcp/<id>/edit` are the routed sheets; they close back to `/ai-models`. The Service
+ * Finder's "Installed" page shows the same list under its own paths (`listPath`, `closePath`), and
+ * when that app is on, "Find servers" opens it.
  */
-export function AiMcpServersSection() {
+export function AiMcpServersSection({
+  listPath = "/ai-models/mcp",
+  closePath = "/ai-models",
+  title,
+  intro,
+}: {
+  listPath?: string;
+  closePath?: string;
+  title?: string;
+  intro?: string;
+} = {}) {
   const { t } = useI18n();
   const servers = useAiMcpServers();
   const rows = servers.data ?? [];
-  const modal = useEntityModal("/ai-models/mcp", "/ai-models");
+  const modal = useEntityModal(listPath, closePath);
+  const go = useNavigateKeepingSearch();
+  const finderOn = useRegisteredBundles().some((app) => app.id === "service-finder" && app.isActive);
   const editing = modal.mode === "edit" ? rows.find((row) => row.id === modal.id) : undefined;
   const save = useSaveAiMcpServer();
   const remove = useDeleteAiMcpServer();
@@ -33,12 +48,19 @@ export function AiMcpServersSection() {
     <section className="stack ai-mcp">
       <div className="panel-head">
         <div>
-          <h2 className="panel-title">{t("ai.mcp.title")}</h2>
-          <p className="muted">{t("ai.mcp.intro")}</p>
+          <h2 className="panel-title">{title ?? t("ai.mcp.title")}</h2>
+          <p className="muted">{intro ?? t("ai.mcp.intro")}</p>
         </div>
-        <Button size="sm" tone="primary" onClick={modal.openNew}>
-          {t("ai.mcp.new")}
-        </Button>
+        <div className="row-actions">
+          {finderOn ? (
+            <Button size="sm" variant="outline" onClick={() => go("/service-finder")}>
+              {t("ai.mcp.find")}
+            </Button>
+          ) : null}
+          <Button size="sm" tone="primary" onClick={modal.openNew}>
+            {t("ai.mcp.new")}
+          </Button>
+        </div>
       </div>
 
       {servers.error ? <Alert tone="danger">{errorText(servers.error)}</Alert> : null}
@@ -47,13 +69,18 @@ export function AiMcpServersSection() {
       {servers.isLoading ? (
         <p className="muted">{t("app.loading")}</p>
       ) : rows.length === 0 ? (
-        <EmptyState items={t("ai.mcp.items")} actionLabel={t("ai.mcp.new")} onAction={modal.openNew} />
+        <EmptyState
+          items={t("ai.mcp.items")}
+          actionLabel={finderOn ? t("ai.mcp.find") : t("ai.mcp.new")}
+          onAction={finderOn ? () => go("/service-finder") : modal.openNew}
+        />
       ) : (
         <table className="data-table ai-mcp__table">
           <thead>
             <tr>
               <th>{t("ai.mcp.name")}</th>
               <th>{t("ai.mcp.url")}</th>
+              <th>{t("ai.mcp.from")}</th>
               <th>{t("ai.mcp.headers")}</th>
               <th>{t("ai.services.status")}</th>
               <th className="action-row-cell" aria-label={t("ai.services.actions")} />
@@ -62,8 +89,16 @@ export function AiMcpServersSection() {
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="action-row">
-                <td>{row.name}</td>
+                <td>
+                  <span className="ai-mcp__name">
+                    {row.icon_url ? <img className="ai-mcp__icon" src={row.icon_url} alt="" loading="lazy" referrerPolicy="no-referrer" /> : null}
+                    {row.name}
+                  </span>
+                </td>
                 <td className="muted ai-services__address">{row.url}</td>
+                <td className="muted">
+                  {row.registry_server ? [row.registry_server, row.registry_version ? `v${row.registry_version}` : ""].filter(Boolean).join(" · ") : t("ai.mcp.byHand")}
+                </td>
                 <td className="muted">{row.header_names.length ? row.header_names.join(", ") : "—"}</td>
                 <td className="muted">{row.enabled ? t("ai.services.on") : t("ai.services.off")}</td>
                 <td className="action-row-cell">
@@ -71,6 +106,10 @@ export function AiMcpServersSection() {
                     name={row.name}
                     actions={[
                       { key: "edit", label: t("ai.services.edit"), onSelect: () => modal.openEdit(row.id) },
+                      ...(row.registry_server && finderOn
+                        ? [{ key: "open", label: t("ai.mcp.inFinder"), onSelect: () => go(finderServerPath(row.registry_server!)) }]
+                        : []),
+                      ...(row.website_url ? [{ key: "website", label: t("ai.mcp.website"), onSelect: () => void window.open(row.website_url!, "_blank", "noopener") }] : []),
                       {
                         key: "toggle",
                         label: row.enabled ? t("ai.services.turnOff") : t("ai.services.turnOn"),
@@ -94,6 +133,9 @@ export function AiMcpServersSection() {
     </section>
   );
 }
+
+/** The Service Finder's page for a server (as its serverPath()), without importing that app. */
+const finderServerPath = (name: string) => `/service-finder/servers/${name.split("/").map(encodeURIComponent).join("/")}`;
 
 /** A header row in the sheet: a saved one (value hidden; a new value replaces it) or a new one. */
 type HeaderRow = { key: number; name: string; value: string; saved: boolean; remove: boolean };
@@ -193,6 +235,12 @@ function McpServerSheet({
               <dt>{t("ai.mcp.headers")}</dt>
               <dd>{shownHeaders.length ? shownHeaders.map((h) => h.name.trim()).join(", ") : "—"}</dd>
             </div>
+            {server?.registry_server ? (
+              <div>
+                <dt>{t("ai.mcp.from")}</dt>
+                <dd>{[server.registry_server, server.registry_version ? `v${server.registry_version}` : ""].filter(Boolean).join(" · ")}</dd>
+              </div>
+            ) : null}
             {server ? (
               <div>
                 <dt>{t("ai.mcp.toolNames")}</dt>

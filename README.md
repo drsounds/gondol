@@ -190,7 +190,7 @@ and `useNavCollapsed`.
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
 | `api/` | Apps' HTTP APIs: the manifest's `api` (OpenAPI), the document builder and the gateway that serves it with OAuth 2 |
-| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps) and `studio` (apps built from generated UI) |
+| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `service-finder` (MCP servers from MCP registries, installed for the AI chat and agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps) and `studio` (apps built from generated UI) |
 | `genui/` | Generative UI: the A2UI renderer (`A2uiView`), Open-JSON-UI conversion, MCP-UI resources (`McpUiResource`), `GenerativeUi` |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |

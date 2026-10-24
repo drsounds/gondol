@@ -1,0 +1,105 @@
+/* The service-finder app (src/builtin/service-finder): the Service Finder's search and results. */
+
+.service-finder__controls {
+  align-items: end;
+  display: grid;
+  gap: var(--bungalow-space-3);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+}
+
+.service-finder__controls .bungalow-field {
+  margin: 0;
+}
+
+.service-finder__controls > :nth-child(2):last-child {
+  justify-self: start;
+}
+
+@media (max-width: 40rem) {
+  .service-finder__controls {
+    grid-template-columns: 1fr;
+  }
+}
+
+.service-finder__art {
+  align-items: center;
+  background: var(--bungalow-color-surface-strong);
+  border-radius: var(--bungalow-radius-sm);
+  color: var(--bungalow-color-muted);
+  display: inline-flex;
+  flex: none;
+  height: 2.5rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 2.5rem;
+}
+
+.service-finder__art img {
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.service-finder__art--lg {
+  border-radius: calc(var(--bungalow-radius-sm) * 2);
+  font-size: 2rem;
+  height: 5rem;
+  margin-bottom: var(--bungalow-space-3);
+  width: 5rem;
+}
+
+.service-finder__installed {
+  color: var(--bungalow-color-primary);
+  font-weight: 600;
+}
+
+.service-finder__description {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  display: -webkit-box;
+  overflow: hidden;
+}
+
+.service-finder__list .library-row__meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.service-finder__more {
+  display: flex;
+  justify-content: center;
+}
+
+.service-finder__address {
+  overflow-wrap: anywhere;
+}
+
+.service-finder__preview-text {
+  color: var(--bungalow-color-muted);
+  margin: var(--bungalow-space-2) 0;
+}
+
+.service-finder__subhead {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.service-finder__packages {
+  display: grid;
+  gap: var(--bungalow-space-1);
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.ai-mcp__name {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--bungalow-space-2);
+}
+
+.ai-mcp__icon {
+  border-radius: 4px;
+  height: 1.25rem;
+  object-fit: contain;
+  width: 1.25rem;
+}

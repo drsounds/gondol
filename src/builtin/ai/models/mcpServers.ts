@@ -10,13 +10,18 @@ import type { AiMcpServer, AiMcpServerWrite } from "./types";
  * an address must be public HTTPS (or allowed on the server, MCP_ALLOWED_HOSTS), and their headers
  * (a bearer token, an API key) never come back to the browser: `set_ai_mcp_server_headers()` keeps
  * the values in `ai_mcp_server_headers`, and `header_names` says which are set.
+ *
+ * They're the one list of servers every AI feature draws on: the chat and the agents (through the
+ * app router's `/mcp`). The Service Finder app installs servers from MCP registries into it
+ * (`registry_id`, `registry_server`, `registry_version`); others are added by address.
  */
 
 export const aiMcpServersKey = ["gondol", "ai", "mcp-servers"] as const;
 /** The app router's catalogue as the chat's Apps panel reads it. */
 export const aiAppCatalogKey = ["gondol", "ai", "app-catalog"] as const;
 
-const COLUMNS = "id,user_id,name,url,description,header_names,enabled,position,created_at,updated_at";
+const COLUMNS =
+  "id,user_id,name,url,description,header_names,enabled,position,registry_id,registry_server,registry_version,website_url,repository_url,icon_url,created_at,updated_at";
 
 /** The user's MCP servers, in their order. */
 export function useAiMcpServers() {
