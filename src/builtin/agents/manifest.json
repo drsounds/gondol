@@ -1,0 +1,135 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "agents",
+  "slug": "agents",
+  "name": {
+    "en": "AI agents",
+    "sv": "AI-agenter"
+  },
+  "description": {
+    "en": "Hire AI agents that work for you: each with a name, avatar and @username, a model to run on, the apps' tools (MCP) it may use, working hours and schedules. Message them directly as yourself, an alter ego or another agent, and, where the host has channels, let them post there. Threads to any depth, several conversations per agent and an intercom with chat bubbles.",
+    "sv": "Anställ AI-agenter som arbetar åt dig: var och en med namn, avatar och @användarnamn, en modell att köra på, apparnas verktyg (MCP) den får använda, arbetstider och scheman. Skriv direkt till dem som dig själv, ett alter ego eller en annan agent, och, där värdappen har kanaler, låt dem skriva där. Trådar i obegränsat antal nivåer, flera konversationer per agent och en intercom med pratbubblor."
+  },
+  "iconName": "sparkle",
+  "defaultFeatureId": "agents",
+  "dependencies": [
+    "ai"
+  ],
+  "roles": [
+    "operator",
+    "creator"
+  ],
+  "settings": {
+    "scope": [
+      "user",
+      "site"
+    ],
+    "sections": [
+      {
+        "id": "intercom",
+        "title": {
+          "en": "Intercom",
+          "sv": "Intercom"
+        },
+        "settings": [
+          {
+            "key": "intercom",
+            "type": "checkbox",
+            "label": {
+              "en": "Show the agents' intercom at the bottom right",
+              "sv": "Visa agenternas intercom längst ned till höger"
+            },
+            "description": {
+              "en": "A button in the accent colour that lists your agents, with a popup chat for each.",
+              "sv": "En knapp i accentfärgen som listar dina agenter, med en popup-chatt för var och en."
+            },
+            "default": true
+          },
+          {
+            "key": "chatHeads",
+            "type": "checkbox",
+            "label": {
+              "en": "Keep conversations as chat bubbles when you leave them",
+              "sv": "Behåll konversationer som pratbubblor när du lämnar dem"
+            },
+            "description": {
+              "en": "Drag a bubble anywhere, or onto the ✕ at the bottom to throw it away.",
+              "sv": "Dra en bubbla vart du vill, eller till ✕ längst ned för att slänga den."
+            },
+            "default": true
+          }
+        ]
+      }
+    ]
+  },
+  "features": [
+    {
+      "id": "agents",
+      "name": {
+        "en": "Agents",
+        "sv": "Agenter"
+      },
+      "description": {
+        "en": "AI agents with schedules, working hours and direct messages",
+        "sv": "AI-agenter med scheman, arbetstider och direktmeddelanden"
+      },
+      "path": "agents",
+      "iconName": "sparkle",
+      "entityTypes": [
+        "agent"
+      ],
+      "actions": [
+        {
+          "id": "agents.agents.view",
+          "title": "Go to Agents",
+          "description": "See your AI agents",
+          "category": "AI",
+          "iconName": "sparkle",
+          "navigate": "/agents",
+          "keywords": [
+            "agents",
+            "agent",
+            "ai",
+            "bot",
+            "assistant",
+            "agenter"
+          ],
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "agents.agents.new",
+          "title": "Hire an Agent",
+          "description": "Create an AI agent",
+          "category": "AI",
+          "iconName": "plus",
+          "navigate": "/agents/new",
+          "keywords": [
+            "agent",
+            "new",
+            "hire",
+            "create",
+            "anställ",
+            "ny"
+          ],
+          "aspects": [
+            "create"
+          ]
+        }
+      ]
+    }
+  ],
+  "defaultActive": true,
+  "entities": {
+    "agent": {
+      "slug": "agent",
+      "view": "/agents/{key}",
+      "edit": "/agents/{key}/edit",
+      "art": {
+        "iconName": "sparkle",
+        "hue": 265
+      }
+    }
+  }
+}

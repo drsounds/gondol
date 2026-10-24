@@ -9,7 +9,7 @@ export { STUDIO_CATALOG } from "./components/LitePageView";
  * generated UI (A2UI, Open-JSON-UI and MCP-UI pages, ../../genui) with entity types, relations and
  * records of their own. Each app is an app bundle made at run time (registerDynamicApps): its pages
  * live at `/lite/<app>/<page>` and are entries in the main menu. Agents build them with the app's
- * MCP tools (`studio__save_app`, `studio__save_page`, …); the host's agents answer
+ * MCP tools (`studio__save_app`, `studio__save_page`, …); the agents app answers
  * `studioAgentsHook` so "Ask an agent" reaches them.
  *
  * Switch it on like the ai app: `configureGondol({ apps: [...apps, studioApp] })`, or

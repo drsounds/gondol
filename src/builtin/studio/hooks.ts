@@ -2,7 +2,7 @@ import { defineHook } from "../../apps/contributions";
 
 /**
  * How the studio asks an agent to build or change an app, and hands it a user's action on a page
- * the app doesn't run itself. The host's agents app answers it (`answer(studioAgentsHook, …)`);
+ * the app doesn't run itself. Gondol's agents app answers it (a host may answer it instead);
  * without an answer, "Ask an agent" opens the AI chat with the request instead.
  */
 export interface StudioAgent {

@@ -59,8 +59,9 @@ prompts, go to the app's builder.
 
 Agents build apps with the app's MCP tools (`studio__list_apps`, `get_app`, `save_app`, `save_page`,
 `save_entity_type`, `save_relation`, `list_records`, `save_record`, the `delete_*` ones), whose
-instructions describe the three formats. "Ask an agent" reaches the host's agents through
-`studioAgentsHook`:
+instructions describe the three formats. "Ask an agent" reaches agents through `studioAgentsHook`,
+which gondol's `agents` app answers when it is on (a new conversation with the request and a queued
+run). Another agents system answers it like this:
 
 ```ts
 import { answer } from "gondol/apps/contributions";
