@@ -1,17 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Icon, Select } from "../../../../../../design-system/bungalow-79d923";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { fetchAppCatalog } from "../../../../../../api/client";
+import { ActionMenu, type MenuAction } from "../../../../../../entities/ActionMenu";
+import { entityIdentifier, uuidFromIdentifier } from "../../../../../../entities/slugs";
+import { copyText, showToast } from "../../../../../../shell/clipboard";
 import {
   AiProviderError,
   aiAppCatalogKey,
   aiSourceKey,
   appToolsEnabled,
   getAiProvider,
+  replyCounts,
+  repliesByParent,
   scopeKey,
+  threadAncestors,
   useAiAppTools,
   useAiChat,
   useAiConversations,
@@ -20,6 +26,8 @@ import {
   useAiSettings,
   useAppRouterScope,
   useDeleteAiConversation,
+  useUpdateAiMessage,
+  type AiChatTarget,
   type AiMessage,
   type AiMetrics,
   type AiSettings,
@@ -28,6 +36,7 @@ import {
 } from "../../../../models";
 import { Markdown } from "../components/Markdown";
 import { AiSettingsSheet } from "../components/AiSettingsSheet";
+import { AiDeletedMessagesSheet, AiMessageSheet } from "../components/AiMessageSheets";
 
 /**
  * The AI chat (`/ai`, `/ai/new`, `/ai/<conversation id>`): the user's conversations beside the open
@@ -35,6 +44,13 @@ import { AiSettingsSheet } from "../components/AiSettingsSheet";
  * the answer streams in from the model picked. With the `composerPosition` setting at `top` the box
  * comes first and the latest exchange right under it. `/ai/settings` and
  * `/ai/<conversation id>/settings` open the AI settings over it.
+ *
+ * Any message can have a thread of replies, and replies threads of their own, to any depth:
+ * `/ai/<id>/threads/<message>` opens one beside the conversation (in its place on phones), and the
+ * model answers there from the way to it and the thread so far. Each message has a menu (⋯ on
+ * hover, a right-click, or holding it on a touch screen): reply in a thread, copy, edit
+ * (`/ai/<id>/messages/<message>/edit`), regenerate or retry an answer, answer a question again,
+ * and delete. Deleted messages show as deleted and are restored from `/ai/<id>/deleted`.
  */
 export function AiChatPage({ splat }: AppFeaturePageProps) {
   const { t } = useI18n();
@@ -43,6 +59,13 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const showSettings = parts[parts.length - 1] === "settings";
   const conversationId = parts[0] && parts[0] !== "new" && parts[0] !== "settings" ? parts[0] : null;
   const here = conversationId ? `/ai/${conversationId}` : "/ai";
+  const messageKey = (key: string | undefined) => (key ? (uuidFromIdentifier(key) ?? key) : null);
+  const threadId = conversationId && parts[1] === "threads" ? messageKey(parts[2]) : null;
+  const editingId = conversationId && parts[1] === "messages" && parts[3] === "edit" ? messageKey(parts[2]) : null;
+  const showDeleted = !!conversationId && parts[1] === "deleted";
+  const threadPath = (id: string) => `${here}/threads/${entityIdentifier(id)}`;
+  // Sheets opened from a thread close back to it.
+  const [sheetBack, setSheetBack] = useState<string | null>(null);
   const { settings } = useAiSettings();
   const conversations = useAiConversations();
   const conversation = conversations.data?.find((c) => c.id === conversationId) ?? null;
@@ -77,20 +100,28 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   const chat = useAiChat(settings, { onConversationCreated, tools: appTools.tools });
   const streaming = chat.streaming && (chat.streaming.conversationId === conversationId || !conversationId) ? chat.streaming : null;
   const approval = chat.approval && streaming && chat.approval.conversationId === streaming.conversationId ? chat.approval : null;
+  const update = useUpdateAiMessage();
 
   const onTop = settings.composerPosition === "top";
   const list = useRef<HTMLDivElement>(null);
-  const shown = messages.data ?? [];
+  const all = useMemo(() => messages.data ?? [], [messages.data]);
+  const byParent = useMemo(() => repliesByParent(all), [all]);
+  const counts = useMemo(() => replyCounts(all), [all]);
+  // The conversation's own line; replies live in threads.
+  const shown = byParent.get(null) ?? [];
+  const thread = threadId ? (all.find((m) => m.id === threadId) ?? null) : null;
+  const inLine = streaming && streaming.parentId === null && !streaming.replacing ? streaming : null;
   // The question being answered, shown above the answer as it streams in.
   const last = shown[shown.length - 1];
-  const asking = streaming && last?.role === "user" ? last : null;
+  const asking = inLine && last?.role === "user" ? last : null;
   useEffect(() => {
     list.current?.scrollTo({ top: onTop ? 0 : list.current.scrollHeight });
-  }, [shown.length, streaming?.content, approval, onTop]);
+  }, [shown.length, inLine?.content, approval, onTop]);
 
   const error = chat.error ?? (models.error && !models.choices.length ? models.error : null);
   const provider = getAiProvider(target.provider);
 
+  const chatTarget: AiChatTarget = { conversation, provider: target.provider, service, model: target.model || null };
   const composer = (
     <Composer
       busy={chat.busy}
@@ -98,11 +129,62 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
       sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
       onSend={(text) => {
         chat.clearError();
-        void chat.send(text, { conversation, provider: target.provider, service, model: target.model || null });
+        void chat.send(text, chatTarget);
       }}
       onStop={chat.stop}
     />
   );
+
+  /** A message's menu: reply in a thread, copy, edit, write an answer again, delete. */
+  const actionsFor = (message: AiMessage): MenuAction[] => {
+    const busy = chat.busy || !target.model;
+    const fromThread = threadId ? threadPath(threadId) : here;
+    return [
+      { key: "thread", label: t("ai.message.reply"), onSelect: () => go(threadPath(message.id)) },
+      { key: "copy", label: t("ai.message.copy"), disabled: !message.content, onSelect: () => copyText(message.content, t("ai.message.copied"), t("actions.copyFailed")) },
+      ...(message.role === "user"
+        ? [
+            {
+              key: "edit",
+              label: t("actions.edit"),
+              onSelect: () => {
+                setSheetBack(fromThread);
+                go(`${here}/messages/${entityIdentifier(message.id)}/edit`);
+              },
+            },
+            { key: "answer-again", label: t("ai.message.answerAgain"), disabled: busy, onSelect: () => void chat.answerAgain(message, chatTarget) },
+          ]
+        : [
+            {
+              key: "regenerate",
+              label: message.error ? t("ai.message.retry") : t("ai.message.regenerate"),
+              disabled: busy,
+              onSelect: () => void chat.regenerate(message, chatTarget),
+            },
+          ]),
+      {
+        key: "delete",
+        label: t("actions.delete"),
+        tone: "danger",
+        onSelect: () => update.mutate({ id: message.id, deleted: true }, { onSuccess: () => showToast(t("ai.message.deletedToast")) }),
+      },
+    ];
+  };
+  /** A message where it sits: the answer being written again in its place, else the message itself. */
+  const bubble = (message: AiMessage) =>
+    streaming?.replacing === message.id ? (
+      <div key={message.id}>{answerBeingWritten}</div>
+    ) : (
+      <MessageBubble
+        key={message.id}
+        message={message}
+        showMetrics={settings.showMetrics === true}
+        replies={counts.get(message.id) ?? 0}
+        onOpenThread={() => go(threadPath(message.id))}
+        actions={actionsFor(message)}
+      />
+    );
+
   const answerBeingWritten = streaming ? (
     <div className="ai-message ai-message--assistant ai-message--streaming" aria-live="polite">
       <div className="ai-message__body">
@@ -114,7 +196,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
   ) : null;
 
   return (
-    <div className={`ai-chat${onTop ? " ai-chat--composer-top" : ""}`}>
+    <div className={`ai-chat${onTop ? " ai-chat--composer-top" : ""}${threadId ? " ai-chat--thread" : ""}`}>
       <aside className="ai-chat__conversations" aria-label={t("ai.conversations")}>
         <Button type="button" variant="outline" size="sm" className="ai-chat__new" onClick={() => go("/ai/new")}>
           <Icon name="plus" /> {t("ai.newConversation")}
@@ -165,18 +247,23 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
             <Icon name="settings" /> {t("ai.settings")}
           </Button>
           {conversation ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              loading={remove.isPending}
-              onClick={() => {
-                if (!window.confirm(t("ai.confirmDelete"))) return;
-                remove.mutate(conversation.id, { onSuccess: () => go("/ai") });
-              }}
-            >
-              {t("ai.delete")}
-            </Button>
+            <ActionMenu
+              row={false}
+              name={conversation.title || t("ai.untitled")}
+              actions={[
+                { key: "deleted", label: t("ai.deletedMessages"), onSelect: () => go(`${here}/deleted`) },
+                {
+                  key: "delete",
+                  label: t("ai.delete"),
+                  tone: "danger",
+                  disabled: remove.isPending,
+                  onSelect: () => {
+                    if (!window.confirm(t("ai.confirmDelete"))) return;
+                    remove.mutate(conversation.id, { onSuccess: () => go("/ai") });
+                  },
+                },
+              ]}
+            />
           ) : null}
         </header>
 
@@ -206,13 +293,13 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
         {onTop ? composer : null}
 
         <div className={`ai-chat__messages${onTop ? " ai-chat__messages--newest-first" : ""}`} ref={list}>
-          {!conversationId && !streaming ? <p className="ai-chat__intro muted">{t("ai.intro")}</p> : null}
+          {!conversationId && !inLine ? <p className="ai-chat__intro muted">{t("ai.intro")}</p> : null}
           {conversationId && messages.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
           {onTop ? (
             <>
-              {streaming ? (
+              {inLine ? (
                 <div className="ai-chat__exchange">
-                  {asking ? <MessageBubble message={asking} showMetrics={false} /> : null}
+                  {asking ? bubble(asking) : null}
                   {answerBeingWritten}
                 </div>
               ) : null}
@@ -220,18 +307,14 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
                 .reverse()
                 .map((exchange) => (
                   <div key={exchange[0].id} className="ai-chat__exchange">
-                    {exchange.map((message) => (
-                      <MessageBubble key={message.id} message={message} showMetrics={settings.showMetrics === true} />
-                    ))}
+                    {exchange.map(bubble)}
                   </div>
                 ))}
             </>
           ) : (
             <>
-              {shown.map((message) => (
-                <MessageBubble key={message.id} message={message} showMetrics={settings.showMetrics === true} />
-              ))}
-              {answerBeingWritten}
+              {shown.map(bubble)}
+              {inLine ? answerBeingWritten : null}
             </>
           )}
         </div>
@@ -239,7 +322,54 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
         {onTop ? null : composer}
       </section>
 
+      {threadId && conversationId ? (
+        <ThreadPane
+          message={thread}
+          loading={messages.isLoading}
+          ancestors={thread ? threadAncestors(all, thread.id) : []}
+          replies={byParent.get(threadId) ?? []}
+          bubble={bubble}
+          answerBeingWritten={streaming && streaming.parentId === threadId && !streaming.replacing ? answerBeingWritten : null}
+          onOpen={(id) => go(threadPath(id))}
+          onClose={() => go(thread?.parent_id ? threadPath(thread.parent_id) : here)}
+          composer={
+            <Composer
+              key={threadId}
+              busy={chat.busy}
+              disabled={!target.model || !thread}
+              rows={2}
+              placeholder={t("ai.thread.placeholder")}
+              sendWith={settings.sendWith === "modEnter" ? "modEnter" : "enter"}
+              onSend={(text) => {
+                chat.clearError();
+                void chat.send(text, chatTarget, { parentId: threadId });
+              }}
+              onStop={chat.stop}
+            />
+          }
+        />
+      ) : null}
+
       {showSettings ? <AiSettingsSheet conversationId={conversationId} onClose={() => go(here)} /> : null}
+      {editingId && conversationId ? (
+        <AiMessageSheet
+          message={all.find((m) => m.id === editingId) ?? null}
+          loading={messages.isLoading}
+          answer={(() => {
+            const edited = all.find((m) => m.id === editingId);
+            const siblings = edited ? (byParent.get(edited.parent_id ?? null) ?? []) : [];
+            const next = siblings[siblings.findIndex((m) => m.id === editingId) + 1];
+            return next?.role === "assistant" && !next.soft_deleted_at ? next : null;
+          })()}
+          canRegenerate={!chat.busy && !!target.model}
+          onRegenerate={(answer) => void chat.regenerate(answer, chatTarget)}
+          onClose={() => {
+            go(sheetBack ?? here);
+            setSheetBack(null);
+          }}
+        />
+      ) : null}
+      {showDeleted ? <AiDeletedMessagesSheet messages={all} onClose={() => go(here)} onOpenThread={(id) => go(threadPath(id))} /> : null}
     </div>
   );
 }
@@ -315,14 +445,43 @@ function formatMetrics(metrics: AiMetrics): string {
   return parts.join(" · ");
 }
 
-function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetrics: boolean }) {
+function MessageBubble({
+  message,
+  showMetrics,
+  replies = 0,
+  onOpenThread,
+  actions,
+}: {
+  message: AiMessage;
+  showMetrics: boolean;
+  replies?: number;
+  onOpenThread?: () => void;
+  actions?: MenuAction[];
+}) {
   const { t } = useI18n();
   const tools = message.metrics?.tools ?? [];
+  const repliesLink =
+    replies && onOpenThread ? (
+      <button type="button" className="ai-message__replies" onClick={onOpenThread}>
+        {t(replies === 1 ? "ai.thread.replyOne" : "ai.thread.replies", { count: replies })}
+      </button>
+    ) : null;
+  if (message.soft_deleted_at) {
+    return (
+      <div className={`ai-message ai-message--${message.role} ai-message--deleted`}>
+        <div className="ai-message__body">{t("ai.message.deleted")}</div>
+        {repliesLink}
+      </div>
+    );
+  }
   return (
-    <div className={`ai-message ai-message--${message.role}`}>
-      {message.content ? (
-        <div className="ai-message__body">{message.role === "assistant" ? <Markdown source={message.content} /> : message.content}</div>
-      ) : null}
+    <div className={`ai-message ai-message--${message.role} action-row`}>
+      <div className="ai-message__row">
+        {message.content ? (
+          <div className="ai-message__body">{message.role === "assistant" ? <Markdown source={message.content} /> : message.content}</div>
+        ) : null}
+        {actions?.length ? <ActionMenu name={t(message.role === "user" ? "ai.message.yours" : "ai.message.answer")} actions={actions} /> : null}
+      </div>
       {tools.length ? (
         <div className="ai-message__meta ai-message__tool">
           {t("ai.usedTools", {
@@ -331,12 +490,80 @@ function MessageBubble({ message, showMetrics }: { message: AiMessage; showMetri
         </div>
       ) : null}
       {message.error ? <div className="ai-message__error">{message.error === "Stopped" ? t("ai.stopped") : message.error}</div> : null}
-      {message.role === "assistant" && (showMetrics || message.model) ? (
+      {(message.role === "assistant" && (showMetrics || message.model)) || message.edited_at ? (
         <div className="ai-message__meta">
-          {[message.model, showMetrics && message.metrics ? formatMetrics(message.metrics) : ""].filter(Boolean).join(" · ")}
+          {[
+            message.role === "assistant" ? message.model : null,
+            message.role === "assistant" && showMetrics && message.metrics ? formatMetrics(message.metrics) : "",
+            message.edited_at ? t(message.role === "assistant" ? "ai.message.regenerated" : "ai.message.edited") : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </div>
       ) : null}
+      {repliesLink}
     </div>
+  );
+}
+
+/**
+ * A message's thread, beside the conversation: the messages it sits under (each opens its own
+ * thread), the message, its replies (each with its own thread) and a box to reply.
+ */
+function ThreadPane({
+  message,
+  loading,
+  ancestors,
+  replies,
+  bubble,
+  answerBeingWritten,
+  composer,
+  onOpen,
+  onClose,
+}: {
+  message: AiMessage | null;
+  loading: boolean;
+  ancestors: AiMessage[];
+  replies: AiMessage[];
+  bubble: (message: AiMessage) => ReactNode;
+  answerBeingWritten: ReactNode;
+  composer: ReactNode;
+  onOpen: (id: string) => void;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const body = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    body.current?.scrollTo({ top: body.current.scrollHeight });
+  }, [replies.length, !!answerBeingWritten]);
+  return (
+    <aside className="ai-chat__thread" aria-label={t("ai.thread.title")}>
+      <header className="ai-chat__thread-head">
+        <button type="button" className="ai-chat__thread-back" onClick={onClose} aria-label={t("ai.thread.back")}>
+          ←
+        </button>
+        <strong className="ai-chat__thread-title">{t("ai.thread.title")}</strong>
+        <span className="muted">{t(replies.length === 1 ? "ai.thread.replyOne" : "ai.thread.replies", { count: replies.length })}</span>
+      </header>
+      <div className="ai-chat__thread-body" ref={body}>
+        {ancestors.length ? (
+          <nav className="ai-chat__ancestors" aria-label={t("ai.thread.inReplyTo")}>
+            <div className="muted ai-chat__ancestors-label">{t("ai.thread.inReplyTo")}</div>
+            {ancestors.map((a) => (
+              <button key={a.id} type="button" className="ai-chat__ancestor" onClick={() => onOpen(a.id)}>
+                <strong>{t(a.role === "user" ? "ai.message.yours" : "ai.message.answer")}</strong>
+                <span>{a.soft_deleted_at ? t("ai.message.deleted") : a.content}</span>
+              </button>
+            ))}
+          </nav>
+        ) : null}
+        {loading ? <p className="muted">{t("app.loading")}</p> : !message ? <p className="muted">{t("ai.thread.notFound")}</p> : bubble(message)}
+        {message ? <div className="ai-chat__thread-divider muted">{t("ai.thread.repliesHeading")}</div> : null}
+        {replies.map(bubble)}
+        {answerBeingWritten}
+      </div>
+      {message ? composer : null}
+    </aside>
   );
 }
 
@@ -393,12 +620,16 @@ function Composer({
   busy,
   disabled,
   sendWith,
+  rows = 3,
+  placeholder,
   onSend,
   onStop,
 }: {
   busy: boolean;
   disabled: boolean;
   sendWith: "enter" | "modEnter";
+  rows?: number;
+  placeholder?: string;
   onSend: (text: string) => void;
   onStop: () => void;
 }) {
@@ -419,9 +650,9 @@ function Composer({
     >
       <textarea
         className="bungalow-input ai-chat__input"
-        rows={3}
+        rows={rows}
         aria-label={t("ai.message")}
-        placeholder={t(sendWith === "enter" ? "ai.placeholder" : "ai.placeholderMod")}
+        placeholder={placeholder ?? t(sendWith === "enter" ? "ai.placeholder" : "ai.placeholderMod")}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

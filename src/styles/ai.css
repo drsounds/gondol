@@ -239,13 +239,212 @@
   gap: var(--bungalow-space-2);
 }
 
+/* A message's bubble with its menu beside it (⋯ on hover, right-click, or a long press on touch). */
+.ai-message__row {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--bungalow-space-1);
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ai-message__row > .ai-message__body {
+  min-width: 0;
+}
+
+.ai-message--user .ai-message__row {
+  flex-direction: row-reverse;
+}
+
+.ai-message--deleted .ai-message__body {
+  background: none;
+  border: 1px dashed var(--bungalow-color-border);
+  color: var(--bungalow-color-muted);
+  font-style: italic;
+}
+
+.ai-message__replies {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  color: var(--bungalow-color-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0 var(--bungalow-space-3);
+}
+
+.ai-message--user .ai-message__replies {
+  align-self: flex-end;
+}
+
+.ai-message__replies:hover {
+  text-decoration: underline;
+}
+
+.ai-message--preview {
+  margin-top: var(--bungalow-space-2);
+  max-width: 100%;
+}
+
+/* A message's thread, beside the conversation (in its place on phones). */
+.ai-chat--thread {
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr) minmax(18rem, 26rem);
+}
+
+.ai-chat__thread {
+  border-left: 1px solid var(--bungalow-color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+  min-width: 0;
+  padding-left: var(--bungalow-space-3);
+}
+
+.ai-chat__thread-head {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-2);
+}
+
+.ai-chat__thread-title {
+  flex: 1;
+}
+
+.ai-chat__thread-back {
+  background: none;
+  border: 0;
+  border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1.1rem;
+  height: 2rem;
+  width: 2rem;
+}
+
+.ai-chat__thread-back:hover {
+  background: var(--bungalow-color-surface);
+}
+
+.ai-chat__thread-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--bungalow-space-3);
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: var(--bungalow-space-1);
+}
+
+.ai-chat__thread-body .ai-message {
+  max-width: 94%;
+}
+
+.ai-chat__thread-divider {
+  border-top: 1px solid var(--bungalow-color-border);
+  font-size: 0.75rem;
+  padding-top: var(--bungalow-space-2);
+  text-transform: uppercase;
+}
+
+.ai-chat__ancestors {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-chat__ancestors-label {
+  font-size: 0.75rem;
+}
+
+.ai-chat__ancestor {
+  background: none;
+  border: 0;
+  border-left: 2px solid var(--bungalow-color-border);
+  color: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding: var(--bungalow-space-1) var(--bungalow-space-2);
+  text-align: left;
+}
+
+.ai-chat__ancestor span {
+  color: var(--bungalow-color-muted);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ai-chat__ancestor:hover {
+  background: var(--bungalow-color-surface);
+}
+
+.ai-deleted {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ai-deleted__item {
+  align-items: center;
+  border-bottom: 1px solid var(--bungalow-color-border);
+  display: flex;
+  gap: var(--bungalow-space-3);
+  justify-content: space-between;
+  padding: var(--bungalow-space-2) 0;
+}
+
+.ai-deleted__text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ai-deleted__content {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+@media (max-width: 1100px) {
+  .ai-chat--thread {
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  }
+
+  .ai-chat--thread .ai-chat__conversations {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
-  .ai-chat {
+  .ai-chat,
+  .ai-chat--thread {
     grid-template-columns: 1fr;
   }
 
   .ai-chat__conversations {
     display: none;
+  }
+
+  .ai-chat--thread .ai-chat__main {
+    display: none;
+  }
+
+  .ai-chat__thread {
+    border-left: 0;
+    padding-left: 0;
   }
 }
 

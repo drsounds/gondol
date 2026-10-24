@@ -44,6 +44,12 @@ export type AiMessage = {
   metrics: AiMetrics | null;
   /** Why the answer stopped short (the provider failed, or the user stopped it). */
   error: string | null;
+  /** The message it replies to, in a thread under it (threads.ts); null on the conversation's own line. */
+  parent_id: string | null;
+  /** When its author changed it, or the answer was written again. */
+  edited_at: string | null;
+  /** When it was deleted: it shows as deleted, and can be restored from the conversation's deleted messages. */
+  soft_deleted_at: string | null;
   created_at: string;
 };
 
