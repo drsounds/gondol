@@ -49,6 +49,8 @@ export interface SiteLayout {
   menuStyle?: MenuStyle;
   darkTabBar?: boolean;
   darkFrame?: boolean;
+  /** The phone tab bar floats over the content on a fading background (ShellSettings.fadingTabBar). */
+  fadingTabBar?: boolean;
   hideSoftDeletedEntities?: boolean;
   hideFutureEntities?: boolean;
   /** The browser's native menu and text selection (shell/developerMode.ts). */
