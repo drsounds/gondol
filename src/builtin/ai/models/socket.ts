@@ -81,12 +81,21 @@ export async function runAiSocket(functionName: string, body: Record<string, unk
     const send = (message: Record<string, unknown>) => {
       if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
     };
-    const finish = (outcome: { event: AiSocketEvent } | { error: Error }) => {
+    /** `serverCloses`: the function said `done` or `error` and closes the socket itself. */
+    const finish = (outcome: { event: AiSocketEvent } | { error: Error }, serverCloses = false) => {
       if (settled) return;
       settled = true;
       clearTimeout(idle);
       signal?.removeEventListener("abort", abort);
-      if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) socket.close(1000);
+      if (serverCloses) {
+        // Closing from both ends at once makes browsers log "Close received after close"; close
+        // only if the function hasn't within a moment.
+        setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) socket.close(1000);
+        }, 2000);
+      } else if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+        socket.close(1000);
+      }
       if ("event" in outcome) resolve(outcome.event);
       else reject(outcome.error);
     };
@@ -133,11 +142,11 @@ export async function runAiSocket(functionName: string, body: Record<string, unk
       if (event.type === "ready" || event.type === "ping") return;
       if (event.type === "error") {
         const kind = (typeof event.kind === "string" ? event.kind : "http") as ErrorKind;
-        finish({ error: new AiProviderError(typeof event.error === "string" ? event.error : "The AI service failed", kind, typeof event.status === "number" ? event.status : undefined) });
+        finish({ error: new AiProviderError(typeof event.error === "string" ? event.error : "The AI service failed", kind, typeof event.status === "number" ? event.status : undefined) }, true);
         return;
       }
       if (event.type === "done") {
-        finish({ event });
+        finish({ event }, true);
         return;
       }
       try {
