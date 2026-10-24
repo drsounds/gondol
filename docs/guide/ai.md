@@ -326,7 +326,7 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 | `ai_mcp_servers` | `id`, `user_id` (default `auth.uid()`), `name`, `url`, `description`, `header_names` (kept by `set_ai_mcp_server_headers()`), `enabled`, `position`, `created_at`, `updated_at` |
 | `ai_mcp_server_headers` | `server_id` (cascades), `user_id`, `headers` (jsonb, name → value): no grants to `authenticated`, written by `set_ai_mcp_server_headers()`, read by the app router |
 | `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
-| `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `created_at` |
+| `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `parent_id` (the message it replies to, same conversation, cascades; threads nest to any depth), `edited_at`, `soft_deleted_at` (shown as deleted, restorable), `created_at`; a message never moves (conversation, thread and role are fixed) |
 | `ai_models` | `id`, `user_id`, `provider`, `service_id` (cascades), `name`, `label`, `details` (jsonb), `enabled`, `created_at`, `updated_at`; unique `(user_id, provider, service_id, name)`, nulls not distinct |
 
 Each is private to its user (`user_id = auth.uid()` policies); a message can only be added to the

@@ -53,6 +53,8 @@ export async function addAiMessage(values: {
   model?: string | null;
   metrics?: AiMetrics | null;
   error?: string | null;
+  /** The message it replies to (a thread under it), or none for the conversation's own line. */
+  parent_id?: string | null;
 }): Promise<AiMessage> {
   const { data, error } = await aiDb()
     .from("ai_messages")
@@ -61,6 +63,41 @@ export async function addAiMessage(values: {
     .single();
   if (error) throw error;
   return data as unknown as AiMessage;
+}
+
+/** What can change about a message once written: what it says (and how it was written), and whether it's deleted. */
+export type AiMessageChange = Partial<Pick<AiMessage, "content" | "provider" | "model" | "metrics" | "error" | "edited_at" | "soft_deleted_at">>;
+
+export async function updateAiMessage(id: string, values: AiMessageChange): Promise<AiMessage> {
+  const { metrics, ...rest } = values;
+  const { data, error } = await aiDb()
+    .from("ai_messages")
+    .update({ ...rest, ...(metrics !== undefined ? { metrics: metrics as Json } : {}) })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as unknown as AiMessage;
+}
+
+/** Puts a changed message in its conversation's cached messages. */
+export function replaceCachedAiMessage(queryClient: ReturnType<typeof useQueryClient>, message: AiMessage): void {
+  queryClient.setQueryData<AiMessage[]>(aiMessagesKey(message.conversation_id), (previous) =>
+    previous ? previous.map((m) => (m.id === message.id ? message : m)) : previous,
+  );
+}
+
+/** Changes a message: its text (an edit, marked `edited_at`), or deletes or restores it (`deleted`). */
+export function useUpdateAiMessage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, content, deleted }: { id: string; content?: string; deleted?: boolean }) =>
+      updateAiMessage(id, {
+        ...(content !== undefined ? { content, edited_at: new Date().toISOString() } : {}),
+        ...(deleted !== undefined ? { soft_deleted_at: deleted ? new Date().toISOString() : null } : {}),
+      }),
+    onSuccess: (message) => replaceCachedAiMessage(queryClient, message),
+  });
 }
 
 export async function touchAiConversation(id: string, values: Partial<Pick<AiConversation, "model" | "provider" | "service_id" | "title">> = {}): Promise<void> {
