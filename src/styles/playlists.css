@@ -1,0 +1,106 @@
+/* The playlists app (builtin/playlists): the list, a playlist's hero, items and sheets. */
+
+
+/* Rows that are simply a clickable entity reference (library, playlist items). */
+.library-list,
+.playlist-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.library-row,
+.playlist-row {
+  align-items: center;
+  border-radius: var(--bungalow-radius-sm);
+  display: flex;
+  gap: var(--bungalow-space-2);
+  padding-inline-end: var(--bungalow-space-2);
+}
+.library-row:hover,
+.playlist-row:hover { background: var(--bungalow-color-surface); }
+
+.playlist-row { position: relative; }
+.playlist-row--drop-before::before,
+.playlist-row--drop-after::after {
+  background: var(--bungalow-color-primary);
+  border-radius: var(--bungalow-radius-pill);
+  content: "";
+  height: 2px;
+  inset-inline: 0;
+  position: absolute;
+}
+.playlist-row--drop-before::before { top: -2px; }
+.playlist-row--drop-after::after { bottom: -2px; }
+/* A playlist's banner: optional header image, its image (or generated art), title, description. */
+.playlist-back { align-self: flex-start; }
+.playlist-hero {
+  border-radius: var(--bungalow-radius-md, 0.75rem);
+  overflow: hidden;
+  position: relative;
+}
+.playlist-hero__header {
+  aspect-ratio: 4;
+  background: var(--bungalow-color-surface-strong);
+  max-height: 14rem;
+  overflow: hidden;
+  width: 100%;
+}
+.playlist-hero__header img { display: block; height: 100%; object-fit: cover; width: 100%; }
+.playlist-hero__body {
+  align-items: flex-end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-4);
+  padding-block: var(--bungalow-space-3);
+}
+.playlist-hero--header .playlist-hero__body { margin-top: -3rem; padding-inline: var(--bungalow-space-3); position: relative; }
+.playlist-hero__art { flex: none; position: relative; }
+.playlist-hero__text { display: flex; flex: 1; flex-direction: column; gap: var(--bungalow-space-1); min-width: 12rem; }
+.playlist-hero__kind {
+  align-items: center;
+  color: var(--bungalow-color-muted);
+  display: flex;
+  font-size: 0.75rem;
+  font-weight: 600;
+  gap: var(--bungalow-space-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.playlist-hero__title { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.1; margin: 0; overflow-wrap: anywhere; }
+.playlist-hero__description { color: var(--bungalow-color-muted); font-size: 0.875rem; margin: 0; white-space: pre-line; }
+.playlist-hero__meta { color: var(--bungalow-color-muted); font-size: 0.75rem; }
+.playlist-hero__actions { display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
+.entity-preview .playlist-hero__title { font-size: 1.5rem; }
+.entity-preview .playlist-hero__text { min-width: 0; }
+
+.playlist-list { min-height: 3rem; }
+.playlist-list__empty {
+  border: 1px dashed var(--bungalow-color-border);
+  border-radius: var(--bungalow-radius-sm);
+  color: var(--bungalow-color-muted);
+  font-size: 0.8125rem;
+  padding: var(--bungalow-space-4);
+  text-align: center;
+}
+
+.playlist-cover {
+  align-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--bungalow-radius-sm);
+  box-shadow: var(--bungalow-shadow-raised);
+  color: #fff;
+  display: flex;
+  font-size: 2.5rem;
+  font-weight: 700;
+  justify-content: center;
+  width: 100%;
+}
+.playlist-cover--lg { flex-shrink: 0; font-size: 3.5rem; width: 9rem; }
+.playlist-hero { align-items: flex-end; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-5); }
+.playlist-hero__text { min-width: 0; }
+.playlist-hero__title { font-size: clamp(1.75rem, 5vw, 3rem); line-height: 1.1; margin: var(--bungalow-space-1) 0 var(--bungalow-space-2); overflow-wrap: anywhere; }
+.playlist-hero .muted { margin: 0; }
+.playlist-head { align-items: center; display: flex; gap: var(--bungalow-space-3); }

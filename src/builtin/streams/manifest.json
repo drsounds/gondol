@@ -25,7 +25,7 @@
         { "id": "streams.new", "title": "New stream", "category": "Streams", "iconName": "plus", "navigate": "/streams/new", "keywords": ["activity", "log"], "aspects": ["create"] }
       ],
       "create": [{ "key": "stream", "label": "entity.stream", "section": "nav.streams", "iconName": "broadcast", "path": "/streams/new" }],
-      "browse": { "label": "nav.streams", "iconName": "repeat", "hue": 18 }
+      "browse": { "label": "nav.streams", "iconName": "repeat", "hue": 18, "order": 160 }
     }
   ],
   "entities": {

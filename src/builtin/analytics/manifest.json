@@ -23,7 +23,7 @@
       "actions": [
         { "id": "analytics.streams", "title": "Stream analytics", "category": "Analytics", "iconName": "chart", "navigate": "/analytics", "keywords": ["streams", "statistics", "report"] }
       ],
-      "browse": { "label": "nav.analytics", "iconName": "chart", "hue": 260 }
+      "browse": { "label": "nav.analytics", "iconName": "chart", "hue": 260, "order": 170 }
     }
   ]
 }

@@ -13,7 +13,8 @@
 // <dir>/app-router/index.ts (from supabase/functions/app-router), importing the files above, and,
 // when the built-in ai app is among `--builtin`, its functions for OpenAI-compatible APIs and
 // LangChain Deep Agents to <dir>/ai-openai/index.ts and <dir>/ai-deepagents/index.ts (from
-// supabase/functions/).
+// supabase/functions/), and, when the built-in agents app is, its runner to <dir>/ai-agents/index.ts
+// and <dir>/_shared/agentPrompt.ts.
 //
 // `--check` writes nothing and fails when the files are out of date (for CI). `--title` and
 // `--version` set the document's info.
@@ -70,11 +71,16 @@ if (functionsDir) {
   // The function imports ../_shared/gondol-api/…; point it at wherever --out is.
   const shared = relative(target, out).split("\\").join("/");
   files[join(target, "index.ts")] = `${generated("supabase/functions/app-router/index.ts")}${fn.replaceAll("../_shared/gondol-api/", `${shared}/`)}`;
+  const copy = (path: string) => {
+    files[join(resolve(functionsDir), path)] = `${generated(`supabase/functions/${path}`)}${readFileSync(join(here, `../../supabase/functions/${path}`), "utf8")}`;
+  };
   if (builtin.includes("ai")) {
-    for (const name of ["ai-openai", "ai-deepagents"]) {
-      const ai = readFileSync(join(here, `../../supabase/functions/${name}/index.ts`), "utf8");
-      files[join(resolve(functionsDir), name, "index.ts")] = `${generated(`supabase/functions/${name}/index.ts`)}${ai}`;
-    }
+    for (const name of ["ai-openai", "ai-deepagents"]) copy(`${name}/index.ts`);
+  }
+  // The agents app's server runner, and the prompt building it shares with the browser's runner.
+  if (builtin.includes("agents")) {
+    copy("ai-agents/index.ts");
+    copy("_shared/agentPrompt.ts");
   }
 }
 
