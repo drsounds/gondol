@@ -3,13 +3,12 @@ import { createPortal } from "react-dom";
 import { Button } from "../design-system/bungalow-79d923";
 import { SavedIcon } from "../theme/savedIcon";
 import { useI18n } from "../i18n/i18n";
-import { copyText } from "../shell/clipboard";
 import { entityExtensions, useCollectionActions } from "./extensions";
 import { useDragEntity, writeEntityDrag } from "./dragEntity";
 import { EntityArt } from "./EntityArt";
 import { entityTypeLabel } from "./lookup";
 import { parseEntityUri } from "./uri";
-import { shareUri, shareUrl, useShareKey } from "./shareUri";
+import { ShareSheet } from "./ShareSheet";
 import { useGlobalFilterHides } from "../search/globalFilterState";
 import { useSiteShows } from "../sites/sites";
 import { useEntityLifecycle } from "./lifecycle";
@@ -35,7 +34,7 @@ interface ActionMenuProps {
   name: string;
   /**
    * spacify: URI of the entity. When set, "Save to library", "Pin", "Add to playlist…", "Tags…", "Covers…",
-   * "Change address…", "Copy URI" and "Copy URL" items are added automatically, and the surrounding `.action-row` becomes draggable (onto
+   * "Change address…" and "Share" (the share sheet: copy URL/URI, send to agents, channels, …) items are added automatically, and the surrounding `.action-row` becomes draggable (onto
    * playlists, the library, URI fields…).
    */
   uri?: string;
@@ -115,14 +114,13 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
   const like = entityExtensions().useLike(row ? uri : undefined, name);
   const lifecycle = useEntityLifecycle();
   const { setDragData } = useDragEntity();
-  // The slug is looked up once the menu opens; until then the copies use the identifier.
-  const shareKey = useShareKey(uri, open !== null);
-  const url = uri && shareKey ? shareUrl(uri, shareKey) : null;
+  // "Share" opens the share sheet (copy link/URI, send to the app's agents, channels, …).
+  const [shareOpen, setShareOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleAt, setScheduleAt] = useState("");
   const [savingSchedule, setSavingSchedule] = useState(false);
   const lifecycleState = lifecycle.stateFor(uri);
-  // A restricted entity (e.g. quarantined) can't be shared: its copies stay in the menu, disabled.
+  // A restricted entity (e.g. quarantined) can't be shared: its "Share" stays in the menu, disabled.
   const noSharing = !!lifecycle.restrictionFor(uri)?.noSharing;
   const hasScheduledDeletion = !!lifecycleState?.soft_deleted_at;
   const deletionHasPassed = hasScheduledDeletion && Date.parse(lifecycleState.soft_deleted_at!) <= Date.now();
@@ -151,7 +149,7 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
       ]
     : [];
   const offers = useSiteOffers();
-  // Destructive items stay last, just before the automatic "Copy URI" / "Copy URL".
+  // Destructive items stay last, just before the automatic "Share".
   const allItems: MenuAction[] = uri
     ? [
         ...actions.filter((a) => a.tone !== "danger"),
@@ -159,13 +157,12 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
         ...lifecycleActions,
         ...actions.filter((a) => a.tone === "danger"),
         {
-          key: "copy-uri",
+          key: "share",
           aspects: ["share"],
-          label: t("actions.copyUri"),
+          label: t("actions.share"),
           disabled: noSharing,
-          onSelect: () => copyText(shareKey ? shareUri(uri, shareKey) : uri, t("actions.uriCopied"), t("actions.copyFailed")),
+          onSelect: () => setShareOpen(true),
         },
-        ...(url ? [{ key: "copy-url", aspects: ["share"] as const, label: t("actions.copyUrl"), disabled: noSharing, onSelect: () => copyText(url, t("actions.urlCopied"), t("actions.copyFailed")) }] : []),
       ]
     : actions;
   // What the site served here doesn't offer (its roles and aspects) is left out.
@@ -541,6 +538,7 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
             document.body,
           )
         : null}
+      {shareOpen && uri ? <ShareSheet uri={uri} name={name} onClose={() => setShareOpen(false)} /> : null}
       {scheduleOpen ? (
         <div className="entity-lifecycle-backdrop" onClick={() => setScheduleOpen(false)}>
           <form
