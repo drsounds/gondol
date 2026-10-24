@@ -230,7 +230,8 @@ pass `confirmTool` to ask its own way instead.
 
 ### The user's own MCP servers
 
-Users can add MCP servers of their own on `/ai-models` (`ai_mcp_servers`): a remote server speaking
+Users can add MCP servers of their own on `/ai-models` (`ai_mcp_servers`), or install them from MCP
+registries with the [Service Finder](./service-finder.md): a remote server speaking
 Streamable HTTP, with headers such as `Authorization: Bearer …`. The headers are write-only, like a
 service's key: `set_ai_mcp_server_headers(p_server_id, p_set, p_remove)` keeps the values in
 `ai_mcp_server_headers`, which the client can't read, and `header_names` on the server says which are
@@ -323,7 +324,7 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 | `ai_services` | `id`, `user_id` (default `auth.uid()`), `name`, `provider`, `base_url`, `has_api_key` (kept by `set_ai_service_key()`), `enabled`, `position`, `options` (jsonb, `{}`; a Deep Agent's `backend`), `created_at`, `updated_at` |
 | `ai_service_keys` | `service_id` (cascades), `user_id`, `api_key`: no grants to `authenticated`, written by `set_ai_service_key(p_service_id, p_api_key)` (null removes it), read by the AI functions |
 | `ai_tool_permissions` | `id`, `user_id` (default `auth.uid()`), `tool`, `title`, `conversation_id` (null: always; cascades), `created_at`; unique `(user_id, conversation_id, tool)`, nulls not distinct |
-| `ai_mcp_servers` | `id`, `user_id` (default `auth.uid()`), `name`, `url`, `description`, `header_names` (kept by `set_ai_mcp_server_headers()`), `enabled`, `position`, `created_at`, `updated_at` |
+| `ai_mcp_servers` | `id`, `user_id` (default `auth.uid()`), `name`, `url`, `description`, `header_names` (kept by `set_ai_mcp_server_headers()`), `enabled`, `position`, `registry_id`, `registry_server`, `registry_version`, `website_url`, `repository_url`, `icon_url` (from the [Service Finder](./service-finder.md)), `created_at`, `updated_at` |
 | `ai_mcp_server_headers` | `server_id` (cascades), `user_id`, `headers` (jsonb, name → value): no grants to `authenticated`, written by `set_ai_mcp_server_headers()`, read by the app router |
 | `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
 | `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `parent_id` (the message it replies to, same conversation, cascades; threads nest to any depth), `edited_at`, `soft_deleted_at` (shown as deleted, restorable), `created_at`; a message never moves (conversation, thread and role are fixed) |

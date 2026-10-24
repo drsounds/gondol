@@ -193,7 +193,7 @@ Gondol ships apps of its own under `src/builtin/`, which a host builds in by id:
 by hand (`import { aiApp } from "gondol/builtin/ai"`). They are the [search app](./search.md),
 the [library app](./library.md), the [playlists app](./playlists.md) (which needs library), the
 [ai app](./ai.md), the [agents app](./agents.md) (which needs ai), the [streams app](./streams.md),
-the [analytics app](./analytics.md) (which needs streams) and the [oauth app](./oauth.md).
+the [analytics app](./analytics.md) (which needs streams), the [Service Finder](./service-finder.md) (which needs ai) and the [oauth app](./oauth.md).
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`
