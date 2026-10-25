@@ -94,6 +94,7 @@ export type AgentsDatabase = {
       agent_conversations: {
         Row: {
           title: string | null;
+          run_id: string | null;
           is_main: boolean;
           agent_id: string;
           created_at: string;
@@ -108,6 +109,7 @@ export type AgentsDatabase = {
         };
         Insert: {
           title?: string | null;
+          run_id?: string | null;
           is_main?: boolean;
           agent_id: string;
           created_at?: string;
@@ -122,6 +124,7 @@ export type AgentsDatabase = {
         };
         Update: {
           title?: string | null;
+          run_id?: string | null;
           is_main?: boolean;
           agent_id?: string;
           created_at?: string;
@@ -324,6 +327,7 @@ export type AgentsDatabase = {
         Args: { p_runner: string; p_limit?: number; p_run_id?: string | null };
         Returns: AgentsDatabase["public"]["Tables"]["agent_runs"]["Row"][];
       };
+      open_agent_run_conversation: { Args: { p_run_id: string }; Returns: string };
       open_agent_conversation: { Args: { p_agent_id: string; p_with_kind: string; p_with_id?: string | null }; Returns: string };
       queue_agent_run: {
         Args: {

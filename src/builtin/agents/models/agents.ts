@@ -229,6 +229,8 @@ export interface AgentConversation {
   with_agent_id: string | null;
   title: string | null;
   is_main: boolean;
+  /** The run it was opened from (open_agent_run_conversation()). */
+  run_id: string | null;
   topic: string | null;
   last_message_at: string | null;
   created_at: string;
@@ -253,7 +255,7 @@ export interface AgentMessage {
   created_at: string;
 }
 
-const CONVERSATION_COLUMNS = "id, agent_id, with_kind, with_ego_id, with_agent_id, title, is_main, topic, last_message_at, created_at";
+export const AGENT_CONVERSATION_COLUMNS = "id, agent_id, with_kind, with_ego_id, with_agent_id, title, is_main, run_id, topic, last_message_at, created_at";
 const MESSAGE_COLUMNS = "id, conversation_id, author_kind, author_ego_id, author_agent_id, content, metrics, error, run_id, parent_id, edited_at, soft_deleted_at, created_at";
 
 export const agentConversationsKey = (agentId: string | null) => ["agent-conversations", agentId ?? ""] as const;
@@ -266,7 +268,7 @@ export function useAgentConversations(agentId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agent_conversations")
-        .select(CONVERSATION_COLUMNS)
+        .select(AGENT_CONVERSATION_COLUMNS)
         .or(`agent_id.eq.${agentId},with_agent_id.eq.${agentId}`)
         .order("last_message_at", { ascending: false, nullsFirst: false });
       if (error) throw error;
@@ -304,7 +306,7 @@ export function useAgentConversation(id: string | null) {
     queryKey: agentConversationKey(id),
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("agent_conversations").select(CONVERSATION_COLUMNS).eq("id", id!).maybeSingle();
+      const { data, error } = await supabase.from("agent_conversations").select(AGENT_CONVERSATION_COLUMNS).eq("id", id!).maybeSingle();
       if (error) throw error;
       return (data ?? null) as AgentConversation | null;
     },
@@ -321,7 +323,7 @@ export function useAllAgentConversations(enabled = true) {
       const userId = await sessionUserId();
       const { data, error } = await supabase
         .from("agent_conversations")
-        .select(CONVERSATION_COLUMNS)
+        .select(AGENT_CONVERSATION_COLUMNS)
         .eq("user_id", userId)
         .order("last_message_at", { ascending: false, nullsFirst: false })
         .limit(200);
@@ -336,7 +338,7 @@ export async function createAgentConversation(agentId: string, title: string | n
   const { data, error } = await supabase
     .from("agent_conversations")
     .insert({ agent_id: agentId, with_kind: "account", is_main: false, title })
-    .select(CONVERSATION_COLUMNS)
+    .select(AGENT_CONVERSATION_COLUMNS)
     .single();
   if (error) throw error;
   return data as AgentConversation;
@@ -427,6 +429,26 @@ export function useAgentRuns(agentId: string | null) {
       return (data ?? []) as AgentRun[];
     },
   });
+}
+
+/**
+ * The conversation to read a run in and go on from (open_agent_run_conversation()): the one it
+ * answered in, else one of its own that starts with its instructions and the agent's answer.
+ */
+export async function openAgentRunConversation(runId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("open_agent_run_conversation", { p_run_id: runId });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Where a run's conversation is: its thread when it answered in one, else the conversation itself. */
+export function agentRunPath(conversationPath: string, run: Pick<AgentRun, "conversation_id" | "message_parent_id">): string {
+  return run.conversation_id && run.message_parent_id ? `${conversationPath}/threads/${entityIdentifier(run.message_parent_id)}` : conversationPath;
+}
+
+/** A run can be opened as a conversation once it's done and left something to read. */
+export function agentRunCanOpen(run: AgentRun): boolean {
+  return !!run.conversation_id || (run.status !== "queued" && run.status !== "running" && !!(run.output?.trim() || run.error || run.instructions?.trim()));
 }
 
 export function agentRunTone(status: AgentRunStatus): "default" | "info" | "success" | "warning" | "danger" {

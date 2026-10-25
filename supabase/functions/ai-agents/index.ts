@@ -4,6 +4,14 @@
 // { action: "tick" } here with the `x-agent-runner-secret` header from agent_runner_config (set its
 // URL once with SELECT public.set_agent_runner_url('https://<host>/functions/v1/ai-agents')).
 //
+// A tick answers at once (202) and does the work in the background (EdgeRuntime.waitUntil), so pg_net
+// hanging up after its few seconds doesn't stop it. All of a tick's work has to fit in the worker's
+// wall clock (the self-hosted main router's workerTimeoutMs, 60 s by default): AGENT_WORKER_WALL_MS
+// (default 50 s) is how long it may take, runs are only claimed while there's time left for one, and
+// a model that doesn't answer in time fails the run with a message saying so. Runs the worker is cut
+// off in are marked failed on its way down, and queue_due_agent_runs() fails any that still sit in
+// "running" (fail_stale_agent_runs()).
+//
 // Each tick claims due runs (claim_agent_runs('server'): the agents on `openai` or `ollama`; Deep
 // Agents wait for a browser) and, for each, acts as the agent's owner with a five-minute JWT signed
 // with the stack's secret: it reads the conversation, the channel thread or the task, asks the model
@@ -12,6 +20,7 @@
 // answer as the agent: in its direct thread, in the channel, or in the owner's direct thread with it.
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET (or SUPABASE_JWT_SECRET). Optional:
+// AGENT_WORKER_WALL_MS (raise it with the router's workerTimeoutMs for slow models),
 // APP_ROUTER_URL (default <SUPABASE_URL>/functions/v1/app-router), ENTITY_URI_SCHEME (the app's entity
 // URI scheme, default `gondol`: tool calls name the agent in `x-gondol-actor` as
 // `<scheme>:agent:<id>`), OLLAMA_BASE_URL and the same
@@ -35,9 +44,10 @@ const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const MAX_TOOL_ROUNDS = 8;
 const MAX_TOOL_RESULT = 20_000;
 const CONTEXT_MESSAGES = 30;
-/** How long a tick may work before it leaves the rest to the next one. */
-const TICK_BUDGET_MS = 110_000;
-const UPSTREAM_TIMEOUT_MS = 90_000;
+/** How long a tick may work in all: keep it under the worker's wall clock limit (workerTimeoutMs). */
+const WORKER_WALL_MS = Math.max(15_000, Number(env("AGENT_WORKER_WALL_MS")) || 50_000);
+/** A run isn't started with less time than this left. */
+const MIN_RUN_MS = 15_000;
 
 const admin = SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }) : null;
 
@@ -165,9 +175,10 @@ function userClient(token: string): SupabaseClient {
 
 let rpcId = 1;
 // `actor` (x-gondol-actor, which the router passes on to the database) logs the agent's writes as its own.
-async function mcp<T>(token: string, method: string, params: Record<string, unknown>, actor?: string): Promise<T> {
+async function mcp<T>(token: string, method: string, params: Record<string, unknown>, deadline: number, actor?: string): Promise<T> {
   const response = await fetch(`${APP_ROUTER_URL}/mcp`, {
     method: "POST",
+    signal: AbortSignal.timeout(timeLeft(deadline)),
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", ...(actor ? { "x-gondol-actor": actor } : {}) },
     body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method, params }),
   });
@@ -176,12 +187,12 @@ async function mcp<T>(token: string, method: string, params: Record<string, unkn
   return answer.result as T;
 }
 
-async function agentTools(token: string, agent: Agent): Promise<{ tools: McpTool[]; instructions: string }> {
+async function agentTools(token: string, agent: Agent, deadline: number): Promise<{ tools: McpTool[]; instructions: string }> {
   if (agent.tool_access === "none") return { tools: [], instructions: "" };
   try {
     const [init, list] = await Promise.all([
-      mcp<{ instructions?: string }>(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gondol-agents", version: "1.0.0" } }),
-      mcp<{ tools: McpTool[] }>(token, "tools/list", {}),
+      mcp<{ instructions?: string }>(token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "gondol-agents", version: "1.0.0" } }, deadline),
+      mcp<{ tools: McpTool[] }>(token, "tools/list", {}, deadline),
     ]);
     return { tools: (list?.tools ?? []).filter((tool) => agentMayUseTool(agent.tool_access, tool)), instructions: init?.instructions ?? "" };
   } catch (error) {
@@ -190,9 +201,9 @@ async function agentTools(token: string, agent: Agent): Promise<{ tools: McpTool
   }
 }
 
-async function callTool(token: string, call: ToolCall, actor: string): Promise<{ text: string; ok: boolean }> {
+async function callTool(token: string, call: ToolCall, actor: string, deadline: number): Promise<{ text: string; ok: boolean }> {
   try {
-    const result = await mcp<{ content?: { type: string; text?: string }[]; isError?: boolean }>(token, "tools/call", { name: call.name, arguments: call.arguments }, actor);
+    const result = await mcp<{ content?: { type: string; text?: string }[]; isError?: boolean }>(token, "tools/call", { name: call.name, arguments: call.arguments }, deadline, actor);
     const text = (result?.content ?? []).map((part) => (part.type === "text" && typeof part.text === "string" ? part.text : JSON.stringify(part))).join("\n");
     return { text, ok: !result?.isError };
   } catch (error) {
@@ -228,14 +239,33 @@ async function endpointFor(agent: Agent): Promise<{ provider: "openai" | "ollama
   return { provider, baseUrl, apiKey };
 }
 
-async function post(url: string, apiKey: string | null, body: unknown): Promise<Record<string, unknown>> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-    redirect: "error",
-  });
+/** Milliseconds until `deadline`, at least one. */
+function timeLeft(deadline: number): number {
+  return Math.max(1, deadline - Date.now());
+}
+
+function timedOut(error: unknown): boolean {
+  return error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError");
+}
+
+async function post(url: string, apiKey: string | null, body: unknown, deadline: number): Promise<Record<string, unknown>> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}) },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeLeft(deadline)),
+      redirect: "error",
+    });
+  } catch (error) {
+    if (timedOut(error)) {
+      throw new Error(
+        `The model didn't answer within the server runner's ${Math.round(WORKER_WALL_MS / 1000)} s. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the functions' workerTimeoutMs.`,
+      );
+    }
+    throw error;
+  }
   const answer = (await response.json().catch(() => null)) as Record<string, unknown> | null;
   if (!response.ok || !answer) {
     const error = answer?.error;
@@ -251,6 +281,7 @@ async function chat(
   messages: ChatMessage[],
   tools: McpTool[],
   temperature: number | null,
+  deadline: number,
 ): Promise<{ content: string; toolCalls: ToolCall[]; metrics: Record<string, number> }> {
   const functions = tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description ?? "", parameters: tool.inputSchema ?? { type: "object", properties: {} } } }));
   const base = endpoint.baseUrl.toString().replace(/\/+$/, "");
@@ -266,7 +297,7 @@ async function chat(
       ),
       ...(functions.length ? { tools: functions } : {}),
       ...(temperature !== null ? { temperature } : {}),
-    });
+    }, deadline);
     const choice = (answer.choices as { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[] | undefined)?.[0]?.message;
     const usage = answer.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
     return {
@@ -295,7 +326,7 @@ async function chat(
     ),
     ...(functions.length ? { tools: functions } : {}),
     ...(temperature !== null ? { options: { temperature } } : {}),
-  });
+  }, deadline);
   const message = answer.message as { content?: string; tool_calls?: { function: { name: string; arguments?: Record<string, unknown> } }[] } | undefined;
   return {
     content: message?.content ?? "",
@@ -375,7 +406,7 @@ async function finish(runId: string, values: { status: string; output?: string |
   await admin!.from("agent_runs").update({ ...values, finished_at: new Date().toISOString() }).eq("id", runId);
 }
 
-async function execute(run: Run): Promise<void> {
+async function execute(run: Run, deadline: number): Promise<void> {
   const speaker = await loadAgent(run.speaker_agent_id ?? run.agent_id);
   if (!speaker || speaker.status !== "active") {
     await finish(run.id, { status: "skipped", error: speaker ? `The agent is ${speaker.status}` : "The agent is gone" });
@@ -395,19 +426,19 @@ async function execute(run: Run): Promise<void> {
     const model = speaker.model?.trim() || (typeof defaultModel === "string" ? defaultModel.trim() : "");
     if (!model) throw new Error("The agent has no model");
     const { lines, situation } = await context(run, speaker, user);
-    const tools = await agentTools(token, speaker);
+    const tools = await agentTools(token, speaker, deadline);
     let system = agentSystemPrompt(speaker, situation);
     if (tools.tools.length && tools.instructions.trim()) system += `\n\nYou can use these apps through their tools:\n${tools.instructions.trim()}`;
     const messages: ChatMessage[] = agentPromptMessages(system, lines, run.instructions, CONTEXT_MESSAGES);
     for (let round = 0; ; round++) {
-      const result = await chat(endpoint, model, messages, round < MAX_TOOL_ROUNDS ? tools.tools : [], speaker.temperature);
+      const result = await chat(endpoint, model, messages, round < MAX_TOOL_ROUNDS ? tools.tools : [], speaker.temperature, deadline);
       if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
       metrics = result.metrics;
       if (!result.toolCalls.length || round >= MAX_TOOL_ROUNDS) break;
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         const tool = tools.tools.find((t) => t.name === call.name);
-        const answer = tool ? await callTool(await tokenFor(run.user_id), call, `${URI_SCHEME}:agent:${speaker.id}`) : { text: `There is no tool named ${call.name}, or the agent may not use it.`, ok: false };
+        const answer = tool ? await callTool(await tokenFor(run.user_id), call, `${URI_SCHEME}:agent:${speaker.id}`, deadline) : { text: `There is no tool named ${call.name}, or the agent may not use it.`, ok: false };
         used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok: answer.ok });
         messages.push({ role: "tool", content: answer.text.length > MAX_TOOL_RESULT ? `${answer.text.slice(0, MAX_TOOL_RESULT)}…` : answer.text, toolCallId: call.id, toolName: call.name });
       }
@@ -463,6 +494,50 @@ async function execute(run: Run): Promise<void> {
   await finish(run.id, { status: failure ? "failed" : "done", output: content || null, error: failure, metrics: allMetrics });
 }
 
+/** Runs this worker is working on, failed on its way down if it's cut off before they're done. */
+const inFlight = new Set<string>();
+
+declare const EdgeRuntime: { waitUntil?: (promise: Promise<unknown>) => void } | undefined;
+
+addEventListener("beforeunload", (event) => {
+  if (!inFlight.size || !admin) return;
+  const reason = (event as Event & { detail?: { reason?: string } }).detail?.reason;
+  const error = `The server stopped the run before the model was done${reason ? ` (${reason})` : ""}. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the functions' workerTimeoutMs.`;
+  void admin
+    .from("agent_runs")
+    .update({ status: "failed", error, finished_at: new Date().toISOString() })
+    .in("id", [...inFlight])
+    .eq("status", "running");
+});
+
+/** Claims and does due runs while there's time left for one in this worker. */
+async function tick(): Promise<{ done: number; error?: string }> {
+  const started = Date.now();
+  // What's left for posting the answer and logging the run once the model is done.
+  const deadline = started + WORKER_WALL_MS - 3_000;
+  let done = 0;
+  while (deadline - Date.now() > MIN_RUN_MS) {
+    const { data: claimed, error } = await admin!.rpc("claim_agent_runs", { p_runner: "server", p_limit: 3 });
+    if (error) return { done, error: error.message };
+    const runs = (claimed ?? []) as Run[];
+    if (!runs.length) break;
+    await Promise.all(
+      runs.map(async (run) => {
+        inFlight.add(run.id);
+        try {
+          await execute(run, deadline);
+        } catch (e) {
+          await finish(run.id, { status: "failed", error: e instanceof Error ? e.message : String(e) });
+        } finally {
+          inFlight.delete(run.id);
+        }
+      }),
+    );
+    done += runs.length;
+  }
+  return { done };
+}
+
 Deno.serve(async (request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!admin) return json({ error: "SUPABASE_SERVICE_ROLE_KEY isn't set for this function" }, 500);
@@ -470,15 +545,15 @@ Deno.serve(async (request) => {
   const secret = request.headers.get("x-agent-runner-secret") ?? "";
   if (!config?.secret || secret.length !== config.secret.length || secret !== config.secret) return json({ error: "Unauthorized" }, 401);
 
-  const started = Date.now();
-  let done = 0;
-  while (Date.now() - started < TICK_BUDGET_MS) {
-    const { data: claimed, error } = await admin.rpc("claim_agent_runs", { p_runner: "server", p_limit: 3 });
-    if (error) return json({ error: error.message, done }, 500);
-    const runs = (claimed ?? []) as Run[];
-    if (!runs.length) break;
-    await Promise.all(runs.map((run) => execute(run).catch((e) => finish(run.id, { status: "failed", error: e instanceof Error ? e.message : String(e) }))));
-    done += runs.length;
+  const work = tick().then((result) => {
+    if (result.error) console.error("ai-agents:", result.error);
+    return result;
+  });
+  // pg_net only waits a few seconds for an answer: the work goes on after the answer.
+  if (typeof EdgeRuntime !== "undefined" && EdgeRuntime?.waitUntil) {
+    EdgeRuntime.waitUntil(work);
+    return json({ accepted: true }, 202);
   }
-  return json({ done });
+  const result = await work;
+  return json(result, result.error ? 500 : 200);
 });

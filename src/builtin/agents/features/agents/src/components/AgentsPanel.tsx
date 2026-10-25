@@ -12,6 +12,7 @@ import { agentStatusTone, findAgent, useAgentAvailability, useAgents, type Agent
 import { useAgentRunner } from "../../../../models/runAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentChatPage } from "./AgentChatPage";
+import { AgentRunConversation } from "./AgentRunConversation";
 import { AgentSheet } from "./AgentSheet";
 import { AgentView } from "./AgentView";
 import { useAgentActions } from "./useAgentActions";
@@ -21,8 +22,8 @@ import { useAvailabilityText } from "./useAvailabilityText";
  * Agents (`/agents`): the user's AI agents listed like their alter egos. Opening one goes straight
  * to your main conversation with it (`/agents/$agent`, AgentChatPage), beside its other
  * conversations (`…/conversations/$id`, `…/messages/ego/$ego`, `…/messages/agent/$agent`); its
- * settings page (`/agents/$agent/settings`: profile, schedules, threads, work log) is behind the
- * cog. Agents are created and edited in routed sheets (`/agents/new`, `/agents/$agent/edit`), and
+ * settings page (`/agents/$agent/settings`, tabs: profile, `…/conversations`, `…/schedules`, `…/runs`)
+ * is behind the cog, and `/agents/$agent/runs/$run` opens one run of its work as a conversation. Agents are created and edited in routed sheets (`/agents/new`, `/agents/$agent/edit`), and
  * so are their schedules (`/agents/$agent/settings/schedules/new`, `…/schedules/$schedule/edit`).
  * While it's open, the app does the agents' due work in the browser (useAgentRunner).
  */
@@ -46,6 +47,16 @@ export function AgentsPanel() {
   let body;
   if (agentKey && (parts[1] === "settings" || oldSchedulePath)) {
     body = <AgentView agentKey={agentKey} agent={agent} agents={agents} loading={isLoading} sub={parts.slice(2)} onQueued={runner.kick} />;
+  } else if (agentKey && parts[1] === "runs" && parts[2]) {
+    body = agent ? (
+      <AgentRunConversation key={parts[2]} agent={agent} agents={agents} runKey={parts[2]} />
+    ) : isLoading ? (
+      <Card>
+        <p className="stat-label">{t("app.loading")}</p>
+      </Card>
+    ) : (
+      <PageNotFound />
+    );
   } else if (agentKey) {
     body = agent ? (
       <AgentChatPage key={agent.id} agent={agent} agents={agents} parts={parts.slice(1)} onQueued={runner.kick} />
