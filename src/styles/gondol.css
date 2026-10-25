@@ -2,6 +2,7 @@
    and the base styles. An app imports it first in its own stylesheet:
    @import "gondol/styles/gondol.css"; */
 @import "../design-system/bungalow-79d923/design-system/bungalow/styles/theme.css";
+@import "./fonts.css";
 @import "./aero.css";
 @import "./tui.css";
 @import "./base.css";
