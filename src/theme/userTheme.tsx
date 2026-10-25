@@ -104,14 +104,42 @@ export interface UserTheme {
   aero?: AeroSettings | null;
   /** Settings of the TUI engine (src/lib/tuiTheme.ts); ignored by the other engines. */
   tui?: TuiSettings | null;
-  /** Only set on the theme an alternative engine derives (aeroUserTheme, tuiUserTheme), never stored. */
-  engine?: "aero" | "tui";
+  /** Settings of the simple engine (its own text and background colours); ignored by the other engines. */
+  simple?: SimpleSettings | null;
+  /** Only set on the theme an engine other than the advanced one derives (simpleUserTheme,
+   * aeroUserTheme, tuiUserTheme), never stored. */
+  engine?: "simple" | "aero" | "tui";
   /** Neon flavor: glow strength, percent (0–200, default 100). */
   neonGlow?: number;
   /** Neon flavor: CRT scanline overlay. */
   neonScanlines?: boolean;
   /** App shell preferences (src/lib/userTheme.tsx, ShellSettings); kept across every engine. */
   shell?: ShellSettings | null;
+}
+
+/** A text (foreground) and a background colour, "#rrggbb"; unset keeps the design system's. */
+export interface SimpleColors {
+  foreground?: string | null;
+  background?: string | null;
+}
+
+/** The simple engine's own colours, one pair per colour scheme. */
+export interface SimpleSettings {
+  light?: SimpleColors | null;
+  dark?: SimpleColors | null;
+}
+
+/** The design system's text and background colours (theme.css, base.css), shown until one's own is set. */
+export const SIMPLE_DEFAULT_COLORS: Record<"light" | "dark", Required<{ [K in keyof SimpleColors]: string }>> = {
+  light: { foreground: "#111111", background: "#ffffff" },
+  dark: { foreground: "#fafafa", background: "#111111" },
+};
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** What the simple engine applies: only its own colours. */
+export function simpleUserTheme(simple: SimpleSettings | null | undefined): UserTheme {
+  return simple ? { engine: "simple", simple } : {};
 }
 
 /** "modern" is the Spotify-style shell: a header across the top (back/forward, search, account)
@@ -278,7 +306,8 @@ export const USER_THEME_VARS_STORAGE_KEY = "cashflow-user-theme-vars";
 const ENGINE_STORAGE_KEY = "cashflow-theme-engine";
 
 /** "simple" is the original engine: light/dark mode plus one accent color
- * (src/lib/theme.tsx, src/lib/accentColor.tsx). "advanced" layers this file's
+ * (src/lib/theme.tsx, src/lib/accentColor.tsx) and, optionally, text and background colours of
+ * one's own per mode (UserTheme.simple). "advanced" layers this file's
  * palettes, flavors and preferences on top. Switching to "simple" applies
  * nothing from the advanced theme but keeps it stored, so switching back
  * restores it. */
@@ -467,6 +496,23 @@ export function computeThemeVars(theme: UserTheme, isDark: boolean, accentOverri
       const sat = tint ? (TINT_BASE_SATURATION * (theme.tintSaturation ?? 100)) / 100 : 0;
       const l = lightness ?? (isDark ? 7 : 97);
       vars["--bungalow-color-canvas"] = `hsl(${hue} ${sat}% ${l}%)`;
+    }
+  }
+
+  // The simple engine's own text and background colours for this colour scheme. The menus' frame
+  // follows the background: a shade towards the text in light mode, darker in dark mode, as the
+  // stock frame is to the stock background.
+  if (theme.engine === "simple") {
+    const colors = isDark ? theme.simple?.dark : theme.simple?.light;
+    if (colors?.background && HEX_COLOR.test(colors.background)) {
+      vars["--bungalow-color-canvas"] = colors.background;
+      vars["--chrome-bg"] = isDark
+        ? "color-mix(in srgb, #000000 45%, var(--bungalow-color-canvas))"
+        : "color-mix(in srgb, var(--bungalow-color-ink) 3%, var(--bungalow-color-canvas))";
+    }
+    if (colors?.foreground && HEX_COLOR.test(colors.foreground)) {
+      vars["--bungalow-color-ink"] = colors.foreground;
+      vars["--chrome-fg"] = "var(--bungalow-color-ink)";
     }
   }
 
@@ -772,7 +818,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
   // The site's accent, else the visitor's. "theme" (and null) is the theme's own accent.
   const chosenAccent = fromSite.accentColor ? siteThemePartValue(declaredSiteTheme, "accentColor") : ownAccent;
   const effectiveAccent = chosenAccent && chosenAccent !== "theme" ? chosenAccent : null;
-  // What actually gets applied: nothing from the advanced theme in simple mode,
+  // What actually gets applied: nothing from the advanced theme in simple mode but its own colours,
   // and only what the aero/TUI engine derives from its own settings in those modes.
   const activeTheme = useMemo<UserTheme>(() => {
     const base =
@@ -782,7 +828,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           ? aeroUserTheme(appliedTheme.aero)
           : appliedEngine === "tui"
             ? tuiUserTheme(appliedTheme.tui)
-            : {};
+            : simpleUserTheme(appliedTheme.simple);
     // The site's layout style: locked, or a default where the theme sets none.
     const layoutStyle = resolveSitePreference(siteLayout, "layoutStyle", base.layoutStyle);
     return layoutStyle ? { ...base, layoutStyle } : base;
@@ -894,13 +940,13 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
         if (ownsTheme(partial)) setEngineChosen(true);
         persist({ ...userTheme, ...partial });
       },
-      // The aero and TUI engines' settings and the shell preferences ride along on the same
+      // The simple, aero and TUI engines' settings and the shell preferences ride along on the same
       // object; loading or resetting an advanced theme keeps them.
       replaceUserTheme: (next) => {
         setEngineChosen(true);
-        persist({ aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next });
+        persist({ simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next });
       },
-      resetUserTheme: () => persist({ ...defaultUserTheme(), aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell }),
+      resetUserTheme: () => persist({ ...defaultUserTheme(), simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell }),
       savedThemes,
       saveCurrentTheme: (name) =>
         persistSaved([

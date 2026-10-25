@@ -460,6 +460,21 @@ body {
   display: none;
 }
 
+/* The simple engine's text and background colours (theme/SimpleThemeSettings.tsx). */
+.simple-color-grid {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-2) var(--bungalow-space-4);
+}
+.simple-color-grid__item {
+  align-items: center;
+  display: flex;
+  font-size: 0.8125rem;
+  gap: var(--bungalow-space-2);
+}
+.simple-color-grid__item input { outline: 1px solid currentColor; outline-offset: 1px; }
+
 /* Accent and contrast (theme/userTheme.tsx, AccentColorField). Both re-declare the tokens on every
  * element, not just :root, so they resolve against the nearest canvas and ink: a pane that sets
  * its own (the always-dark sheet preview) still gets its own foreground and background. They are
@@ -511,6 +526,25 @@ body {
   --button-color: var(--bungalow-color-ink) !important;
   --button-contrast: var(--bungalow-color-canvas) !important;
 }
+/* Whatever colour a rule gives a border or an outline (a grey, a colour-mix, a translucent white),
+ * in high contrast it is the foreground colour, and shadows (soft greys) go, so lines are only ever
+ * drawn in the foreground colour. :where() keeps the specificity at zero, so a rule that must hide
+ * a border there (data tables without lines) still can, with !important of its own. Focus keeps
+ * its ring, which is the two colours too. */
+:where(:root[data-high-contrast]) *,
+:where(:root[data-high-contrast]) *::before,
+:where(:root[data-high-contrast]) *::after {
+  border-color: var(--bungalow-color-ink) !important;
+  outline-color: var(--bungalow-color-ink) !important;
+  column-rule-color: var(--bungalow-color-ink) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+:where(:root[data-high-contrast]) :focus-visible {
+  box-shadow: var(--bungalow-focus-ring) !important;
+}
+/* The splitters' grips are lines too. */
+:root[data-high-contrast] .sidebar-resize-handle--height::after { background: var(--bungalow-color-ink); }
 
 /* The dock (AppShell): the apps' bottom widgets, such as the player. It adds no box of its own,
    so the widgets stay where the app's layout puts them, except under a fading tab bar. */
