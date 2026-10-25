@@ -16,6 +16,13 @@ configureGondol({ apps: [...myApps, agentsApp] });
 and point pg_cron at it with `set_agent_runner_url()`; without it, runs are made by the browser
 while the app is open (`useAgentRunner()`).
 
+A tick answers pg_net at once (202) and works on in the background (`EdgeRuntime.waitUntil`), and
+all of its work has to fit in the worker's wall clock (the self-hosted main router's
+`workerTimeoutMs`, 60 s by default): `AGENT_WORKER_WALL_MS` (default 50 s) is how long it may take.
+A model that doesn't answer in time fails the run with a message saying so; for slow models raise
+both. Runs that still say "running" after ten minutes (a cut-off worker, a closed tab) are failed by
+`fail_stale_agent_runs()`, which `queue_due_agent_runs()` and `claim_agent_runs()` call.
+
 ## What an agent is
 
 An `agents` row has a name, an `@username`, an avatar, a job title, a bio, standing instructions,
@@ -30,7 +37,8 @@ cron; every piece of work is an `agent_runs` row, and direct threads are `agent_
 | --- | --- |
 | `/agents` | The user's agents. |
 | `/agents/<key>` | The main chat with an agent; more conversations at `/agents/<key>/conversations/<id>`. |
-| `/agents/<key>/settings` | Its profile, schedules and work log. |
+| `/agents/<key>/settings` | Its profile, with tabs for conversations (`…/conversations`), schedules (`…/schedules`) and runs (`…/runs`). |
+| `/agents/<key>/runs/<id>` | One run opened as a conversation to go on from (`open_agent_run_conversation()`). |
 | `/agents/<key>/messages/…` | A messenger thread with the account, an alter ego or another agent. |
 | `/agents/new`, `/agents/<key>/edit`, `…/settings/schedules/{new,<key>/edit}` | The sheets. |
 
