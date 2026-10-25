@@ -46,10 +46,10 @@ function scopeHeaders(): Record<string, string> {
   };
 }
 
-async function invoke<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal }): Promise<T> {
+async function invoke<T>(path: string, init: { method?: "GET" | "POST"; body?: unknown; signal?: AbortSignal; actor?: string | null }): Promise<T> {
   const { data, error } = await supabase.functions.invoke(`${functionName}${path}`, {
     method: init.method ?? "POST",
-    headers: scopeHeaders(),
+    headers: { ...scopeHeaders(), ...(init.actor ? { "x-gondol-actor": init.actor } : {}) },
     ...(init.body !== undefined ? { body: init.body as Record<string, unknown> } : {}),
     signal: init.signal,
   });
@@ -97,12 +97,21 @@ export async function fetchAppCatalog(signal?: AbortSignal): Promise<{ mcp: stri
 
 let nextId = 1;
 
-/** One JSON-RPC request to the router's MCP server (`/mcp`, or one app's with `appId`). */
-export async function mcpRequest<T = unknown>(method: string, params: Record<string, unknown> = {}, options: { appId?: string; signal?: AbortSignal } = {}): Promise<T> {
+/**
+ * One JSON-RPC request to the router's MCP server (`/mcp`, or one app's with `appId`). `actor` is the
+ * entity URI of whoever is acting (an AI conversation, an agent), sent as `x-gondol-actor`; the
+ * router passes it on to the database, so the app can tell writes made by AI from the user's own.
+ */
+export async function mcpRequest<T = unknown>(
+  method: string,
+  params: Record<string, unknown> = {},
+  options: { appId?: string; signal?: AbortSignal; actor?: string | null } = {},
+): Promise<T> {
   const path = options.appId ? `/apps/${encodeURIComponent(options.appId)}/mcp` : "/mcp";
   const answer = await invoke<{ result?: T; error?: { code: number; message: string } }>(path, {
     body: { jsonrpc: "2.0", id: nextId++, method, params },
     signal: options.signal,
+    actor: options.actor,
   });
   if (answer?.error) throw new AppRouterError(answer.error.message);
   return answer.result as T;
@@ -119,9 +128,9 @@ export async function listAppTools(signal?: AbortSignal): Promise<AppTools> {
   return { tools: list?.tools ?? [], instructions: init?.instructions ?? "" };
 }
 
-/** Runs a tool; a failure is a result with `isError`, as MCP has it. */
-export function callAppTool(name: string, args: Record<string, unknown>, signal?: AbortSignal): Promise<McpToolResult> {
-  return mcpRequest<McpToolResult>("tools/call", { name, arguments: args }, { signal });
+/** Runs a tool (as `actor`, see mcpRequest()); a failure is a result with `isError`, as MCP has it. */
+export function callAppTool(name: string, args: Record<string, unknown>, signal?: AbortSignal, actor?: string | null): Promise<McpToolResult> {
+  return mcpRequest<McpToolResult>("tools/call", { name, arguments: args }, { signal, actor });
 }
 
 /** A tool result as text, for a model. */

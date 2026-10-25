@@ -43,10 +43,11 @@ const SUPABASE_URL = env("SUPABASE_URL")!;
 const ANON_KEY = env("SUPABASE_ANON_KEY") ?? env("SUPABASE_PUBLISHABLE_KEY")!;
 const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
 const JWT_SECRET = env("JWT_SECRET") ?? env("SUPABASE_JWT_SECRET") ?? "";
-const FORWARD = (env("APP_ROUTER_FORWARD_HEADERS") ?? "")
-  .split(",")
-  .map((h) => h.trim().toLowerCase())
-  .filter(Boolean);
+// `x-gondol-actor` always goes along: the AI chat and the agents name themselves in it (the entity
+// URI of the conversation or the agent) when they call a tool, so the app can log who did a write.
+const FORWARD = [
+  ...new Set(["x-gondol-actor", ...(env("APP_ROUTER_FORWARD_HEADERS") ?? "").split(",").map((h) => h.trim().toLowerCase())]),
+].filter(Boolean);
 
 const anon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const admin = SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } }) : null;

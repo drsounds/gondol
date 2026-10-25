@@ -13,6 +13,7 @@ import {
 import { threadContext } from "./threads";
 import { AiProviderError, getAiProvider, type AiChatMessage, type AiSettings, type AiToolCall } from "./providers";
 import { callAppTool, toolResultText } from "../../../api/client";
+import { entityUriScheme } from "../../../entities/uri";
 import { isUiResource, uiResourcesOf } from "../../../genui/mcpUi";
 import { aiToolsFor, instructionsWithApps, toolNeedsApproval, type AppTools, type McpTool } from "./tools";
 import { aiToolPermissionsKey, allowAiTool, isToolAllowed, useAiToolPermissions, type AiToolDecision } from "./permissions";
@@ -168,7 +169,8 @@ export function useAiChat(
           denied = true;
         } else {
           try {
-            const result = await callAppTool(call.name, call.arguments, abort.signal);
+            // Writes the tool makes are logged as the conversation's, not the user's own.
+            const result = await callAppTool(call.name, call.arguments, abort.signal, `${entityUriScheme()}:ai_conversation:${conversation.id}`);
             for (const found of uiResourcesOf(result)) {
               const size = (found.resource.text ?? found.resource.blob ?? "").length;
               if (views.length < MAX_TOOL_VIEWS && size <= MAX_TOOL_VIEW_SIZE) views.push({ tool: call.name, resource: found.resource });
