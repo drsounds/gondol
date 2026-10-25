@@ -120,6 +120,71 @@ export function pageDataModel(app: LiteAppTree, page: LitePage | null, records: 
   };
 }
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The type keys a page's `RecordList`s (A2UI or Open-JSON-UI) list; they have a New button of their own. */
+function recordListTypes(document: unknown): Set<string> {
+  const keys = new Set<string>();
+  const literal = (value: unknown) =>
+    typeof value === "string" ? value : value && typeof value === "object" && typeof (value as { literalString?: unknown }).literalString === "string" ? (value as { literalString: string }).literalString : undefined;
+  const typeOf = (props: unknown) => (props && typeof props === "object" ? literal((props as Record<string, unknown>).type ?? (props as Record<string, unknown>).entityType) : undefined);
+  const visit = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!node || typeof node !== "object") return;
+    const object = node as Record<string, unknown>;
+    const found = [typeOf(object.RecordList), typeOf(object.EntityList), object.type === "RecordList" || object.type === "EntityList" ? typeOf(object.props) : undefined];
+    for (const key of found) if (key) keys.add(key);
+    Object.values(object).forEach(visit);
+  };
+  visit(document);
+  return keys;
+}
+
+/**
+ * The types a page offers a "New …" button for in its header: those it shows (`/records/<key>`
+ * bindings, a quoted key in a component or action) or, when it names none, all of the app's,
+ * leaving out types a `RecordList` on the page already lists with its own button.
+ */
+export function pageCreateTypes(app: LiteAppTree, page: LitePage): LiteEntityType[] {
+  const listed = recordListTypes(page.document);
+  const shown = app.types.filter((type) => pageShowsType(page, type));
+  return (shown.length ? shown : app.types).filter((type) => !listed.has(type.key) && !listed.has(type.id) && !listed.has(type.name));
+}
+
+/** Whether a page's document names a type: a `/records/<key>` binding or a quoted key. */
+function pageShowsType(page: LitePage, type: LiteEntityType): boolean {
+  const text = typeof page.document === "string" ? page.document : JSON.stringify(page.document ?? null);
+  return new RegExp(`(/records/|\\\\?["'])${escapeRegExp(type.key)}(\\\\?["'/]|$)`).test(text);
+}
+
+/** An entity type of a built app, as an item of the shell's create picker. */
+export interface LiteCreateTarget {
+  key: string;
+  /** The type's name, and its app's for the picker's section line. */
+  name: string;
+  appName: string;
+  iconName: string;
+  /** The record sheet: on the first page that shows the type, else the app's first page. */
+  path: string;
+}
+
+/** Every entity type of the user's built apps that has a page to create its records on. */
+export function liteCreateTargets(apps: readonly LiteAppTree[]): LiteCreateTarget[] {
+  return apps.flatMap((app) => {
+    if (!app.pages.length) return [];
+    return app.types.map((type) => {
+      const page = app.pages.find((p) => pageShowsType(p, type)) ?? firstLitePage(app)!;
+      return {
+        key: `lite.${app.id}.${type.key}`,
+        name: type.name,
+        appName: app.name,
+        iconName: type.icon_name || app.icon_name || "brush",
+        path: `${litePagePath(app, page)}/records/new/${type.key}`,
+      };
+    });
+  });
+}
+
 /** A form's values as a record's data: numbers, booleans and lists as the fields say. */
 export function coerceRecordValues(type: LiteEntityType, values: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...values };

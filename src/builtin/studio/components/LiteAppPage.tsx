@@ -3,9 +3,10 @@ import type { AppFeaturePageProps } from "../../../apps/types";
 import { entityKey, findByEntityKey } from "../../../entities/slugs";
 import { useI18n } from "../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../navigation/useEntityModal";
+import { useSiteOffers } from "../../../sites/capabilities";
 import { EmptyState } from "../../../shell/EmptyState";
 import type { MessageKey } from "../../../register";
-import { litePagePath, useLiteApps, useLiteRecords } from "../models/studio";
+import { litePagePath, pageCreateTypes, useLiteApps, useLiteRecords } from "../models/studio";
 import { LitePageView } from "./LitePageView";
 import { RecordSheet } from "./RecordSheet";
 
@@ -24,6 +25,7 @@ export function LiteAppPage({ appId, featureId, splat, onOpenUri }: AppFeaturePa
   const app = (apps.data ?? []).find((a) => liteBundleId(a.id) === appId);
   const page = app?.pages.find((p) => p.key === featureId);
   const records = useLiteRecords(app?.id ?? null);
+  const canCreate = useSiteOffers()({ aspects: ["create"] });
 
   if (apps.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
   if (!app || !page) return <EmptyState items={t("studio.page.items")} description={t("studio.page.notFound")} />;
@@ -32,6 +34,8 @@ export function LiteAppPage({ appId, featureId, splat, onOpenUri }: AppFeaturePa
   const rows = records.data ?? [];
   const parts = (splat ?? "").split("/").filter(Boolean);
   const close = () => go(base);
+  // The page's own "New …" buttons, whatever its document draws: the first type is the primary one.
+  const createTypes = canCreate ? pageCreateTypes(app, page) : [];
   let sheet = null;
   if (parts[0] === "records" && parts[1] === "new" && parts[2]) {
     const type = app.types.find((ty) => ty.key === parts[2]);
@@ -51,6 +55,19 @@ export function LiteAppPage({ appId, featureId, splat, onOpenUri }: AppFeaturePa
         <Button size="sm" variant="ghost" onClick={() => go(`/studio/${entityKey(app)}/ask`)}>
           {t("studio.ask.button")}
         </Button>
+        {createTypes
+          .slice(1)
+          .reverse()
+          .map((type) => (
+            <Button key={type.id} size="sm" variant="outline" onClick={() => go(`${base}/records/new/${type.key}`)}>
+              {t("studio.record.new", { type: type.name })}
+            </Button>
+          ))}
+        {createTypes[0] ? (
+          <Button size="sm" tone="primary" onClick={() => go(`${base}/records/new/${createTypes[0].key}`)}>
+            {t("studio.record.new", { type: createTypes[0].name })}
+          </Button>
+        ) : null}
       </div>
       <LitePageView
         app={app}
