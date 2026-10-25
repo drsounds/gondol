@@ -182,7 +182,7 @@ bun node_modules/gondol/src/api/cli.ts --apps src/apps --builtin ai,oauth,stream
 | `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET` (or `SUPABASE_JWT_SECRET`) | For OAuth callers: looking up their tokens and signing a JWT for the user. |
 | `APP_ROUTER_PUBLIC_URL` | Its public address, for the links it hands out (default: from the request). |
 | `APP_API_PUBLIC_URL` | The app API's public address, named to MCP clients as the authorization server. |
-| `APP_ROUTER_FORWARD_HEADERS` | Request headers passed on to functions, comma-separated (e.g. `x-spacify-workspace`); they're also allowed by CORS. |
+| `APP_ROUTER_FORWARD_HEADERS` | Request headers passed on to functions, comma-separated (e.g. `x-spacify-workspace`); they're also allowed by CORS. `x-gondol-actor` always is: the AI chat and the agents send the entity URI of the conversation or the agent with their tool calls (`callAppTool(…, actor)`), so the database can log who made a write (PostgREST's `request.headers`). |
 | `APP_ROUTER_ENTITIES`, `APP_ROUTER_DISCOVERY` | `false` turns off the `entities__` (for a host without the entity API) or `apps__` tools. |
 | whatever `mcp.endpoint.headers` name | Apps' own MCP servers' credentials. |
 | `MCP_ALLOWED_HOSTS`, `MCP_ALLOW_PRIVATE` | Users' own MCP servers (the ai app's `ai_mcp_servers`, read with `SUPABASE_SERVICE_ROLE_KEY`) must be public HTTPS hosts; these allow listed hosts (comma separated, `host` or `host:port`) or every address. |

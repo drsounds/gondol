@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { callAppTool, listAppTools, toolResultText, type McpTool } from "../../../api/client";
+import { toEntityUri } from "../../../entities/uri";
 import { getAiProvider, type AiChatMessage, type AiSettings, type AiToolCall } from "../../ai/models/providers";
 import { aiToolsFor } from "../../ai/models/tools";
 import { useAiSettings } from "../../ai/models/models";
@@ -159,7 +160,8 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
         text = `There is no tool named ${call.name}, or the agent may not use it.`;
       } else {
         try {
-          const answer = await callAppTool(call.name, call.arguments, ctx.signal);
+          // Writes the tool makes are logged as the agent's, not its owner's.
+          const answer = await callAppTool(call.name, call.arguments, ctx.signal, toEntityUri("agent", speaker.id));
           text = toolResultText(answer);
           ok = !answer.isError;
         } catch (caught) {

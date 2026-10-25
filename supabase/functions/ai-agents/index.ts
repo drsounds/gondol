@@ -12,7 +12,9 @@
 // answer as the agent: in its direct thread, in the channel, or in the owner's direct thread with it.
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET (or SUPABASE_JWT_SECRET). Optional:
-// APP_ROUTER_URL (default <SUPABASE_URL>/functions/v1/app-router), OLLAMA_BASE_URL and the same
+// APP_ROUTER_URL (default <SUPABASE_URL>/functions/v1/app-router), ENTITY_URI_SCHEME (the app's entity
+// URI scheme, default `gondol`: tool calls name the agent in `x-gondol-actor` as
+// `<scheme>:agent:<id>`), OLLAMA_BASE_URL and the same
 // OLLAMA_ALLOWED_HOSTS / OLLAMA_ALLOW_PRIVATE / OPENAI_ALLOWED_HOSTS / OPENAI_ALLOW_PRIVATE as the
 // ai-ollama and ai-openai functions. Deploy with `verify_jwt = false`.
 //
@@ -26,6 +28,8 @@ const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
 const SUPABASE_URL = env("SUPABASE_URL")!;
 const SERVICE_KEY = env("SUPABASE_SERVICE_ROLE_KEY");
 const JWT_SECRET = env("JWT_SECRET") ?? env("SUPABASE_JWT_SECRET") ?? "";
+// The app's entity URI scheme (gondol's configureEntityUris()), for naming the agent as the actor.
+const URI_SCHEME = env("ENTITY_URI_SCHEME") ?? "gondol";
 const APP_ROUTER_URL = (env("APP_ROUTER_URL") ?? `${SUPABASE_URL}/functions/v1/app-router`).replace(/\/+$/, "");
 const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const MAX_TOOL_ROUNDS = 8;
@@ -160,10 +164,11 @@ function userClient(token: string): SupabaseClient {
 }
 
 let rpcId = 1;
-async function mcp<T>(token: string, method: string, params: Record<string, unknown>): Promise<T> {
+// `actor` (x-gondol-actor, which the router passes on to the database) logs the agent's writes as its own.
+async function mcp<T>(token: string, method: string, params: Record<string, unknown>, actor?: string): Promise<T> {
   const response = await fetch(`${APP_ROUTER_URL}/mcp`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json" },
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", ...(actor ? { "x-gondol-actor": actor } : {}) },
     body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method, params }),
   });
   const answer = (await response.json().catch(() => null)) as { result?: T; error?: { message?: string } } | null;
@@ -185,9 +190,9 @@ async function agentTools(token: string, agent: Agent): Promise<{ tools: McpTool
   }
 }
 
-async function callTool(token: string, call: ToolCall): Promise<{ text: string; ok: boolean }> {
+async function callTool(token: string, call: ToolCall, actor: string): Promise<{ text: string; ok: boolean }> {
   try {
-    const result = await mcp<{ content?: { type: string; text?: string }[]; isError?: boolean }>(token, "tools/call", { name: call.name, arguments: call.arguments });
+    const result = await mcp<{ content?: { type: string; text?: string }[]; isError?: boolean }>(token, "tools/call", { name: call.name, arguments: call.arguments }, actor);
     const text = (result?.content ?? []).map((part) => (part.type === "text" && typeof part.text === "string" ? part.text : JSON.stringify(part))).join("\n");
     return { text, ok: !result?.isError };
   } catch (error) {
@@ -402,7 +407,7 @@ async function execute(run: Run): Promise<void> {
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         const tool = tools.tools.find((t) => t.name === call.name);
-        const answer = tool ? await callTool(await tokenFor(run.user_id), call) : { text: `There is no tool named ${call.name}, or the agent may not use it.`, ok: false };
+        const answer = tool ? await callTool(await tokenFor(run.user_id), call, `${URI_SCHEME}:agent:${speaker.id}`) : { text: `There is no tool named ${call.name}, or the agent may not use it.`, ok: false };
         used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok: answer.ok });
         messages.push({ role: "tool", content: answer.text.length > MAX_TOOL_RESULT ? `${answer.text.slice(0, MAX_TOOL_RESULT)}…` : answer.text, toolCallId: call.id, toolName: call.name });
       }
