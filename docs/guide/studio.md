@@ -49,6 +49,12 @@ Every page's data model holds `/app`, `/page`, `/types` (each type's name and fi
 On top of A2UI's catalogue, pages get `RecordList {type, title?}` (a type's records with New, Edit
 and Delete) and `RecordForm {type, submitLabel?}`.
 
+Whatever its document draws, every page has its own "New …" button at the top right (the bar with
+"Edit page"), so records can always be added, on phones too: one per type the page shows (a
+`/records/<key>` binding or a quoted type key in its document; all of the app's types when it names
+none), the first as the primary button. Types a `RecordList` on the page lists are left out, since
+it has a New button of its own (`pageCreateTypes()`).
+
 Button actions the page runs itself: `create_record {type, …fields}`, `update_record {id, …fields}`,
 `delete_record {id}`, `new_record {type}` and `edit_record {id}` (open the sheets),
 `navigate {page}` or `{path}` and `open_uri {uri}`. MCP-UI views call the same names as tools
