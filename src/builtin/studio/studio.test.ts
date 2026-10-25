@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import manifest from "./manifest.json";
 import { parseManifest } from "../../apps/manifest";
 import { buildA2uiState, parseA2ui } from "../../genui/a2ui";
-import { coerceRecordValues, keyFromName, missingFields, pageCreateTypes, pageDataModel } from "./models/studio";
+import { coerceRecordValues, keyFromName, liteCreateTargets, missingFields, pageCreateTypes, pageDataModel } from "./models/studio";
 import { buildAgentPrompt, userActionPrompt } from "./models/prompts";
 import { sampleDocument } from "./models/samples";
 import type { LiteAppTree, LiteEntityType, LitePage, LiteRecord } from "./models/types";
@@ -75,6 +75,16 @@ describe("studio", () => {
     expect(keys(sampleDocument("a2ui", two, "Plants"))).toEqual([]);
     expect(keys(sampleDocument("open_json_ui", two, "Plants"))).toEqual([]);
     expect(keys(["<button onclick=\"run('new_record', {type: 'pot'})\">"])).toEqual(["pot"]);
+  });
+
+  test("every type of an app with pages is in the create picker, on the page that shows it", () => {
+    const pot: LiteEntityType = { ...plant, id: "t2", key: "pot", name: "Pot", plural_name: "Pots" };
+    const potsPage: LitePage = { ...app.pages[0], id: "p2", key: "pots", position: 1, document: sampleDocument("a2ui", { name: "Pots", types: [pot] }, "Pots") };
+    const targets = liteCreateTargets([{ ...app, types: [plant, pot], pages: [...app.pages, potsPage] }, { ...app, id: "a2", pages: [] }]);
+    expect(targets.map((target) => [target.name, target.appName, target.path])).toEqual([
+      ["Plant", "Plants", "/lite/plants/list/records/new/plant"],
+      ["Pot", "Plants", "/lite/plants/pots/records/new/pot"],
+    ]);
   });
 
   test("keys from names", () => {

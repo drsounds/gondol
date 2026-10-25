@@ -53,7 +53,9 @@ Whatever its document draws, every page has its own "New …" button at the top 
 "Edit page"), so records can always be added, on phones too: one per type the page shows (a
 `/records/<key>` binding or a quoted type key in its document; all of the app's types when it names
 none), the first as the primary button. Types a `RecordList` on the page lists are left out, since
-it has a New button of its own (`pageCreateTypes()`).
+it has a New button of its own (`pageCreateTypes()`). Every type of an app with pages is also in the
+shell's create picker (`liteCreateTargets()`), opening the record sheet on the first page that
+shows it.
 
 Button actions the page runs itself: `create_record {type, …fields}`, `update_record {id, …fields}`,
 `delete_record {id}`, `new_record {type}` and `edit_record {id}` (open the sheets),

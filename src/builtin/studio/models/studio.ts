@@ -146,10 +146,43 @@ function recordListTypes(document: unknown): Set<string> {
  * leaving out types a `RecordList` on the page already lists with its own button.
  */
 export function pageCreateTypes(app: LiteAppTree, page: LitePage): LiteEntityType[] {
-  const text = typeof page.document === "string" ? page.document : JSON.stringify(page.document ?? null);
   const listed = recordListTypes(page.document);
-  const shown = app.types.filter((type) => new RegExp(`(/records/|\\\\?["'])${escapeRegExp(type.key)}(\\\\?["'/]|$)`).test(text));
+  const shown = app.types.filter((type) => pageShowsType(page, type));
   return (shown.length ? shown : app.types).filter((type) => !listed.has(type.key) && !listed.has(type.id) && !listed.has(type.name));
+}
+
+/** Whether a page's document names a type: a `/records/<key>` binding or a quoted key. */
+function pageShowsType(page: LitePage, type: LiteEntityType): boolean {
+  const text = typeof page.document === "string" ? page.document : JSON.stringify(page.document ?? null);
+  return new RegExp(`(/records/|\\\\?["'])${escapeRegExp(type.key)}(\\\\?["'/]|$)`).test(text);
+}
+
+/** An entity type of a built app, as an item of the shell's create picker. */
+export interface LiteCreateTarget {
+  key: string;
+  /** The type's name, and its app's for the picker's section line. */
+  name: string;
+  appName: string;
+  iconName: string;
+  /** The record sheet: on the first page that shows the type, else the app's first page. */
+  path: string;
+}
+
+/** Every entity type of the user's built apps that has a page to create its records on. */
+export function liteCreateTargets(apps: readonly LiteAppTree[]): LiteCreateTarget[] {
+  return apps.flatMap((app) => {
+    if (!app.pages.length) return [];
+    return app.types.map((type) => {
+      const page = app.pages.find((p) => pageShowsType(p, type)) ?? firstLitePage(app)!;
+      return {
+        key: `lite.${app.id}.${type.key}`,
+        name: type.name,
+        appName: app.name,
+        iconName: type.icon_name || app.icon_name || "brush",
+        path: `${litePagePath(app, page)}/records/new/${type.key}`,
+      };
+    });
+  });
 }
 
 /** A form's values as a record's data: numbers, booleans and lists as the fields say. */
