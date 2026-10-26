@@ -270,6 +270,7 @@
     "./sites/SiteLockHint": "./src/sites/SiteLockHint.tsx",
     "./sites/capabilities": "./src/sites/capabilities.ts",
     "./sites/preferences": "./src/sites/preferences.ts",
+    "./sites/siteHead": "./src/sites/siteHead.ts",
     "./sites/sites": "./src/sites/sites.tsx",
     "./supabase/auth-attacher": "./src/supabase/auth-attacher.ts",
     "./supabase/auth-middleware": "./src/supabase/auth-middleware.ts",

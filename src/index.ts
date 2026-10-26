@@ -12,11 +12,14 @@ import type { EntityType } from "./register";
 import { configureDesktopApp } from "./shell/desktopApp";
 import { configureStorageNamespace } from "./shell/storage";
 import { configureSettingsScopes } from "./settings/settings";
+import { configureAppName } from "./sites/siteHead";
 
 export type { Register, EntityType, MessageKey } from "./register";
 
 /** Everything an app tells gondol about itself, in one place (see configureGondol). */
 export interface GondolConfig {
+  /** The app's name as its routes write it in page titles; a site's name replaces it there (sites/siteHead). */
+  appName?: string;
   /** The entity URI scheme (`spacify` for spacify:supplier:acme), plus old namespaces still accepted. */
   uriScheme: string;
   legacyUriNamespaces?: string[];
@@ -58,6 +61,7 @@ export interface GondolConfig {
  */
 export function configureGondol(config: GondolConfig): void {
   configureEntityUris({ scheme: config.uriScheme, legacyNamespaces: config.legacyUriNamespaces });
+  if (config.appName) configureAppName(config.appName);
   if (config.storageNamespace) configureStorageNamespace(config.storageNamespace);
   if (config.desktop) configureDesktopApp(config.desktop);
   if (config.settings) configureSettingsScopes(config.settings);
