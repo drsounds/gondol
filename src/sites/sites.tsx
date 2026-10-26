@@ -201,12 +201,14 @@ const siteCacheKey = (key: string) => namespaced(`site:${key}`);
 
 /** Domains are compared lower-case without a scheme, port, path or leading "www." (as normalize_site_domain() in SQL). */
 export function normalizeSiteDomain(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
-    .replace(/[:/?#].*$/, "")
-    .replace(/^www\./, "");
+  let domain = value.trim().toLowerCase();
+  const schemeSeparator = domain.indexOf("://");
+  if (schemeSeparator > 0 && /^[a-z][a-z0-9+.-]*$/.test(domain.slice(0, schemeSeparator))) {
+    domain = domain.slice(schemeSeparator + 3);
+  }
+  const delimiter = domain.search(/[:/?#]/);
+  if (delimiter >= 0) domain = domain.slice(0, delimiter);
+  return domain.startsWith("www.") ? domain.slice(4) : domain;
 }
 
 export const SITE_DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;

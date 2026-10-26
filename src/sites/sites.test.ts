@@ -3,7 +3,7 @@ import { siteBrowserMetadata } from "./sites";
 
 describe("site browser metadata", () => {
   test("uses the site's name and domain favicon", () => {
-    const metadata = siteBrowserMetadata({ name: "  Notes  ", domain: "WWW.Example.com/path" });
+    const metadata = siteBrowserMetadata({ name: "  Notes  ", domain: "HTTPS://WWW.Example.com:8443/path?x#y" });
 
     expect(metadata?.title).toBe("Notes");
     expect(new URL(metadata!.faviconUrl!).searchParams.get("domain_url")).toBe("https://example.com");
