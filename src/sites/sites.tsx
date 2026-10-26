@@ -13,6 +13,7 @@ import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
 import { isSiteAspect, isSiteRole, siteOffers, type SiteAspect, type SiteRole } from "./capabilities";
+import { applySiteHead, isFaviconUrl } from "./siteHead";
 
 const appDependencies = (id: string) => getInternalApp(id)?.dependencies ?? [];
 
@@ -163,6 +164,8 @@ export interface SiteConfig {
   name: string;
   domain: string;
   description: string | null;
+  /** The site's own favicon (an http(s) address), replacing the app's icons there; null keeps them. */
+  favicon_url: string | null;
   enabled_apps: string[] | null;
   layout: SiteLayout;
   theme: SiteTheme | null;
@@ -252,6 +255,7 @@ export function toSiteConfig(row: Record<string, unknown>): SiteConfig {
     name: String(row.name ?? ""),
     domain: String(row.domain ?? ""),
     description: (row.description as string | null) ?? null,
+    favicon_url: isFaviconUrl(row.favicon_url as string | null) ? (row.favicon_url as string) : null,
     enabled_apps: (row.enabled_apps as string[] | null) ?? null,
     layout: asObject<SiteLayout>(row.layout, {}),
     theme: toSiteTheme(row.theme),
@@ -346,6 +350,10 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setSiteDeveloperMode(siteDeveloperMode, developerModeLocked);
   }, [siteDeveloperMode, developerModeLocked]);
+  // The site's name in the page title and its favicon in place of the app's (./siteHead.ts).
+  const siteName = site?.name ?? "";
+  const siteFavicon = site?.favicon_url ?? null;
+  useEffect(() => applySiteHead(siteName || siteFavicon ? { name: siteName, favicon_url: siteFavicon } : null), [siteName, siteFavicon]);
 
   const value = useMemo<SiteValue>(
     () => ({

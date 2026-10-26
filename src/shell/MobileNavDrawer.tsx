@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n";
+import { useSite } from "../sites/sites";
 import type { AppSidebarWidgetProps, DynamicMenuSection } from "../apps/types";
 import { Widgets } from "../apps/navigation";
 import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
@@ -33,6 +34,7 @@ export function MobileNavDrawer({
   onOpenUri: (uri: string) => void;
 }) {
   const { t } = useI18n();
+  const { site } = useSite();
   const closeRef = useRef<HTMLButtonElement>(null);
   const appSections = navSections.filter((section) => section.items.length > 0);
   const { open: openApp, setOpenId: setOpenApp } = useOpenApp(appSections, currentPath);
@@ -55,7 +57,7 @@ export function MobileNavDrawer({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="nav-drawer__header">
-          <span className="nav-drawer__title">{t("app.name")}</span>
+          <span className="nav-drawer__title">{site?.name || t("app.name")}</span>
           <button ref={closeRef} type="button" className="sheet__close" onClick={onClose} aria-label={t("nav.closeMenu")}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
