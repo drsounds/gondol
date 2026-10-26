@@ -5,6 +5,7 @@ import { useSession } from "../supabase/useSession";
 import { entityExtensions } from "../entities/extensions";
 import { namespaced } from "../shell/storage";
 import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type EntityType } from "../entities/uri";
+import { faviconUrlFor } from "../apps/external";
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
@@ -186,6 +187,15 @@ export interface SiteConfig {
   is_member: boolean;
 }
 
+export function siteBrowserMetadata(site: Pick<SiteConfig, "name" | "domain"> | null): { title: string; faviconUrl: string | null } | null {
+  if (!site) return null;
+  const domain = normalizeSiteDomain(site.domain);
+  return {
+    title: site.name.trim() || domain,
+    faviconUrl: domain ? faviconUrlFor(`https://${domain}`) : null,
+  };
+}
+
 const sitePreviewKey = () => namespaced("site-preview");
 const siteCacheKey = (key: string) => namespaced(`site:${key}`);
 
@@ -335,6 +345,42 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   // every list header (styles/base.css) goes with the plus button and the create picker.
   const site = query.data ?? null;
   currentSite = site;
+  const browserMetadata = siteBrowserMetadata(site);
+  const browserTitle = browserMetadata?.title;
+  const browserFaviconUrl = browserMetadata?.faviconUrl;
+  useEffect(() => {
+    if (!browserTitle) return;
+
+    const previousTitle = document.title;
+    document.title = browserTitle;
+
+    let icon: HTMLLinkElement | null = null;
+    let createdIcon = false;
+    let previousIconUrl: string | null = null;
+    if (browserFaviconUrl) {
+      icon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+      createdIcon = !icon;
+      if (!icon) {
+        icon = document.createElement("link");
+        icon.rel = "icon";
+        document.head.append(icon);
+      }
+      previousIconUrl = icon.getAttribute("href");
+      icon.href = browserFaviconUrl;
+    }
+
+    return () => {
+      document.title = previousTitle;
+      if (icon) {
+        if (previousIconUrl === null) {
+          if (createdIcon) icon.remove();
+          else icon.removeAttribute("href");
+        } else {
+          icon.href = previousIconUrl;
+        }
+      }
+    };
+  }, [browserTitle, browserFaviconUrl]);
   const createOff = !siteOffers(site, { aspects: ["create"] });
   useEffect(() => {
     if (createOff) document.documentElement.setAttribute("data-site-create", "off");

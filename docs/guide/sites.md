@@ -24,8 +24,11 @@ const { site, domain, loading, previewing, endPreview } = useSite();
 `site` is a `SiteConfig`, or null when no site is configured for the domain (then nothing is
 restricted).
 
+When a site is resolved, its name becomes the browser tab title and its domain supplies the favicon.
+
 | Field | Meaning |
 | --- | --- |
+| `name`, `domain` | The browser tab title and the domain used to find the site's favicon. |
 | `enabled_apps` | App ids that are on (plus their dependencies), or null for all. |
 | `layout` | `SiteLayout`: `homePath` (where `/` goes) and the [visitor preferences](#visitor-preferences) the site sets (`desktopLayout` + `classicFrame`, `layoutStyle`, `locale`, `player`, `darkTabBar`, `darkFrame`, `savedIcon`, `sheetStyle`, `tableLines`, `highContrast`, `hideSoftDeletedEntities`, `hideFutureEntities`, `developerMode`), with `locked` listing the ones visitors can't change. |
 | `theme` | `SiteTheme`: an engine and user theme, a colour scheme (`mode`) and an `accentColor` (a colour, `"foreground"` or `"theme"`), with `locked` listing the parts visitors can't change. Each part is optional. |
