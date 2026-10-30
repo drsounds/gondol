@@ -335,6 +335,14 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
                   {t("ai.unreachableHint", { address: provider?.describe?.(settings, service) || t("ai.serverDefault") })}
                 </>
               ) : null}
+              {error instanceof AiProviderError && error.kind === "credits" ? (
+                <>
+                  {" "}
+                  <button type="button" className="link-button" onClick={() => go("/ai-credits")}>
+                    {t("ai.credits.seeCredits")}
+                  </button>
+                </>
+              ) : null}
             </span>
           </Alert>
         ) : null}

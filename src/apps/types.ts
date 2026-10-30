@@ -132,6 +132,11 @@ export interface AppWidgets {
   overlayWidgets?: ComponentType[];
   /** Above the view's content on every page but external apps (e.g. a load error the app reports). */
   contentHeadWidgets?: ComponentType[];
+  /**
+   * Small indicators in the global header, left of the account menu (e.g. the ai app's credits
+   * pie). The host places them with `<HeaderWidgets/>` (gondol/apps/navigation).
+   */
+  headerWidgets?: ComponentType[];
   /** Wrap the whole shell; never lazy, since the shell waits for them. */
   Providers?: ComponentType<{ children: React.ReactNode }>[];
 }

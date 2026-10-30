@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
+import { aiCreditFields, notifyAiCreditsChanged } from "./credits";
 import { AiProviderError, type AiChatMessage, type AiProvider, type AiServiceRef, type AiSettings, type AiTool, type AiToolCall } from "./provider";
 
 /**
@@ -31,7 +32,7 @@ export function openAiBaseUrl(settings: AiSettings, service?: AiServiceRef | nul
   return baseUrl.slice(0, end);
 }
 
-type ErrorKind = "config" | "forbidden" | "unreachable" | "http" | "invalid";
+type ErrorKind = AiProviderError["kind"];
 
 async function invoke(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
   const { data, error } = await supabase.functions.invoke(functionName, { body, signal });
@@ -121,12 +122,13 @@ export const openAiProvider: AiProvider = {
       }));
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken, tools, service }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service, app }) {
     const startedAt = Date.now();
     const response = await invoke(
       {
         action: "chat",
         ...target(settings, service),
+        ...aiCreditFields(app),
         model,
         messages: openAiMessages(messages),
         ...(tools?.length ? { tools: openAiTools(tools) } : {}),
@@ -198,6 +200,7 @@ export const openAiProvider: AiProvider = {
       throw error;
     } finally {
       reader.releaseLock();
+      notifyAiCreditsChanged();
     }
 
     const durationMs = Date.now() - startedAt;

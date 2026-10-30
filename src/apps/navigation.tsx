@@ -186,6 +186,7 @@ export function useActiveAppWidgets() {
     const bottomWidgets: ComponentType<AppBottomWidgetProps>[] = [];
     const overlayWidgets: ComponentType[] = [];
     const contentHeadWidgets: ComponentType[] = [];
+    const headerWidgets: ComponentType[] = [];
     const Providers: ComponentType<{ children: ReactNode }>[] = [];
 
     for (const bundle of activeBundles) {
@@ -214,6 +215,9 @@ export function useActiveAppWidgets() {
         if (bundle.widgets.contentHeadWidgets) {
           contentHeadWidgets.push(...bundle.widgets.contentHeadWidgets);
         }
+        if (bundle.widgets.headerWidgets) {
+          headerWidgets.push(...bundle.widgets.headerWidgets);
+        }
         if (bundle.widgets.Providers) {
           Providers.push(...bundle.widgets.Providers);
         }
@@ -228,6 +232,7 @@ export function useActiveAppWidgets() {
       bottomWidgets,
       overlayWidgets,
       contentHeadWidgets,
+      headerWidgets,
       Providers,
     };
   }, [activeBundles]);
@@ -247,6 +252,12 @@ export function Widgets<P extends object>({ widgets, props }: { widgets: Compone
       ))}
     </>
   );
+}
+
+/** The active apps' `headerWidgets`, for the host to place in its header (left of the account menu). */
+export function HeaderWidgets() {
+  const { headerWidgets } = useActiveAppWidgets();
+  return <Widgets widgets={headerWidgets} props={{}} />;
 }
 
 /**
