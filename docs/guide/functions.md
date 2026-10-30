@@ -50,6 +50,7 @@ app-router (an edge function)              ← apps.json: every app's `functions
 | `title` | A short name. |
 | `rpc` | A Postgres function that answers it, called **as the user** (RLS applies) with one argument per input field, `p_` plus the name in snake case, exactly like an [app API](./api.md) operation. |
 | `function` | Or an edge function: it gets the input as its JSON body, the caller's token as `Authorization` (for OAuth callers a one-minute JWT for the user) and `x-gondol-app` / `x-gondol-function` headers. |
+| `server` | Or, for a [remote app](./remote-apps.md), an export of its server module on its gondol apps runtime: it gets the input and the caller's user id (never their token), once an admin has approved the app's backend. |
 | `input` | A JSON Schema for the input object; the router checks every call against it. `#/components/schemas/<name>` refers to the app API's shared schemas. |
 | `output` | What it answers with (documentation; MCP clients see it in the catalogue). |
 | `scopes` | OAuth scopes a token needs (all of them; declare them in the app's `api.scopes`). Left out: any signed-in caller. `[]`: anyone, also signed out. |

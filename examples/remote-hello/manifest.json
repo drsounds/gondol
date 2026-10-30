@@ -1,0 +1,34 @@
+{
+  "$schema": "../../src/apps/manifest.schema.json",
+  "id": "hello",
+  "slug": "hello",
+  "name": { "en": "Hello", "sv": "Hej" },
+  "description": { "en": "A remote app that greets you.", "sv": "En fjärrapp som hälsar." },
+  "iconName": "star",
+  "defaultFeatureId": "hello",
+  "features": [
+    {
+      "id": "hello",
+      "name": { "en": "Hello", "sv": "Hej" },
+      "path": "hello",
+      "iconName": "star"
+    }
+  ],
+  "functions": {
+    "greet": {
+      "title": "Greet",
+      "description": "Greets someone by name.",
+      "server": "greet",
+      "readOnly": true,
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": { "name": { "type": "string", "maxLength": 80 } }
+      }
+    }
+  },
+  "mcp": {
+    "instructions": "Greets people.",
+    "tools": [{ "name": "greet", "function": "greet" }]
+  }
+}
