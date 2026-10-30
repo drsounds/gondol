@@ -40,7 +40,9 @@ export type PlaylistsDatabase = {
       };
       playlist_items: {
         Row: {
+          added_at: string;
           created_at: string;
+          custom_added_on: string | null;
           entity_id: string | null;
           entity_type: string | null;
           id: string;
@@ -53,7 +55,9 @@ export type PlaylistsDatabase = {
           user_id: string;
         };
         Insert: {
+          added_at?: string;
           created_at?: string;
+          custom_added_on?: string | null;
           entity_id?: string | null;
           entity_type?: string | null;
           id?: string;
@@ -66,7 +70,9 @@ export type PlaylistsDatabase = {
           user_id: string;
         };
         Update: {
+          added_at?: string;
           created_at?: string;
+          custom_added_on?: string | null;
           entity_id?: string | null;
           entity_type?: string | null;
           id?: string;

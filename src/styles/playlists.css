@@ -104,3 +104,45 @@
 .playlist-hero__title { font-size: clamp(1.75rem, 5vw, 3rem); line-height: 1.1; margin: var(--bungalow-space-1) 0 var(--bungalow-space-2); overflow-wrap: anywhere; }
 .playlist-hero .muted { margin: 0; }
 .playlist-head { align-items: center; display: flex; gap: var(--bungalow-space-3); }
+/* A playlist's items: selection (click with Ctrl/⌘ or Shift, the arrow keys), the date added column. */
+.playlist-row:focus { outline: none; }
+.playlist-row:focus-visible,
+.playlist-row--cursor:focus-within { box-shadow: inset 0 0 0 1px var(--bungalow-color-border); }
+.playlist-row--selected,
+.playlist-row--selected:hover { background: color-mix(in srgb, var(--bungalow-color-primary) 16%, transparent); }
+.playlist-row--selected .entity-row__number { color: var(--bungalow-color-primary); }
+.playlist-row .entity-row__number { cursor: pointer; }
+.playlist-list--busy { opacity: 0.7; }
+.entity-row__aside {
+  color: var(--bungalow-color-muted);
+  flex: none;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.playlist-row .entity-row__aside { width: 7.5rem; }
+.playlist-row__added--custom { font-style: italic; }
+.playlist-row__added-meta { display: none; }
+.playlist-columns {
+  border-bottom: 1px solid var(--bungalow-color-border);
+  color: var(--bungalow-color-muted);
+  display: flex;
+  font-size: 0.75rem;
+  gap: var(--bungalow-space-2);
+  letter-spacing: 0.04em;
+  padding-block: var(--bungalow-space-1);
+  /* The row menu's trigger, which sits after the date. */
+  padding-inline-end: calc(var(--bungalow-space-2) + 2.25rem);
+  text-transform: uppercase;
+}
+.playlist-columns__number { min-width: 1.5rem; padding-inline-start: var(--bungalow-space-3); text-align: end; }
+.playlist-columns__title { flex: 1; padding-inline-start: var(--bungalow-space-1); }
+.playlist-columns__added { flex: none; width: 7.5rem; }
+@media (max-width: 40rem) {
+  .entity-row__aside,
+  .playlist-columns { display: none; }
+  .playlist-row__added-meta { display: inline; }
+}
+/* Touch screens have no keyboard shortcuts to hint at. */
+@media (hover: none) and (pointer: coarse) {
+  .playlist-keys-hint { display: none; }
+}
