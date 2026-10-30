@@ -780,3 +780,21 @@
 .ai-services__address {
   overflow-wrap: anywhere;
 }
+
+/* AI credits: the header's pie and /ai-credits (builtin/ai/features/credits). */
+.ai-credit-pie { display: block; flex: none; }
+.ai-credit-pie__track { fill: none; stroke: var(--bungalow-color-border, currentColor); stroke-width: 2; opacity: 0.6; }
+.ai-credit-pie__fill { fill: none; stroke: var(--bungalow-color-primary, currentColor); transition: stroke-dasharray 0.4s ease; }
+.ai-credit-pie--warning .ai-credit-pie__fill { stroke: var(--bungalow-color-warning, #d99a00); }
+.ai-credit-pie--danger .ai-credit-pie__fill { stroke: var(--bungalow-color-danger, #d33); }
+.ai-credits-pie-button { display: inline-flex; align-items: center; justify-content: center; }
+.ai-credits-pie-button--spent .ai-credit-pie__track { stroke: var(--bungalow-color-danger, #d33); opacity: 1; }
+.ai-credits__balance { display: flex; gap: 1.25rem; align-items: center; }
+.ai-credits__amount { font-size: 1.5rem; font-weight: 700; }
+.ai-credits__tier-name { display: inline-flex; gap: 0.5rem; align-items: center; }
+.ai-credits__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem; }
+.ai-credits__choices { border: 0; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+.ai-credits__choices legend { font-weight: 600; padding: 0; margin-bottom: 0.25rem; }
+.ai-credits__choices > p { margin: 0 0 0.25rem; }
+.ai-credits__preview-amount { display: flex; gap: 0.75rem; align-items: center; }
+.ai-chat__error .link-button { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-decoration: underline; cursor: pointer; }

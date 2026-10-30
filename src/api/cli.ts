@@ -13,8 +13,9 @@
 // <dir>/app-router/index.ts (from supabase/functions/app-router), importing the files above, and,
 // when the built-in ai app is among `--builtin`, its functions for OpenAI-compatible APIs and
 // LangChain Deep Agents to <dir>/ai-openai/index.ts and <dir>/ai-deepagents/index.ts (from
-// supabase/functions/), and, when the built-in agents app is, its runner to <dir>/ai-agents/index.ts
-// and <dir>/_shared/agentPrompt.ts.
+// supabase/functions/) with the AI credits they share (<dir>/_shared/aiCredits.ts, which a host's
+// own AI functions can import too), and, when the built-in agents app is, its runner to
+// <dir>/ai-agents/index.ts and <dir>/_shared/agentPrompt.ts.
 //
 // `--check` writes nothing and fails when the files are out of date (for CI). `--title` and
 // `--version` set the document's info.
@@ -77,6 +78,7 @@ if (functionsDir) {
   if (builtin.includes("ai")) {
     for (const name of ["ai-openai", "ai-deepagents"]) copy(`${name}/index.ts`);
   }
+  if (builtin.includes("ai") || builtin.includes("agents")) copy("_shared/aiCredits.ts");
   // The agents app's server runner, and the prompt building it shares with the browser's runner.
   if (builtin.includes("agents")) {
     copy("ai-agents/index.ts");

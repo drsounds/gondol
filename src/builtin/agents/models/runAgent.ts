@@ -182,6 +182,7 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
         ...(tools.tools.length && round < MAX_TOOL_ROUNDS ? { tools: aiToolsFor(tools.tools) } : {}),
         ...(provider.runsTools ? { runTool } : {}),
         onToken: () => undefined,
+        app: "agents",
       });
       if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
       metrics = result.metrics ?? null;

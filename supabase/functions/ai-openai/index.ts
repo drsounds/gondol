@@ -3,11 +3,13 @@
 //
 // POST body: { action: "models", baseUrl } | { action: "models", serviceId }
 //            { action: "chat", baseUrl | serviceId, model, messages, temperature?, tools? }
+//            (chat also takes `app` and `workspaceId`, whose AI credits it uses: _shared/aiCredits.ts)
 //
 // With `baseUrl` the key is the user's `openai.apiKey` setting (app_settings). With `serviceId`
 // (one of the user's ai_services, provider "openai") the address is the service's (empty: OpenAI's)
 // and the key the service's, from ai_service_keys, which only the service role reads.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { assertCredits, chargeCredits, creditContext, CreditsConfigError, CreditsError, estimateTokens, meterOpenAiStream } from "../_shared/aiCredits.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-spacify-workspace",
@@ -352,6 +354,9 @@ async function handleRequest(request: Request): Promise<Response> {
     apiKey = typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
   }
   const baseUrl = await validateBaseUrl(requestedBaseUrl);
+  const chat = input.action === "chat" ? validateChat(input) : null;
+  const credit = chat ? creditContext(request, input, { userId: authData.user.id, provider: "openai", model: chat.model }) : null;
+  const { limited } = credit ? await assertCredits(supabase, credit) : { limited: false };
   const endpoint = new URL(`${baseUrl.toString().replace(/\/+$/, "")}/${input.action === "models" ? "models" : "chat/completions"}`);
 
   let upstream: Response;
@@ -363,7 +368,8 @@ async function handleRequest(request: Request): Promise<Response> {
         ...(input.action === "chat" ? { "Content-Type": "application/json" } : {}),
         ...(apiKey ? { Authorization: "Bearer " + apiKey } : {}),
       },
-      ...(input.action === "chat" ? { body: JSON.stringify({ ...validateChat(input), stream: true }) } : {}),
+      // The usage comes as the last event when asked for (only then: not every compatible API knows it).
+      ...(chat ? { body: JSON.stringify({ ...chat, stream: true, ...(limited ? { stream_options: { include_usage: true } } : {}) }) } : {}),
       signal: request.signal,
     });
   } catch (error) {
@@ -395,7 +401,8 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 
   if (!upstream.body) throw new FunctionError("The AI API sent no answer", "invalid", 502);
-  return new Response(upstream.body, {
+  const asked = estimateTokens(JSON.stringify(chat?.messages ?? []) + JSON.stringify(chat?.tools ?? []));
+  return new Response(meterOpenAiStream(upstream.body, asked, (usage) => void chargeCredits(credit!, usage)), {
     status: upstream.status,
     headers: {
       ...corsHeaders,
@@ -410,6 +417,8 @@ deno.serve(async (request) => {
     return await handleRequest(request);
   } catch (error) {
     if (error instanceof FunctionError) return errorResponse(error);
+    if (error instanceof CreditsError) return jsonResponse({ error: error.message, kind: error.kind, nextRefillAt: error.nextRefillAt }, error.status);
+    if (error instanceof CreditsConfigError) return jsonResponse({ error: error.message, kind: error.kind }, error.status);
     return errorResponse(new FunctionError("The AI service failed unexpectedly", "unreachable", 500));
   }
 });

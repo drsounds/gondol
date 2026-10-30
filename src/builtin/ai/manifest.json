@@ -11,7 +11,7 @@
   "defaultFeatureId": "chat",
   "dependencies": [],
   "defaultActive": true,
-  "uuidPaths": ["/ai", "/ai-models"],
+  "uuidPaths": ["/ai", "/ai-models", "/ai-credits"],
   "features": [
     {
       "id": "chat",
@@ -37,6 +37,22 @@
         { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm", "services", "openai", "berget"] },
         { "id": "ai.services.new", "title": "Add AI service", "category": "AI", "iconName": "plus", "navigate": "/ai-models/services/new", "keywords": ["openai", "berget", "ollama", "api key"], "aspects": ["create"] },
         { "id": "ai.mcp.new", "title": "Add MCP server", "category": "AI", "iconName": "plus", "navigate": "/ai-models/mcp/new", "keywords": ["mcp", "tools", "model context protocol"], "aspects": ["create"] }
+      ]
+    },
+    {
+      "id": "credits",
+      "name": { "en": "AI credits", "sv": "AI-krediter" },
+      "description": {
+        "en": "The AI credits you have left and when more come; for site owners and workspace admins, the tiers that give them and what tokens cost",
+        "sv": "AI-krediterna du har kvar och när fler kommer; för webbplatsägare och arbetsyteadministratörer nivåerna som ger dem och vad token kostar"
+      },
+      "path": "ai-credits",
+      "iconName": "coin",
+      "aspects": ["view", "analyze", "configure"],
+      "actions": [
+        { "id": "ai.credits", "title": "AI credits", "category": "AI", "iconName": "coin", "navigate": "/ai-credits", "keywords": ["credits", "quota", "limit", "tokens", "usage"], "aspects": ["view"] },
+        { "id": "ai.credits.tiers.new", "title": "Add AI credit tier", "category": "AI", "iconName": "plus", "navigate": "/ai-credits/tiers/new", "keywords": ["credits", "quota", "limit", "tier"], "roles": ["admin"], "aspects": ["create", "configure"] },
+        { "id": "ai.credits.rates.new", "title": "Add AI credit rate", "category": "AI", "iconName": "plus", "navigate": "/ai-credits/rates/new", "keywords": ["credits", "price", "tokens", "rate"], "roles": ["admin"], "aspects": ["create", "configure"] }
       ]
     }
   ],

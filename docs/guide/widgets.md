@@ -28,6 +28,7 @@ export const planningApp: InternalAppBundle = {
 | `sidebarWidgets` | Collected for shells that render them; `AppShell` doesn't. | `AppSidebarWidgetProps` |
 | `bottomWidgets` | After the content, for fixed bars along the bottom. | `AppBottomWidgetProps` |
 | `contentHeadWidgets` | Above the page content (notices, load errors). | none |
+| `headerWidgets` | Small indicators in the global header, left of the account menu. `AppShell` leaves the header's actions to the host, so it places them with `<HeaderWidgets/>` (`gondol/apps/navigation`). | none |
 | `overlayWidgets` | After the shell's own overlays, for sheets an app opens from anywhere. | none |
 | `Providers` | Around everything inside `ActiveAppsProvider`. | `{ children }` |
 

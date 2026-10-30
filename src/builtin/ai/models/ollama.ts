@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
 import { openAiTools, parseToolArguments } from "./openai";
+import { aiCreditFields, notifyAiCreditsChanged } from "./credits";
 import { AiSocketUnavailableError, canUseAiSockets, runAiSocket } from "./socket";
 import { AiProviderError, type AiChatMessage, type AiProvider, type AiServiceRef, type AiSettings, type AiToolCall } from "./provider";
 
@@ -37,7 +38,7 @@ function target(settings: AiSettings, service?: AiServiceRef | null): Record<str
   return baseUrl ? { baseUrl } : {};
 }
 
-type ErrorKind = "config" | "forbidden" | "unreachable" | "http" | "invalid";
+type ErrorKind = AiProviderError["kind"];
 
 /** The function's answer, or an AiProviderError with what it said went wrong. */
 async function invoke(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
@@ -160,7 +161,7 @@ export const ollamaProvider: AiProvider = {
       .filter((m) => m.name);
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken, tools, service }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service, app }) {
     const options: Record<string, number> = {};
     if (temperature !== undefined) options.temperature = temperature;
     const numCtx = option(settings, "ollama.numCtx");
@@ -169,6 +170,7 @@ export const ollamaProvider: AiProvider = {
     const body = {
       action: "chat",
       ...target(settings, service),
+      ...aiCreditFields(app),
       model,
       messages: ollamaMessages(messages),
       ...(tools?.length ? { tools: openAiTools(tools) } : {}),
@@ -214,6 +216,8 @@ export const ollamaProvider: AiProvider = {
     } catch (error) {
       if (signal?.aborted) throw Object.assign(new AiProviderError("Stopped", "aborted"), { partial: content });
       throw error;
+    } finally {
+      notifyAiCreditsChanged();
     }
 
     const done = last as OllamaChunk | null;

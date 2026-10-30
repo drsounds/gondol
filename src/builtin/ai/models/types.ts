@@ -1,3 +1,4 @@
+import type { AiCreditRate, AiCreditRateWrite, AiCreditScope, AiCreditTier, AiCreditTierWrite, AiCreditUsage } from "./credits";
 import type { Json } from "../../../supabase/types";
 
 /** Who wrote a message: the instructions, the user, or the model. */
@@ -195,11 +196,29 @@ export type AiDatabase = {
         Update: AiMcpServerWrite;
         Relationships: [];
       };
+      ai_credit_tiers: {
+        Row: AiCreditTier;
+        Insert: AiCreditTierWrite & Pick<AiCreditTier, "scope" | "scope_id" | "name" | "credits">;
+        Update: AiCreditTierWrite;
+        Relationships: [];
+      };
+      ai_credit_rates: {
+        Row: AiCreditRate;
+        Insert: AiCreditRateWrite & Pick<AiCreditRate, "scope" | "scope_id">;
+        Update: AiCreditRateWrite;
+        Relationships: [];
+      };
+      ai_credit_usage: { Row: AiCreditUsage; Insert: Partial<AiCreditUsage>; Update: Partial<AiCreditUsage>; Relationships: [] };
     };
     Views: { [_ in never]: never };
     Functions: {
       set_ai_service_key: { Args: { p_service_id: string; p_api_key: string | null }; Returns: undefined };
       set_ai_mcp_server_headers: { Args: { p_server_id: string; p_set: Json; p_remove: string[] }; Returns: string[] };
+      ai_credits: {
+        Args: { p_site_id?: string | null; p_site_domain?: string | null; p_workspace_id?: string | null; p_app?: string | null; p_provider?: string | null; p_model?: string | null };
+        Returns: Json;
+      };
+      ai_credit_scopes: { Args: Record<PropertyKey, never>; Returns: AiCreditScope[] };
     };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };

@@ -2,6 +2,7 @@ import { ollamaBaseUrl, ollamaMessages } from "./ollama";
 import { openAiBaseUrl, openAiTools, parseToolArguments } from "./openai";
 import { AiProviderError, type AiProvider, type AiServiceRef, type AiSettings } from "./provider";
 import { runAiSocket } from "./socket";
+import { aiCreditFields, notifyAiCreditsChanged } from "./credits";
 
 /**
  * LangChain Deep Agents (https://docs.langchain.com/oss/javascript/deepagents/overview): an agent
@@ -77,7 +78,7 @@ export const deepAgentsProvider: AiProvider = {
       }));
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken, tools, service, runTool, onStatus }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service, runTool, onStatus, app }) {
     const startedAt = Date.now();
     let content = "";
     const numCtx = option(settings, "ollama.numCtx");
@@ -88,6 +89,7 @@ export const deepAgentsProvider: AiProvider = {
         {
           action: "chat",
           ...target(settings, service),
+          ...aiCreditFields(app),
           model,
           messages: ollamaMessages(messages),
           ...(tools?.length && runTool ? { tools: openAiTools(tools) } : {}),
@@ -134,6 +136,8 @@ export const deepAgentsProvider: AiProvider = {
         throw Object.assign(new AiProviderError("Stopped", "aborted"), { partial: content });
       }
       throw error;
+    } finally {
+      notifyAiCreditsChanged();
     }
   },
 };

@@ -31,6 +31,7 @@
 // `channel_thread()`); they're only read for runs that name them (a thread with an ego, a channel run).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { SignJWT } from "npm:jose@5";
+import { assertCredits, chargeCredits, creditContext, estimateTokens } from "../_shared/aiCredits.ts";
 import { agentMayUseTool, agentPromptMessages, agentSystemPrompt, agentThreadContext, type PromptLine, type PromptMessage, type PromptSituation } from "../_shared/agentPrompt.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
@@ -430,8 +431,15 @@ async function execute(run: Run, deadline: number): Promise<void> {
     let system = agentSystemPrompt(speaker, situation);
     if (tools.tools.length && tools.instructions.trim()) system += `\n\nYou can use these apps through their tools:\n${tools.instructions.trim()}`;
     const messages: ChatMessage[] = agentPromptMessages(system, lines, run.instructions, CONTEXT_MESSAGES);
+    // The owner's AI credits (_shared/aiCredits.ts), on the root site and in their personal space.
+    const credit = creditContext(null, {}, { userId: run.user_id, provider: endpoint.provider, model, app: "agents", workspaceId: null });
     for (let round = 0; ; round++) {
+      await assertCredits(user, credit);
       const result = await chat(endpoint, model, messages, round < MAX_TOOL_ROUNDS ? tools.tools : [], speaker.temperature, deadline);
+      await chargeCredits(credit, {
+        inputTokens: result.metrics.promptTokens ?? estimateTokens(JSON.stringify(messages)),
+        outputTokens: result.metrics.completionTokens ?? estimateTokens(result.content + JSON.stringify(result.toolCalls)),
+      });
       if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
       metrics = result.metrics;
       if (!result.toolCalls.length || round >= MAX_TOOL_ROUNDS) break;

@@ -69,6 +69,8 @@ export interface AiChatRequest {
   runTool?: (call: AiToolCall) => Promise<string>;
   /** What an agent is doing now (planning, a step of its own, a sub-agent), for the chat to show. */
   onStatus?: (status: string) => void;
+  /** The app asking (default `ai`), whose AI credits the answer uses. */
+  app?: string;
 }
 
 export interface AiChatResult {
@@ -108,7 +110,8 @@ export interface AiProvider {
 export class AiProviderError extends Error {
   constructor(
     message: string,
-    readonly kind: "unreachable" | "http" | "aborted" | "invalid" | "config" | "forbidden",
+    /** `credits`: the account is out of AI credits for this (docs/guide/ai.md "Credits"). */
+    readonly kind: "unreachable" | "http" | "aborted" | "invalid" | "config" | "forbidden" | "credits",
     readonly status?: number,
   ) {
     super(message);

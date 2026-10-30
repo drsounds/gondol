@@ -16,6 +16,8 @@
 //   { type: "tool_call", id, name, arguments }  run one of `tools` and answer { type: "tool_result", id, content, ok }
 //   { type: "done", models }                 (models) the models the backend serves
 //   { type: "done", content, usage }         (chat) the whole answer and its token counts
+//   (chat's body also takes `app` and `workspaceId`, whose AI credits it uses: _shared/aiCredits.ts;
+//   out of credits is an error of kind "credits", status 402)
 //   { type: "error", error, kind }           kind: config | forbidden | unreachable | http | invalid
 // and closes. Send { type: "cancel" } (or close) to stop.
 //
@@ -30,6 +32,7 @@
 // The gateway can't check the JWT (it comes in the first message): exempt this function from the
 // JWT check (verify_jwt = false, or the self-hosted main router's list).
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { assertCredits, chargeCredits, creditContext, estimateTokens } from "../_shared/aiCredits.ts";
 import { createDeepAgent } from "npm:deepagents@1.15.1";
 import { tool } from "npm:langchain@1.5.19";
 import { ChatOllama } from "npm:@langchain/ollama@1.3.0";
@@ -422,6 +425,11 @@ async function chat(session: Session, target: Target, body: Record<string, unkno
 
 /** What went wrong, as the error event says it. */
 function failure(error: unknown): Record<string, unknown> {
+  // CreditsError and CreditsConfigError carry their own kind and status.
+  const own = error as { kind?: unknown; status?: unknown; message?: unknown } | null;
+  if (own && !(error instanceof FunctionError) && (own.kind === "credits" || own.kind === "config") && typeof own.status === "number") {
+    return { type: "error", error: String(own.message), kind: own.kind, status: own.status };
+  }
   if (error instanceof FunctionError) return { type: "error", error: error.message, kind: error.kind, status: error.status };
   const message = error instanceof Error ? error.message : String(error);
   const unreachable = /ECONNREFUSED|fetch failed|connection|timed out|dns/i.test(message);
@@ -494,7 +502,18 @@ function serveSocket(request: Request): Response {
 
       const target = await resolveTarget(supabase, auth.user.id, body);
       if (body.action === "models") close({ type: "done", models: await listModels(target, abort.signal) });
-      else if (body.action === "chat") close({ type: "done", ...(await chat(session, target, body)) });
+      else if (body.action === "chat") {
+        // AI credits (_shared/aiCredits.ts): checked first, the run's tokens charged after.
+        const credit = creditContext(request, body, { userId: auth.user.id, provider: "deepagents" });
+        await assertCredits(supabase, credit);
+        const result = await chat(session, target, body);
+        const usage = result.usage as { input_tokens?: number; output_tokens?: number };
+        await chargeCredits(credit, {
+          inputTokens: usage.input_tokens ?? estimateTokens(JSON.stringify(body.messages ?? [])),
+          outputTokens: usage.output_tokens ?? estimateTokens(String(result.content ?? "")),
+        });
+        close({ type: "done", ...result });
+      }
       else throw new FunctionError("Unknown action", "invalid");
     } catch (error) {
       if (abort.signal.aborted) close();

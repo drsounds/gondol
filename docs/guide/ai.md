@@ -50,9 +50,11 @@ can leave it out.
 | `/ai-models` | `models` | The user's services, then each source in use (a service, or a provider from the settings) with the models it serves now: which the chat offers, the default, and the app's settings. Tagged `admin`/`operator` and `configure` for [sites](./sites.md). |
 | `/ai-models/services/new`, `/ai-models/services/<id>/edit` | `models` | The routed sheets for a service: a preset (OpenAI, Berget AI, Ollama, another OpenAI-compatible API), its name, provider, address and key, and whether the chat uses it. |
 | `/ai-models/mcp/new`, `/ai-models/mcp/<id>/edit` | `models` | The routed sheets for one of the user's [MCP servers](#the-users-own-mcp-servers): name, address, what it's for, headers and whether the chat uses it. |
+| `/ai-credits` | `credits` | The user's [AI credits](#credits) here: what's left, where they come from and when more come, and the latest charges; for site owners and workspace owners and admins also their tiers and rates. |
+| `/ai-credits/tiers/new`, `/ai-credits/tiers/<id>/edit`, `/ai-credits/rates/new`, `/ai-credits/rates/<id>/edit` | `credits` | The routed sheets for a credit tier and a rate. |
 
 The palette has "Open AI chat", "New AI conversation", "AI settings", "AI models and providers",
-"Add AI service" and "Add MCP server".
+"Add AI service", "Add MCP server", "AI credits", "Add AI credit tier" and "Add AI credit rate".
 
 Answers are markdown as models write it, rendered by `<Markdown/>` (`models/markdown.ts` parses it:
 headings, lists and task lists, code blocks, quotes, tables, emphasis and links). It never produces
@@ -204,6 +206,39 @@ answers `{ type: "tool_result", id, content, ok }`. Besides `ready`, `ping` and 
 `deepagents.maxSteps` (default 100) caps the model and tool calls of one answer. A long run keeps the
 function's worker alive for as long, so allow for it in the edge runtime's worker timeout.
 
+## Credits
+
+AI credits limit how much AI each account uses. A site's owner, or a workspace's owners and admins,
+add **tiers** (`ai_credit_tiers`): an allowance of credits per hour, day, week, month or year (or once),
+counted from its start (that's when new credits come), optionally ending. A tier can be narrowed to
+apps (the app asking: `ai` for the chat, `agents` for agents, …), providers, models (globs with `*`)
+and roles (workspace roles; on a site `owner`, `member` or `visitor`) or accounts, and it is per
+account or `shared` by everyone it applies to. **Rates** (`ai_credit_rates`) say what 1,000 tokens in
+and out cost per site or workspace, optionally per app, provider and model; the most specific wins,
+and without one a thousand tokens each way cost 1 credit.
+
+Defaults: no tier means unlimited, so nothing changes until someone adds one. Which tiers apply to a
+request: the site's whose domain it comes from (the browser's `Origin`; any other host, the desktop
+app and the agents runner count as the root site) and the open workspace's, when the account is a
+member. Every scope with a tier that matches the request needs credits left; within a scope the tiers
+add up, and an answer is charged to the highest `priority` first, then to the one that refills
+soonest. The check happens before the model is asked and the charge after it answered (with the
+tokens the API reports, else about four characters a token), so the answer that crosses the line
+finishes and the balance may dip below zero by it. The workspace is what the client names, so a
+member who switches to their personal space uses the personal space's credits.
+
+The edge functions share `supabase/functions/_shared/aiCredits.ts` (written into the host with the
+functions by `bun run api`): `assertCredits()` calls `ai_credits()` as the user and throws a
+`CreditsError` (answered as `{ error, kind: "credits", nextRefillAt }`, 402, or an `error` event on a
+socket), and `chargeCredits()` calls `ai_credit_charge()` with the service role, so nobody can drain
+a shared pool by hand (with tiers in force, `SUPABASE_SERVICE_ROLE_KEY` is required). `ai-openai`,
+`ai-deepagents`, `ai-agents` and Spacify's `ai-ollama` use it; a host's own AI function should too.
+Chat requests name the app (`AiChatRequest.app`) and the open workspace (`aiCreditFields()`).
+
+The ai app's `headerWidgets` shows what's left as a pie left of the account menu while a tier
+applies (`useAiCredits()`, read again after each answer and every minute); it opens `/ai-credits`.
+The chat shows out-of-credits errors with a link there (`AiProviderError` kind `credits`).
+
 ## The apps' tools
 
 Other apps can offer the model tools over MCP (their manifests' `mcp`, see
@@ -328,10 +363,14 @@ them in the app's manifest; a provider for everyone belongs in gondol, next to `
 | `ai_mcp_server_headers` | `server_id` (cascades), `user_id`, `headers` (jsonb, name → value): no grants to `authenticated`, written by `set_ai_mcp_server_headers()`, read by the app router |
 | `ai_conversations` | `id`, `user_id` (default `auth.uid()`), `title`, `provider`, `service_id` (set null when the service goes), `model`, `system_prompt`, `created_at`, `updated_at` |
 | `ai_messages` | `id`, `conversation_id` (cascades), `user_id`, `role` (`system`, `user`, `assistant`), `content`, `provider`, `model`, `metrics` (jsonb), `error`, `parent_id` (the message it replies to, same conversation, cascades; threads nest to any depth), `edited_at`, `soft_deleted_at` (shown as deleted, restorable), `created_at`; a message never moves (conversation, thread and role are fixed) |
+| `ai_credit_tiers` | `id`, `user_id`, `scope` (`site`, `workspace`), `scope_id`, `name`, `description`, `credits`, `interval` (`hour`, `day`, `week`, `month`, `year`, `once`), `starts_at`, `ends_at`, `shared`, `apps`, `providers`, `models` (globs), `roles`, `accounts` (empty: any), `priority`, `enabled`, `created_at`, `updated_at`; managed by whoever manages the scope's app settings |
+| `ai_credit_rates` | `id`, `user_id`, `scope`, `scope_id`, `app_id`, `provider`, `model` (null: any), `input_per_1k`, `output_per_1k` (default 1), `created_at`, `updated_at`; unique per scope and match |
+| `ai_credit_usage` | `id`, `user_id`, `tier_id` (set null when the tier goes), `scope`, `scope_id` (null: no tier limited it), `app_id`, `provider`, `model`, `input_tokens`, `output_tokens`, `credits`, `created_at`; written only by `ai_credit_charge()`, read by the account and by the scope's managers |
 | `ai_models` | `id`, `user_id`, `provider`, `service_id` (cascades), `name`, `label`, `details` (jsonb), `enabled`, `created_at`, `updated_at`; unique `(user_id, provider, service_id, name)`, nulls not distinct |
 
 Each is private to its user (`user_id = auth.uid()` policies); a message can only be added to the
 user's own conversation. Spacify's migration `20261022210000_app_settings_and_ai.sql` creates them,
 with `app_settings`; `20261023170000_ai_services.sql` adds the services and
-`20261023190000_ai_service_options.sql` their `options`, and `20261023210000_ai_tool_permissions_and_mcp_servers.sql`
-the tool permissions and MCP servers.
+`20261023190000_ai_service_options.sql` their `options`, `20261023210000_ai_tool_permissions_and_mcp_servers.sql`
+the tool permissions and MCP servers, and `20261030120000_ai_credits.sql` the credits (with `ai_credits()`,
+`ai_credit_charge()` and `ai_credit_scopes()`).
