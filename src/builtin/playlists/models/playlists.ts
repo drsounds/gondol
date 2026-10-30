@@ -27,15 +27,31 @@ export interface Playlist {
 
 export interface PlaylistItem {
   id: string;
+  /** Used in its sheet's URL (/playlists/<playlist>/items/<slug>/edit). */
+  slug?: string;
+  identifier?: string;
   playlist_id: string;
   /** A entity URI (any entity type) or an http(s) link. */
   uri: string;
   /** Optional display title; links fall back to their page title, entities to their name. */
   title: string | null;
   position: number;
+  /** When it was added; kept when an undo or a cut and paste puts it back. */
+  added_at: string;
+  /** A date the user set to show (and sort by) instead of `added_at` (YYYY-MM-DD). */
+  custom_added_on: string | null;
 }
 
-const ITEM_COLUMNS = "id, playlist_id, uri, title, position";
+const ITEM_COLUMNS = "id, slug, identifier, playlist_id, uri, title, position, added_at, custom_added_on";
+
+/** The date an item shows as added: its custom date, else the day it was added (YYYY-MM-DD, local). */
+export function playlistItemAddedOn(item: Pick<PlaylistItem, "added_at" | "custom_added_on">): string {
+  if (item.custom_added_on) return item.custom_added_on;
+  const at = new Date(item.added_at);
+  if (Number.isNaN(at.getTime())) return item.added_at.slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
 
 /** An absolute http(s) URL, the only kind of link a playlist takes. */
 export function isWebLink(value: string): boolean {
@@ -208,7 +224,7 @@ export function useReorderPlaylist() {
   });
 }
 
-async function writePositions(orderedIds: string[]) {
+export async function writePositions(orderedIds: string[]) {
   const results = await Promise.all(orderedIds.map((id, position) => supabase.from("playlist_items").update({ position }).eq("id", id)));
   const failed = results.find((r) => r.error);
   if (failed?.error) throw failed.error;

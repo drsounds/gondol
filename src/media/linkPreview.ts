@@ -12,6 +12,8 @@ export interface LinkPreview {
   site_name: string | null;
   /** og:type ("website", "article", "video.other", …); null on previews cached before it was read. */
   type?: string | null;
+  /** The page's icon (apple-touch-icon or favicon), for pages without an og:image; null when it names none. */
+  icon_url?: string | null;
 }
 
 export function useLinkPreview(url: string | null) {

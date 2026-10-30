@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EntityPicker } from "../../../../../../entities/EntityPicker";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
@@ -11,7 +11,9 @@ import { supabase } from "../../../../models/db";
 import { copyText, showToast } from "../../../../../../shell/clipboard";
 import type { DateRangeSearch } from "../../../../../../navigation/dateRangeSearch";
 import { readEntityDrop, useEntityDropTarget } from "../../../../../../entities/dragEntity";
-import { entityTypeLabel, labelFor, useEntityLabels } from "../../../../../../entities/lookup";
+import { canonicalEntityUri, entityTypeLabel, labelFor, useEntityLabels } from "../../../../../../entities/lookup";
+import { entityRefFromText } from "../../../../../../entities/shareUri";
+import { formatShortcut, isEditableElement, isMac } from "../../../../../../navigation/shortcuts";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useLinkPreview } from "../../../../../../media/linkPreview";
 import { EntityRow } from "../../../../../../entities/EntityRow";
@@ -20,16 +22,20 @@ import { mediaHost, type EntityCovers } from "../../../../../../media/host";
 import {
   isPlaylistItemUri,
   isWebLink,
+  normalizePlaylistItemUri,
   playlistByKeyQueryOptions,
+  playlistItemAddedOn,
   playlistItemsQueryOptions,
   playlistsQueryOptions,
   useAddToPlaylist,
   usePlaylistCovers,
-  useRenamePlaylistItem,
-  useReorderPlaylist,
   type Playlist,
   type PlaylistItem,
 } from "../../../../models/playlists";
+import { usePlaylistHistory } from "../../../../models/history";
+import { moveBlock, placeShown } from "../../../../models/itemOrder";
+import { pastedTokens, recallCopied, rememberCopied } from "../../../../models/clipboard";
+import { playlistsHost } from "../../../../models/host";
 import { isEntityUri, resolveEntityUri, toEntityUri } from "../../../../../../entities/uri";
 import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { entityKey, findByEntityKey } from "../../../../../../entities/slugs";
@@ -62,7 +68,7 @@ type ImageSlot = "header_image" | "square_cover_image";
  */
 export function PlaylistsPanel({ onOpenUri }: Props) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const detailMatch = /^\/playlists\/([^/]+)(?:\/items\/new)?\/?$/.exec(pathname);
+  const detailMatch = /^\/playlists\/([^/]+)(?:\/items\/(?:new|[^/]+\/edit))?\/?$/.exec(pathname);
   const detailKey = detailMatch && detailMatch[1] !== "new" ? detailMatch[1] : null;
   return detailKey ? <PlaylistDetail playlistKey={detailKey} onOpenUri={onOpenUri} /> : <PlaylistList />;
 }
@@ -85,7 +91,7 @@ function useGo() {
 }
 
 /** Opens a playlist item: entities through the entity resolver, links in a new tab. */
-function openItem(uri: string, onOpenUri: (uri: string) => void) {
+function openItemUri(uri: string, onOpenUri: (uri: string) => void) {
   if (isWebLink(uri)) window.open(uri, "_blank", "noopener,noreferrer");
   else onOpenUri(uri);
 }
@@ -447,10 +453,42 @@ function PlaylistSheet({
   );
 }
 
+/** Where keyboard shortcuts and clipboard events belong to a playlist's view. */
+interface PlaylistKeys {
+  key: (event: KeyboardEvent) => void;
+  clipboard: (event: ClipboardEvent) => void;
+  active: () => boolean;
+}
+
+/** Whether the user has selected text on the page (then copying is the browser's). */
+function hasTextSelection() {
+  const selection = typeof window === "undefined" ? null : window.getSelection();
+  return !!selection && !selection.isCollapsed && selection.toString().trim().length > 0;
+}
+
+/** "2026-10-29" as a local date (not midnight UTC). */
+function localDate(on: string): Date {
+  const [y, m, d] = on.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error);
+}
+
+interface Selection {
+  ids: string[];
+  /** Where a Shift range starts. */
+  anchor: string | null;
+  /** The row the arrow keys move from. */
+  cursor: string | null;
+}
+
+const NO_SELECTION: Selection = { ids: [], anchor: null, cursor: null };
+
 function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpenUri: (uri: string) => void }) {
-  const { t } = useI18n();
+  const { t, intlLocale } = useI18n();
   const go = useGo();
-  const queryClient = useQueryClient();
   const itemModal = useEntityModal(`/playlists/${playlistKey}/items`, `/playlists/${playlistKey}`);
   const siteShows = useSiteShows();
   const { playlists, items: shownItems, allItems } = usePlaylistData();
@@ -466,29 +504,317 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
   const fullItems = own ? allItems.filter((i) => i.playlist_id === playlistId) : (shared.data?.items ?? []);
   const items = own ? shownItems.filter((i) => i.playlist_id === playlistId) : fullItems.filter((i) => siteShows.uri(i.uri));
   const { data: labels } = useEntityLabels(items.map((i) => i.uri).filter(isEntityUri));
-  const add = useAddToPlaylist();
-  const rename = useRenamePlaylistItem();
-  const reorder = useReorderPlaylist();
+  const history = usePlaylistHistory(playlistId, { onError: (error) => showToast(errorText(error)) });
+  const saveLink = playlistsHost().useSaveLink();
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Selection>(NO_SELECTION);
+  const [pasting, setPasting] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  const editing = itemModal.mode === "edit" ? findByEntityKey(items, itemModal.id) : undefined;
+  const dateFormat = new Intl.DateTimeFormat(intlLocale, { dateStyle: "medium" });
+  const selected = new Set(selection.ids);
 
-  const removeItem = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("playlist_items").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["playlist_items"] }),
-  });
+  // Pastes and other async work finish after a render or two; they read the list as it is then.
+  const latest = useRef({ items, fullItems, allItems, selection });
+  latest.current = { items, fullItems, allItems, selection };
+
+  /**
+   * Makes `nextShown` the order of the items shown here, as one undoable step. Items the site
+   * hides keep their places; the shown ones fill the other places in their new order.
+   */
+  function commit(nextShown: PlaylistItem[], label: string) {
+    if (readOnly) return;
+    const { items: shownNow, fullItems: allNow } = latest.current;
+    const target = placeShown(allNow, shownNow, nextShown);
+    history.apply(target, label).catch(() => {});
+  }
+
+  function freshItem(uri: string, title: string | null = null): PlaylistItem {
+    return { id: crypto.randomUUID(), playlist_id: playlistId, uri, title, position: 0, added_at: new Date().toISOString(), custom_added_on: null };
+  }
+
+  /** Puts `added` in at `at` (an index among the shown items) and selects them. */
+  function insertItems(added: PlaylistItem[], at: number, label: string) {
+    const ownUri = toEntityUri("playlist", playlistId);
+    const fresh = added.filter((i) => i.uri !== ownUri);
+    if (fresh.length === 0) return;
+    const next = [...latest.current.items];
+    next.splice(Math.max(0, Math.min(at, next.length)), 0, ...fresh);
+    commit(next, label);
+    select(fresh.map((i) => i.id), fresh[0].id, fresh[fresh.length - 1].id);
+  }
+
+  /** Adds entities (entity URIs, by slug or identifier too) and web links at `at`. */
+  async function insertUris(entries: { uri: string; title?: string }[], at: number, label: string) {
+    const fresh = await Promise.all(
+      entries.map(async ({ uri, title }) => freshItem(isEntityUri(uri) ? await canonicalEntityUri(uri) : normalizePlaylistItemUri(uri), title?.trim() || null)),
+    );
+    insertItems(fresh, at, label);
+  }
+
+  function select(ids: string[], anchor: string | null = ids[0] ?? null, cursor: string | null = ids[ids.length - 1] ?? null) {
+    setSelection({ ids, anchor, cursor });
+  }
+
+  function focusRow(id: string) {
+    requestAnimationFrame(() => {
+      const row = listRef.current?.querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`);
+      row?.focus();
+    });
+  }
+
+  /** The selected items in list order (or the row under the cursor when nothing is selected). */
+  function chosenItems(): PlaylistItem[] {
+    const { items: now, selection: sel } = latest.current;
+    const ids = new Set(sel.ids.length > 0 ? sel.ids : sel.cursor ? [sel.cursor] : []);
+    return now.filter((i) => ids.has(i.id));
+  }
+
+  /** The items a row's menu acts on: the selection when the row is in it, else the row alone. */
+  function itemsFor(item: PlaylistItem): PlaylistItem[] {
+    return selected.has(item.id) ? items.filter((i) => selected.has(i.id)) : [item];
+  }
+
+  /** Where a paste goes: after the last selected row, else after the cursor, else at the end. */
+  function insertionIndex(): number {
+    const { items: now, selection: sel } = latest.current;
+    const indexes = (sel.ids.length > 0 ? sel.ids : sel.cursor ? [sel.cursor] : []).map((id) => now.findIndex((i) => i.id === id)).filter((i) => i >= 0);
+    return indexes.length > 0 ? Math.max(...indexes) + 1 : now.length;
+  }
+
+  function goTo(index: number, extend: boolean) {
+    const item = items[index];
+    if (!item) return;
+    if (extend && selection.anchor) {
+      const from = items.findIndex((i) => i.id === selection.anchor);
+      const [lo, hi] = from < 0 ? [index, index] : [Math.min(from, index), Math.max(from, index)];
+      setSelection({ ids: items.slice(lo, hi + 1).map((i) => i.id), anchor: selection.anchor, cursor: item.id });
+    } else {
+      select([item.id]);
+    }
+    focusRow(item.id);
+  }
+
+  function moveCursor(direction: 1 | -1, extend: boolean) {
+    const at = items.findIndex((i) => i.id === selection.cursor);
+    goTo(at < 0 ? (direction > 0 ? 0 : items.length - 1) : Math.max(0, Math.min(items.length - 1, at + direction)), extend);
+  }
+
+  function remove(chosen: PlaylistItem[]) {
+    if (readOnly || chosen.length === 0) return;
+    const ids = new Set(chosen.map((i) => i.id));
+    const last = Math.max(...chosen.map((c) => items.findIndex((i) => i.id === c.id)));
+    const after = items.slice(last + 1).find((i) => !ids.has(i.id)) ?? [...items].reverse().find((i) => !ids.has(i.id));
+    commit(
+      items.filter((i) => !ids.has(i.id)),
+      t("playlists.historyRemove"),
+    );
+    if (after) {
+      select([after.id]);
+      focusRow(after.id);
+    } else select([]);
+  }
+
+  /** Moves the selected rows one place up or down, as a block where they touch. */
+  function moveSelected(direction: 1 | -1) {
+    const chosen = new Set(chosenItems().map((i) => i.id));
+    if (readOnly || chosen.size === 0) return;
+    const next = moveBlock(items, chosen, direction);
+    if (next.every((item, i) => item.id === items[i].id)) return;
+    commit(next, t("playlists.historyMove"));
+    if (selection.cursor) focusRow(selection.cursor);
+  }
 
   function move(from: number, to: number) {
-    if (readOnly || from === to || to < 0 || to > items.length) return;
-    const ids = items.map((i) => i.id);
-    const [moved] = ids.splice(from, 1);
-    ids.splice(to > from ? to - 1 : to, 0, moved);
-    // Hidden items keep their places; the shown ones fill the other places in their new order.
-    const shown = new Set(ids);
-    let next = 0;
-    reorder.mutate(fullItems.map((i) => (shown.has(i.id) ? ids[next++] : i.id)));
+    if (readOnly || from === to || from < 0 || to < 0 || to > items.length) return;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to > from ? to - 1 : to, 0, moved);
+    commit(next, t("playlists.historyMove"));
   }
+
+  /** Copies (or cuts) items: their URIs on the system clipboard, one per line. */
+  function copyItems(chosen: PlaylistItem[], cut: boolean, event?: ClipboardEvent) {
+    if (chosen.length === 0 || (cut && readOnly)) return;
+    const text = rememberCopied(chosen, cut ? playlistId : null);
+    const message = t(cut ? "playlists.cutCount" : "playlists.copiedCount", { count: chosen.length });
+    if (event?.clipboardData) {
+      event.preventDefault();
+      event.clipboardData.setData("text/plain", text);
+      const links = chosen.map((i) => i.uri).filter(isWebLink);
+      if (links.length > 0) event.clipboardData.setData("text/uri-list", links.join("\r\n"));
+      showToast(message);
+    } else {
+      copyText(text, message, t("playlists.copyFailed"));
+    }
+    if (cut) remove(chosen);
+  }
+
+  /**
+   * Pastes clipboard text after the selection: items copied from a playlist come back as they were
+   * (a cut keeps its added dates, and its ids within the same playlist); otherwise every entity URI
+   * or app address is added, and every web link is saved as a bookmark first where the host keeps
+   * bookmarks (else added as a link).
+   */
+  async function paste(text: string) {
+    if (readOnly || !text.trim()) return;
+    const at = insertionIndex();
+    const label = t("playlists.historyPaste");
+    const recalled = recallCopied(text);
+    if (recalled) {
+      const taken = new Set(latest.current.allItems.map((i) => i.id));
+      const moved = !!recalled.cutFrom;
+      insertItems(
+        recalled.items.map((i) =>
+          moved && recalled.cutFrom === playlistId && !taken.has(i.id)
+            ? { ...i }
+            : { ...freshItem(i.uri, i.title), ...(moved ? { added_at: i.added_at, custom_added_on: i.custom_added_on } : {}) },
+        ),
+        at,
+        label,
+      );
+      return;
+    }
+    setPasting(true);
+    try {
+      const uris = (await Promise.all(pastedTokens(text).map(resolvePasted))).filter((u): u is string => !!u);
+      if (uris.length === 0) {
+        showToast(t("playlists.pasteNothing"));
+        return;
+      }
+      await insertUris(
+        uris.map((uri) => ({ uri })),
+        at,
+        label,
+      );
+    } finally {
+      setPasting(false);
+    }
+  }
+
+  async function resolvePasted(token: string): Promise<string | null> {
+    const ref = entityRefFromText(token);
+    if (ref) return canonicalEntityUri(toEntityUri(ref.entityType, ref.entityId));
+    if (!isWebLink(token) || !isPlaylistItemUri(token)) return null;
+    if (!saveLink) return token;
+    try {
+      return await saveLink(token);
+    } catch {
+      return token;
+    }
+  }
+
+  /** "Paste" in a row's menu: the system clipboard, where the browser lets the page read it. */
+  async function pasteFromMenu(after: PlaylistItem) {
+    select([after.id]);
+    latest.current = { ...latest.current, selection: { ids: [after.id], anchor: after.id, cursor: after.id } };
+    try {
+      const text = await navigator.clipboard.readText();
+      await paste(text);
+    } catch {
+      showToast(t("playlists.pasteBlocked", { keys: formatShortcut("Mod+V") }));
+    }
+  }
+
+  async function travel(direction: "undo" | "redo") {
+    const label = await (direction === "undo" ? history.undo() : history.redo()).catch(() => null);
+    if (label) showToast(t(direction === "undo" ? "playlists.undone" : "playlists.redone", { action: label }));
+  }
+
+  function openItem(item: PlaylistItem) {
+    openItemUri(item.uri, onOpenUri);
+  }
+
+  // Keyboard shortcuts and the clipboard, while focus is on the playlist (or nowhere in particular).
+  const keys = useRef<PlaylistKeys | null>(null);
+  keys.current = {
+    active: () => !!playlist && itemModal.mode === "closed" && !pasting,
+    key: (event) => {
+      const mod = isMac() ? event.metaKey : event.ctrlKey;
+      const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      const handled = () => event.preventDefault();
+      if (mod && !event.altKey && (key === "z" || (key === "y" && !event.shiftKey))) {
+        if (readOnly) return;
+        handled();
+        void travel(key === "y" || event.shiftKey ? "redo" : "undo");
+      } else if (mod && !event.altKey && !event.shiftKey && key === "a") {
+        if (items.length === 0) return;
+        handled();
+        select(
+          items.map((i) => i.id),
+          items[0].id,
+          selection.cursor ?? items[0].id,
+        );
+      } else if (key === "ArrowUp" || key === "ArrowDown") {
+        const direction = key === "ArrowUp" ? -1 : 1;
+        if (event.altKey || (mod && event.shiftKey)) {
+          if (readOnly) return;
+          handled();
+          moveSelected(direction);
+        } else if (!mod) {
+          handled();
+          moveCursor(direction, event.shiftKey);
+        }
+      } else if ((key === "Home" || key === "End") && !mod && !event.altKey && items.length > 0) {
+        handled();
+        goTo(key === "Home" ? 0 : items.length - 1, event.shiftKey);
+      } else if (key === "Escape" && selection.ids.length > 0) {
+        handled();
+        select([], null, selection.cursor);
+      } else if ((key === "Delete" || key === "Backspace") && !event.altKey && !event.shiftKey) {
+        if (readOnly) return;
+        const chosen = chosenItems();
+        if (chosen.length === 0) return;
+        handled();
+        remove(chosen);
+      } else if (key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        const item = items.find((i) => i.id === selection.cursor);
+        if (!item) return;
+        handled();
+        openItem(item);
+      }
+    },
+    clipboard: (event) => {
+      if (event.type === "paste") {
+        if (readOnly) return;
+        const text = event.clipboardData?.getData("text/plain") || event.clipboardData?.getData("text/uri-list") || "";
+        if (!text.trim()) return;
+        event.preventDefault();
+        void paste(text);
+        return;
+      }
+      if (hasTextSelection()) return;
+      const chosen = chosenItems();
+      if (chosen.length === 0) return;
+      copyItems(chosen, event.type === "cut", event);
+    },
+  };
+
+  useEffect(() => {
+    /** Events aimed at the playlist's view, or at the page itself (nothing focused). */
+    const ours = (target: EventTarget | null) => {
+      if (!keys.current?.active() || isEditableElement(target)) return false;
+      const root = rootRef.current;
+      return !!root && (target === document.body || (target instanceof Node && root.contains(target)));
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (!event.defaultPrevented && ours(event.target)) keys.current?.key(event);
+    };
+    const onClipboard = (event: ClipboardEvent) => {
+      if (ours(event.target)) keys.current?.clipboard(event);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("copy", onClipboard);
+    document.addEventListener("cut", onClipboard);
+    document.addEventListener("paste", onClipboard);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("copy", onClipboard);
+      document.removeEventListener("cut", onClipboard);
+      document.removeEventListener("paste", onClipboard);
+    };
+  }, []);
 
   /** Index to insert at when dropping over row `index`: before it on its top half, else after. */
   function indexFromEvent(event: DragEvent<HTMLElement>, index: number) {
@@ -527,7 +853,25 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
     event.preventDefault();
     event.stopPropagation();
     if (data?.uri === toEntityUri("playlist", playlistId)) return;
-    add.mutate({ playlistId, uri: data?.uri ?? link!, position: at });
+    void insertUris([{ uri: data?.uri ?? link! }], at, t("playlists.historyAdd"));
+  }
+
+  /** Clicks with Ctrl/⌘ toggle a row, with Shift select a range, and on the number select only. */
+  function onRowClick(event: MouseEvent<HTMLLIElement>, item: PlaylistItem, index: number) {
+    const target = event.target as HTMLElement;
+    const toggle = event.metaKey || event.ctrlKey;
+    if (event.shiftKey || toggle || target.closest(".entity-row__number")) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.shiftKey) goTo(index, true);
+      else if (toggle) {
+        const ids = selected.has(item.id) ? selection.ids.filter((id) => id !== item.id) : [...selection.ids, item.id];
+        setSelection({ ids, anchor: item.id, cursor: item.id });
+      } else select([item.id]);
+      focusRow(item.id);
+      return;
+    }
+    if (!target.closest(".action-menu-trigger, .action-row__like")) select([item.id]);
   }
 
   if (!playlist) {
@@ -538,10 +882,13 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
     );
   }
 
+  const undoTitle = history.undoLabel ? t("playlists.undoAction", { action: history.undoLabel }) : t("playlists.undo");
+  const redoTitle = history.redoLabel ? t("playlists.redoAction", { action: history.redoLabel }) : t("playlists.redo");
+
   return (
     <>
       <Card>
-        <div className="stack">
+        <div className="stack" ref={rootRef}>
           <button type="button" className="link-button playlist-back" onClick={() => go("/playlists")}>
             ‹ {t("playlists.title")}
           </button>
@@ -555,6 +902,26 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
             actions={
               readOnly ? null : (
                 <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!history.canUndo}
+                    onClick={() => void travel("undo")}
+                    title={`${undoTitle} (${formatShortcut("Mod+Z")})`}
+                    aria-label={undoTitle}
+                  >
+                    {t("playlists.undo")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={!history.canRedo}
+                    onClick={() => void travel("redo")}
+                    title={`${redoTitle} (${formatShortcut("Mod+Shift+Z")})`}
+                    aria-label={redoTitle}
+                  >
+                    {t("playlists.redo")}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => go(`/playlists/${entityKey(playlist)}/edit`)}>
                     {t("actions.edit")}
                   </Button>
@@ -566,8 +933,18 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
             }
           />
 
+          {items.length > 0 ? (
+            <div className="playlist-columns" aria-hidden="true">
+              <span className="playlist-columns__number">#</span>
+              <span className="playlist-columns__title">{t("playlists.titleColumn")}</span>
+              <span className="playlist-columns__added">{t("playlists.addedColumn")}</span>
+            </div>
+          ) : null}
           <ol
-            className="playlist-list"
+            ref={listRef}
+            className={pasting ? "playlist-list playlist-list--busy" : "playlist-list"}
+            aria-label={t("playlists.itemsLabel", { name: playlist.name })}
+            aria-busy={pasting || undefined}
             onDragOver={(e) => onDragOverRow(e, items.length)}
             onDragLeave={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropIndex(null);
@@ -578,8 +955,10 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
               const uri = item.uri;
               const link = isWebLink(uri);
               const openable = link || resolveEntityUri(uri) !== null;
+              const acting = itemsFor(item);
+              const many = acting.length > 1;
               const actions: MenuAction[] = [
-                ...(openable ? [{ key: "open", label: link ? t("playlists.openLink") : t("actions.open"), onSelect: () => openItem(uri, onOpenUri) }] : []),
+                ...(openable ? [{ key: "open", label: link ? t("playlists.openLink") : t("actions.open"), onSelect: () => openItem(item) }] : []),
                 ...(link
                   ? [
                       {
@@ -589,31 +968,56 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
                       },
                     ]
                   : []),
+                {
+                  key: "copy",
+                  label: many ? t("playlists.copyItems", { count: acting.length }) : t("playlists.copyItem"),
+                  onSelect: () => copyItems(acting, false),
+                },
                 ...(readOnly
                   ? []
                   : [
                       {
-                        key: "rename",
-                        label: t("playlists.renameItem"),
-                        onSelect: () => {
-                          const next = window.prompt(t("playlists.itemTitle"), item.title ?? "");
-                          if (next !== null) rename.mutate({ id: item.id, title: next });
-                        },
+                        key: "cut",
+                        label: many ? t("playlists.cutItems", { count: acting.length }) : t("playlists.cutItem"),
+                        onSelect: () => copyItems(acting, true),
                       },
+                      { key: "paste", label: t("playlists.pasteBelow"), onSelect: () => void pasteFromMenu(item) },
+                      { key: "edit", label: t("playlists.editItem"), onSelect: () => itemModal.openEdit(entityKey(item)) },
                       { key: "up", label: t("playlists.moveUp"), disabled: index === 0, onSelect: () => move(index, index - 1) },
                       { key: "down", label: t("playlists.moveDown"), disabled: index === items.length - 1, onSelect: () => move(index, index + 2) },
-                      { key: "remove", label: t("playlists.removeItem"), tone: "danger" as const, onSelect: () => removeItem.mutate(item.id) },
+                      {
+                        key: "remove",
+                        label: many ? t("playlists.removeItems", { count: acting.length }) : t("playlists.removeItem"),
+                        tone: "danger" as const,
+                        onSelect: () => remove(acting),
+                      },
                     ]),
               ];
-              const common = {
+              const addedOn = playlistItemAddedOn(item);
+              const added = dateFormat.format(localDate(addedOn));
+              const common: ItemRowProps = {
                 item,
                 index,
                 draggable: !readOnly,
                 dropBefore: dropIndex === index,
                 dropAfter: dropIndex === items.length && index === items.length - 1,
-                onOpen: () => openItem(uri, onOpenUri),
+                selected: selected.has(item.id),
+                cursor: selection.cursor === item.id,
+                added: {
+                  on: addedOn,
+                  label: added,
+                  custom: !!item.custom_added_on,
+                  hint: item.custom_added_on
+                    ? t("playlists.addedCustomHint", { date: dateFormat.format(new Date(item.added_at)) })
+                    : t("playlists.addedHint", { date: added }),
+                },
+                onOpen: () => openItem(item),
                 onDragOver: (e: DragEvent<HTMLLIElement>) => onDragOverRow(e, index),
                 onDrop: (e: DragEvent<HTMLLIElement>) => onDropAt(e, indexFromEvent(e, index)),
+                onClickCapture: (e: MouseEvent<HTMLLIElement>) => onRowClick(e, item, index),
+                onFocus: () => {
+                  if (selection.cursor !== item.id) setSelection((s) => ({ ...s, cursor: item.id, anchor: s.ids.length > 0 ? s.anchor : item.id }));
+                },
                 actions,
               };
               return link ? (
@@ -624,7 +1028,11 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
             })}
             {items.length === 0 ? <li className="playlist-list__empty">{t("playlists.itemsEmpty")}</li> : null}
           </ol>
-          {readOnly ? null : <p className="drop-zone__hint">{t("playlists.dropHint")}</p>}
+          {readOnly ? null : (
+            <p className="drop-zone__hint">
+              {t("playlists.dropHint")} <span className="playlist-keys-hint">{t("playlists.keysHint", { copy: formatShortcut("Mod+C"), cut: formatShortcut("Mod+X"), paste: formatShortcut("Mod+V"), undo: formatShortcut("Mod+Z") })}</span>
+            </p>
+          )}
         </div>
       </Card>
 
@@ -632,14 +1040,29 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
         <AddItemSheet
           playlist={playlist}
           onClose={itemModal.close}
-          saving={add.isPending}
-          error={add.error?.message}
-          onAdd={(items) => {
-            // One at a time, so each lands after the previous one.
-            void (async () => {
-              for (const item of items) await add.mutateAsync({ playlistId: playlist.id, ...item });
-              itemModal.close();
-            })().catch(() => {});
+          saving={false}
+          onAdd={(entries) => {
+            void insertUris(entries, items.length, t("playlists.historyAdd")).then(itemModal.close);
+          }}
+        />
+      ) : null}
+      {editing && !readOnly ? (
+        <PlaylistItemSheet
+          item={editing}
+          playlist={playlist}
+          name={isWebLink(editing.uri) ? editing.uri : (labelFor(labels, editing.uri) ?? editing.uri)}
+          formatDate={(on) => dateFormat.format(localDate(on))}
+          onClose={itemModal.close}
+          onSave={(patch) => {
+            commit(
+              items.map((i) => (i.id === editing.id ? { ...i, ...patch } : i)),
+              t("playlists.historyEdit"),
+            );
+            itemModal.close();
+          }}
+          onRemove={() => {
+            remove([editing]);
+            itemModal.close();
           }}
         />
       ) : null}
@@ -665,30 +1088,71 @@ interface ItemRowProps {
   draggable: boolean;
   dropBefore: boolean;
   dropAfter: boolean;
+  selected: boolean;
+  cursor: boolean;
+  /** When it was added (`on`, YYYY-MM-DD), as shown, and whether that's the user's own date. */
+  added: { on: string; label: string; custom: boolean; hint: string };
   onOpen: () => void;
   onDragOver: (e: DragEvent<HTMLLIElement>) => void;
   onDrop: (e: DragEvent<HTMLLIElement>) => void;
+  onClickCapture: (e: MouseEvent<HTMLLIElement>) => void;
+  onFocus: () => void;
   actions: MenuAction[];
 }
 
-function rowClass(dropBefore: boolean, dropAfter: boolean) {
-  return ["playlist-row", dropBefore ? "playlist-row--drop-before" : "", dropAfter ? "playlist-row--drop-after" : ""].filter(Boolean).join(" ");
+/** What every item row shares: its classes, focus and selection state, and the date added. */
+function rowProps({ item, dropBefore, dropAfter, selected, cursor, added, onDragOver, onDrop, onClickCapture, onFocus }: ItemRowProps) {
+  const className = [
+    "playlist-row",
+    dropBefore ? "playlist-row--drop-before" : "",
+    dropAfter ? "playlist-row--drop-after" : "",
+    selected ? "playlist-row--selected" : "",
+    cursor ? "playlist-row--cursor" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  return {
+    className,
+    "data-item-id": item.id,
+    "data-selected": selected ? "true" : undefined,
+    tabIndex: -1,
+    onDragOver,
+    onDrop,
+    onClickCapture,
+    onFocus,
+    aside: (
+      <time dateTime={added.on} className={added.custom ? "playlist-row__added playlist-row__added--custom" : "playlist-row__added"} title={added.hint}>
+        {added.label}
+      </time>
+    ),
+  };
 }
 
-function EntityItemRow({ item, index, dropBefore, dropAfter, onOpen, onDragOver, onDrop, actions, name, openable }: ItemRowProps & { name: string; openable: boolean }) {
+/** The row's type line, with the date added on phones (where the date column is hidden). */
+function rowMeta(kind: ReactNode, added: ItemRowProps["added"]) {
+  return (
+    <>
+      {kind}
+      <span className="playlist-row__added-meta" title={added.hint}>
+        · {added.label}
+      </span>
+    </>
+  );
+}
+
+function EntityItemRow(props: ItemRowProps & { name: string; openable: boolean }) {
+  const { item, index, onOpen, actions, name, openable, added } = props;
   const { t } = useI18n();
   return (
     <EntityRow
-      className={rowClass(dropBefore, dropAfter)}
+      {...rowProps(props)}
       // The row is also draggable as an entity (see ActionMenu); this adds the reorder payload.
       onDragStart={(e) => {
         e.dataTransfer.setData(PLAYLIST_ITEM_MIME, item.id);
       }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       number={index + 1}
       name={name}
-      meta={entityTypeLabel(t, item.uri)}
+      meta={rowMeta(entityTypeLabel(t, item.uri), added)}
       uri={item.uri}
       openable={openable}
       onOpen={onOpen}
@@ -698,15 +1162,17 @@ function EntityItemRow({ item, index, dropBefore, dropAfter, onOpen, onDragOver,
 }
 
 /** A web link in a playlist: its own title, else the page's Open Graph title, else the URL. */
-function LinkItemRow({ item, index, draggable, dropBefore, dropAfter, onOpen, onDragOver, onDrop, actions }: ItemRowProps) {
+function LinkItemRow(props: ItemRowProps) {
+  const { item, index, draggable, onOpen, actions, added } = props;
   const { t } = useI18n();
-  const preview = useLinkPreview(item.title ? null : item.uri).data;
+  const preview = useLinkPreview(item.uri).data;
   const host = hostOf(item.uri);
   const name = item.title ?? (preview?.ok ? preview.title : null) ?? item.uri;
-  const image = preview?.ok ? preview.image_url : null;
+  // The page's Open Graph image, else its icon.
+  const image = preview?.ok ? (preview.image_url ?? preview.icon_url ?? null) : (preview?.icon_url ?? null);
   return (
     <EntityRow
-      className={rowClass(dropBefore, dropAfter)}
+      {...rowProps(props)}
       // Links have no entity URI, so ActionMenu doesn't make them draggable; reordering still works.
       draggable={draggable}
       onDragStart={(e) => {
@@ -715,11 +1181,9 @@ function LinkItemRow({ item, index, draggable, dropBefore, dropAfter, onOpen, on
         e.dataTransfer.setData("text/plain", item.uri);
         e.dataTransfer.effectAllowed = "copyMove";
       }}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       number={index + 1}
       name={name}
-      meta={host ? `${t("playlists.link")} · ${host}` : t("playlists.link")}
+      meta={rowMeta(host ? `${t("playlists.link")} · ${host}` : t("playlists.link"), added)}
       hint={item.uri}
       art={
         image ? (
@@ -852,6 +1316,105 @@ function AddItemSheet({
           />
         ) : null}
         {error ? <p className="bungalow-help bungalow-help--error">{error}</p> : null}
+      </div>
+    </EntitySheet>
+  );
+}
+
+/**
+ * An item's sheet (/playlists/<playlist>/items/<item>/edit): its own title and the date it shows
+ * as added. The real date added stays as it is; the custom date is shown instead while it's set.
+ */
+function PlaylistItemSheet({
+  item,
+  playlist,
+  name,
+  formatDate,
+  onClose,
+  onSave,
+  onRemove,
+}: {
+  item: PlaylistItem;
+  playlist: Playlist;
+  /** What the item is called without a title of its own (the entity's name, the link). */
+  name: string;
+  formatDate: (on: string) => string;
+  onClose: () => void;
+  onSave: (patch: Pick<PlaylistItem, "title" | "custom_added_on">) => void;
+  onRemove: () => void;
+}) {
+  const { t } = useI18n();
+  const link = isWebLink(item.uri);
+  const preview = useLinkPreview(link && !item.title ? item.uri : null).data;
+  const fallback = link ? ((preview?.ok ? preview.title : null) ?? item.uri) : name;
+  const [title, setTitle] = useState(item.title ?? "");
+  const [customOn, setCustomOn] = useState(item.custom_added_on ?? "");
+  const addedOn = playlistItemAddedOn({ added_at: item.added_at, custom_added_on: null });
+  const shownOn = customOn || addedOn;
+
+  return (
+    <EntitySheet
+      title={t("playlists.editItem").replace(/…$/, "")}
+      subtitle={playlist.name}
+      uri={isEntityUri(item.uri) ? item.uri : undefined}
+      onClose={onClose}
+      closeLabel={t("sheet.close")}
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave({ title: title.trim() || null, custom_added_on: customOn || null });
+      }}
+      footer={
+        <FormActions
+          onDelete={onRemove}
+          deleteLabel={t("playlists.removeItem")}
+          onCancel={onClose}
+          cancelLabel={t("form.cancel")}
+          submitLabel={t("form.save")}
+        />
+      }
+      preview={
+        <div className="entity-preview">
+          <div>
+            <div className="entity-preview__kind">{link ? t("playlists.link") : entityTypeLabel(t, item.uri)}</div>
+            <div className="entity-preview__label">{title.trim() || fallback}</div>
+          </div>
+          <dl className="entity-preview__meta">
+            <div>
+              <dt>{t("playlists.addedColumn")}</dt>
+              <dd>{formatDate(shownOn)}</dd>
+            </div>
+            {customOn ? (
+              <div>
+                <dt>{t("playlists.addedActual")}</dt>
+                <dd>{formatDate(addedOn)}</dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>{t("entity.playlist")}</dt>
+              <dd>{playlist.name}</dd>
+            </div>
+          </dl>
+        </div>
+      }
+    >
+      <div className="stack">
+        <Input label={t("playlists.itemTitle")} hint={t("playlists.itemTitleHint")} placeholder={fallback} value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="form-grid">
+          <Input
+            label={t("playlists.customAdded")}
+            hint={t("playlists.customAddedHint", { date: formatDate(addedOn) })}
+            type="date"
+            value={customOn}
+            onChange={(e) => setCustomOn(e.target.value)}
+          />
+        </div>
+        {customOn ? (
+          <div>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setCustomOn("")}>
+              {t("playlists.customAddedClear")}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </EntitySheet>
   );
