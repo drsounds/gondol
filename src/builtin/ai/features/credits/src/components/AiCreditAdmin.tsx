@@ -47,6 +47,10 @@ export function useAiCreditFormat() {
   }, [t, intlLocale]);
 }
 
+function roleNames(t: ReturnType<typeof useI18n>["t"], roles: string[]): string {
+  return roles.map((role) => t(`ai.credits.role.${role}` as Parameters<typeof t>[0])).join(", ");
+}
+
 function scopeLabel(t: ReturnType<typeof useI18n>["t"], scopes: AiCreditScope[], scope: string, id: string): string {
   const found = scopes.find((s) => s.scope === scope && s.scope_id === id);
   return t(scope === "site" ? "ai.credits.scopeSite" : "ai.credits.scopeWorkspace", { name: found?.name ?? "—" });
@@ -136,7 +140,7 @@ export function AiCreditTiersSection({ scopes }: { scopes: AiCreditScope[] }) {
                   {t("ai.credits.perInterval", { credits: formatCredits(row.credits, intlLocale), interval: interval(row.interval) })}
                   {row.shared ? <span className="muted"> · {t("ai.credits.sharedShort")}</span> : null}
                 </td>
-                <td className="muted">{[limits(row), row.roles.join(", ")].filter(Boolean).join(" · ") || t("ai.credits.anything")}</td>
+                <td className="muted">{[limits(row), roleNames(t, row.roles)].filter(Boolean).join(" · ") || t("ai.credits.anything")}</td>
                 <td className="muted">{row.enabled ? t("ai.credits.on") : t("ai.credits.off")}</td>
                 <td className="action-row-cell">
                   <ActionMenu
@@ -284,7 +288,7 @@ function TierSheet({
             <div>
               <dt>{t("ai.credits.tiers.who")}</dt>
               <dd>
-                {[values.roles.length ? values.roles.join(", ") : t("ai.credits.tiers.everyone"), values.shared ? t("ai.credits.sharedShort") : t("ai.credits.tiers.each")].join(" · ")}
+                {[values.roles.length ? roleNames(t, values.roles) : t("ai.credits.tiers.everyone"), values.shared ? t("ai.credits.sharedShort") : t("ai.credits.tiers.each")].join(" · ")}
               </dd>
             </div>
             <div>

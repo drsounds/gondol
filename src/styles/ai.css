@@ -783,7 +783,7 @@
 
 /* AI credits: the header's pie and /ai-credits (builtin/ai/features/credits). */
 .ai-credit-pie { display: block; flex: none; }
-.ai-credit-pie__track { fill: none; stroke: var(--bungalow-color-border, currentColor); stroke-width: 2; opacity: 0.6; }
+.ai-credit-pie__track { fill: color-mix(in srgb, currentColor 10%, transparent); stroke: currentColor; stroke-width: 1.5; opacity: 0.55; }
 .ai-credit-pie__fill { fill: none; stroke: var(--bungalow-color-primary, currentColor); transition: stroke-dasharray 0.4s ease; }
 .ai-credit-pie--warning .ai-credit-pie__fill { stroke: var(--bungalow-color-warning, #d99a00); }
 .ai-credit-pie--danger .ai-credit-pie__fill { stroke: var(--bungalow-color-danger, #d33); }
