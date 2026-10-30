@@ -5,7 +5,8 @@
   "license": "LGPL-3.0-only",
   "type": "module",
   "bin": {
-    "gondol-api": "./src/api/cli.ts"
+    "gondol-api": "./src/api/cli.ts",
+    "gondol-apps": "./src/runtime/cli.mjs"
   },
   "sideEffects": [
     "*.css"
@@ -82,6 +83,12 @@
     "./apps/manifest": "./src/apps/manifest.ts",
     "./apps/navigation": "./src/apps/navigation.tsx",
     "./apps/registry": "./src/apps/registry.ts",
+    "./apps/remote/RemoteAppsRegistrar": "./src/apps/remote/RemoteAppsRegistrar.tsx",
+    "./apps/remote/backend": "./src/apps/remote/backend.ts",
+    "./apps/remote/gondolModules": "./src/apps/remote/gondolModules.ts",
+    "./apps/remote/loader": "./src/apps/remote/loader.ts",
+    "./apps/remote/protocol": "./src/apps/remote/protocol.ts",
+    "./apps/remote/system": "./src/apps/remote/system.ts",
     "./apps/shellHooks": "./src/apps/shellHooks.ts",
     "./apps/types": "./src/apps/types.ts",
     "./builtin/agents/features/agents/src/components/AgentAvatar": "./src/builtin/agents/features/agents/src/components/AgentAvatar.tsx",
@@ -241,6 +248,18 @@
     "./navigation/shortcuts": "./src/navigation/shortcuts.ts",
     "./navigation/useEntityModal": "./src/navigation/useEntityModal.ts",
     "./register": "./src/register.ts",
+    "./runtime/build": {
+      "types": "./src/runtime/build.d.mts",
+      "default": "./src/runtime/build.mjs"
+    },
+    "./runtime/cli": {
+      "types": "./src/runtime/cli.d.mts",
+      "default": "./src/runtime/cli.mjs"
+    },
+    "./runtime/server": {
+      "types": "./src/runtime/server.d.mts",
+      "default": "./src/runtime/server.mjs"
+    },
     "./search/GlobalFilter": "./src/search/GlobalFilter.tsx",
     "./search/entitySearch": "./src/search/entitySearch.ts",
     "./search/globalFilterState": "./src/search/globalFilterState.tsx",
@@ -296,6 +315,10 @@
     "./vite/apps": {
       "types": "./src/vite/apps.d.mts",
       "default": "./src/vite/apps.mjs"
+    },
+    "./vite/remoteApp": {
+      "types": "./src/vite/remoteApp.d.mts",
+      "default": "./src/vite/remoteApp.mjs"
     },
     "./vite/virtual": {
       "types": "./src/vite/virtual.d.ts"

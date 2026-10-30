@@ -169,6 +169,27 @@ export interface InternalAppBundle {
    * settings they follow (a site with the studio app has the apps users built with it).
    */
   partOf?: string;
+  /** For apps loaded at run time from an apps runtime (./remote/loader.ts): where they came from. */
+  remote?: RemoteAppInfo;
+}
+
+/** Where a remote app (./remote/loader.ts) was loaded from, and what its backend is. */
+export interface RemoteAppInfo {
+  /** The source as the user added it (the runtime's address or its index URL). */
+  source: string;
+  /** The index it is listed in. */
+  indexUrl: string;
+  /** Its client entry module. */
+  clientUrl: string;
+  /** Its stylesheets, added to the page while it's registered. */
+  styles: string[];
+  version?: string;
+  /** Served by `gondol-apps dev` (Vite): backend functions are called on the runtime directly. */
+  dev: boolean;
+  /** Its backend functions' names; served through the app router once an admin approves them (dev: directly). */
+  functions: string[];
+  /** Where the runtime serves those functions (`<functionsUrl>/<name>`). */
+  functionsUrl?: string;
 }
 
 export interface DynamicMenuItem {
