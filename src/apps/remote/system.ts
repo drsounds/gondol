@@ -91,13 +91,21 @@ export function registerSharedModules(modules: Record<string, SharedModuleLoader
 }
 
 /**
- * `gondol/<path>` for a module file as `import.meta.glob` keys it from src/apps/remote
- * ("../../entities/EntitySheet.tsx" → "gondol/entities/EntitySheet", "../../index.ts" → "gondol"),
- * the same subpaths as package.json's exports.
+ * `gondol/<path>` for a module file as `import.meta.glob` keys it from src/apps/remote/gondolModules.ts:
+ * relative to that file ("../defineApp.ts" → "gondol/apps/defineApp", "../../index.ts" → "gondol"),
+ * or absolute ("/node_modules/gondol/src/entities/EntitySheet.tsx"); the same subpaths as
+ * package.json's exports.
  */
 export function gondolSpecifier(globKey: string): string | null {
-  const match = /^(?:\.\.\/)+(.*)\.(?:tsx?)$/.exec(globKey);
-  if (!match) return null;
-  const path = match[1].replace(/(^|\/)index$/, "");
+  if (!/\.tsx?$/.test(globKey)) return null;
+  let path: string;
+  if (globKey.startsWith(".")) {
+    path = new URL(globKey, "file:///gondol/src/apps/remote/gondolModules.ts").pathname.replace(/^\/gondol\/src\//, "");
+  } else {
+    const at = globKey.indexOf("/src/");
+    if (at === -1) return null;
+    path = globKey.slice(at + "/src/".length);
+  }
+  path = path.replace(/\.tsx?$/, "").replace(/(^|\/)index$/, "");
   return path ? `gondol/${path}` : "gondol";
 }

@@ -289,7 +289,8 @@ export function createAppsRuntime({ apps, dev = null, env = process.env, log = c
       const app = match ? byId.get(decodeURIComponent(match[1])) : null;
       if (!match || !app) return problem(res, 404, "Not Found");
       const rest = match[2];
-      if (rest === "manifest.json") return sendJson(res, 200, currentManifest(app));
+      // `manifest.json?import` is the client's own import of it, which Vite turns into a module in dev.
+      if (rest === "manifest.json" && !(dev && url.search)) return sendJson(res, 200, currentManifest(app));
       const fn = /^functions\/([^/]+)$/.exec(rest);
       if (fn) return await runFunction(req, res, app, decodeURIComponent(fn[1]));
       if (dev) {

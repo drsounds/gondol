@@ -42,7 +42,9 @@ describe("GondolSystem", () => {
     expect(gondolSpecifier("../../entities/EntitySheet.tsx")).toBe("gondol/entities/EntitySheet");
     expect(gondolSpecifier("../../builtin/ai/models/index.ts")).toBe("gondol/builtin/ai/models");
     expect(gondolSpecifier("../../index.ts")).toBe("gondol");
-    expect(gondolSpecifier("../registry.ts")).toBe("gondol/registry");
+    expect(gondolSpecifier("../registry.ts")).toBe("gondol/apps/registry");
+    expect(gondolSpecifier("./system.ts")).toBe("gondol/apps/remote/system");
+    expect(gondolSpecifier("/node_modules/gondol/src/entities/uri.ts")).toBe("gondol/entities/uri");
     expect(gondolSpecifier("./x.css")).toBeNull();
   });
 });
