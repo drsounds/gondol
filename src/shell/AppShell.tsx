@@ -124,7 +124,8 @@ export function AppShell({
   const canCreate = useSiteOffers()({ aspects: ["create"] });
 
   const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
-  const preferences = useOptionalUserTheme()?.preferences;
+  const userTheme = useOptionalUserTheme();
+  const preferences = userTheme?.preferences;
   
   // The bottom player: always, only while something plays (the widget decides), or never.
   const player = preferences?.player ?? "always";
@@ -144,7 +145,7 @@ export function AppShell({
   const dockRef = useRef<HTMLDivElement>(null);
   // Fading tab bar (phones): the tab bar and the dock (the bottom widgets) float over the content,
   // so the content needs their heights to leave room under its last row (base.css).
-  const fadingTabBar = !!preferences?.fadingTabBar;
+  const fadingTabBar = !!preferences?.fadingTabBar || userTheme?.applied.engine === "liquid";
   useEffect(() => {
     const frame = frameRef.current;
     if (!fadingTabBar || !frame || typeof ResizeObserver === "undefined") return;

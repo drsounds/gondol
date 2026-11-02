@@ -6,6 +6,8 @@ import { accentColorVars, useAccentColor } from "./accentColor";
 import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
+import { liquidUserTheme, liquidVars, type LiquidSettings } from "./liquidTheme";
+import { LiquidBackdrop } from "./LiquidBackdrop";
 import { isSiteThemeLocked, siteThemePartValue, useSite, type SiteTheme, type SiteThemePart } from "../sites/sites";
 import { resolveSitePreference, isSitePreferenceLocked, sitePreferenceValue } from "../sites/preferences";
 import type { SavedIconStyle } from "./savedIcon";
@@ -104,11 +106,13 @@ export interface UserTheme {
   aero?: AeroSettings | null;
   /** Settings of the TUI engine (src/lib/tuiTheme.ts); ignored by the other engines. */
   tui?: TuiSettings | null;
+  /** Settings of the Liquid (glass) engine (src/theme/liquidTheme.ts); ignored by the other engines. */
+  liquid?: LiquidSettings | null;
   /** Settings of the simple engine (its own text and background colours); ignored by the other engines. */
   simple?: SimpleSettings | null;
   /** Only set on the theme an engine other than the advanced one derives (simpleUserTheme,
-   * aeroUserTheme, tuiUserTheme), never stored. */
-  engine?: "simple" | "aero" | "tui";
+   * aeroUserTheme, tuiUserTheme, liquidUserTheme), never stored. */
+  engine?: "simple" | "aero" | "tui" | "liquid";
   /** Neon flavor: glow strength, percent (0–200, default 100). */
   neonGlow?: number;
   /** Neon flavor: CRT scanline overlay. */
@@ -311,8 +315,8 @@ const ENGINE_STORAGE_KEY = "cashflow-theme-engine";
  * palettes, flavors and preferences on top. Switching to "simple" applies
  * nothing from the advanced theme but keeps it stored, so switching back
  * restores it. */
-export type ThemeEngine = "simple" | "advanced" | "aero" | "tui";
-export const THEME_ENGINES: ThemeEngine[] = ["simple", "advanced", "aero", "tui"];
+export type ThemeEngine = "simple" | "advanced" | "aero" | "tui" | "liquid";
+export const THEME_ENGINES: ThemeEngine[] = ["simple", "advanced", "aero", "tui", "liquid"];
 
 export function isThemeEngine(value: unknown): value is ThemeEngine {
   return typeof value === "string" && (THEME_ENGINES as string[]).includes(value);
@@ -432,6 +436,13 @@ const MANAGED_VARS = [
   "--tui-text-glow",
   "--tui-line-glow",
   "--tui-element-glow",
+  // src/theme/liquidTheme.ts, liquidVars()
+  "--liquid-blur",
+  "--liquid-saturate",
+  "--liquid-rim",
+  "--liquid-fill",
+  "--liquid-tint",
+  "--liquid-tint-amount",
 ];
 
 export type ComputedVars = Record<string, string>;
@@ -554,6 +565,15 @@ export function computeThemeVars(theme: UserTheme, isDark: boolean, accentOverri
 
   if (theme.engine === "tui") Object.assign(vars, tuiVars(theme.tui));
 
+  if (theme.engine === "liquid") {
+    Object.assign(vars, liquidVars(theme.liquid));
+    // Surfaces are glass too: a wash of the ink over whatever is behind, never an opaque grey.
+    vars["--bungalow-color-surface"] = "color-mix(in srgb, var(--bungalow-color-ink) 6%, transparent)";
+    vars["--bungalow-color-surface-strong"] = "color-mix(in srgb, var(--bungalow-color-ink) 12%, transparent)";
+    vars["--chrome-bg"] = "color-mix(in srgb, var(--bungalow-color-canvas) 55%, transparent)";
+    if (!font?.value) vars["--bungalow-font-sans"] = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif";
+  }
+
   return vars;
 }
 
@@ -572,7 +592,8 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
   return {
     "data-dark-tab-bar": engine === "simple" && shell?.darkTabBar ? "" : null,
     "data-dark-frame": engine === "simple" && shell?.darkFrame ? "" : null,
-    "data-fading-tab-bar": shell?.fadingTabBar ? "" : null,
+    // The liquid engine's phone tab bar floats over the content like the fading one (liquid.css).
+    "data-fading-tab-bar": shell?.fadingTabBar || engine === "liquid" ? "" : null,
     "data-desktop-layout": classic ? "classic" : null,
     "data-classic-frame": classic && shell?.classicFrame ? "" : null,
     // High contrast and the foreground accent re-declare the colour tokens on every element
@@ -828,7 +849,9 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           ? aeroUserTheme(appliedTheme.aero)
           : appliedEngine === "tui"
             ? tuiUserTheme(appliedTheme.tui)
-            : simpleUserTheme(appliedTheme.simple);
+            : appliedEngine === "liquid"
+              ? liquidUserTheme(appliedTheme.liquid)
+              : simpleUserTheme(appliedTheme.simple);
     // The site's layout style: locked, or a default where the theme sets none.
     const layoutStyle = resolveSitePreference(siteLayout, "layoutStyle", base.layoutStyle);
     return layoutStyle ? { ...base, layoutStyle } : base;
@@ -940,13 +963,13 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
         if (ownsTheme(partial)) setEngineChosen(true);
         persist({ ...userTheme, ...partial });
       },
-      // The simple, aero and TUI engines' settings and the shell preferences ride along on the same
+      // The simple, aero, TUI and liquid engines' settings and the shell preferences ride along on the same
       // object; loading or resetting an advanced theme keeps them.
       replaceUserTheme: (next) => {
         setEngineChosen(true);
-        persist({ simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next });
+        persist({ simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, liquid: userTheme.liquid, shell: userTheme.shell, ...next });
       },
-      resetUserTheme: () => persist({ ...defaultUserTheme(), simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell }),
+      resetUserTheme: () => persist({ ...defaultUserTheme(), simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, liquid: userTheme.liquid, shell: userTheme.shell }),
       savedThemes,
       saveCurrentTheme: (name) =>
         persistSaved([
@@ -961,7 +984,12 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [engine, userTheme, savedThemes, declaredSiteTheme, fromSite, appliedEngine, siteMode, mode, effectiveAccent, preferences]);
 
-  return <UserThemeContext.Provider value={value}>{children}</UserThemeContext.Provider>;
+  return (
+    <UserThemeContext.Provider value={value}>
+      {children}
+      {hydrated && activeTheme.engine === "liquid" ? <LiquidBackdrop settings={activeTheme.liquid ?? {}} dark={isDark} /> : null}
+    </UserThemeContext.Provider>
+  );
 }
 
 export function useUserTheme(): UserThemeValue {

@@ -126,7 +126,7 @@ export function toSiteTheme(value: unknown): SiteTheme | null {
   const raw = asObject<Record<string, unknown> | null>(value, null);
   if (!raw) return null;
   const theme: SiteTheme = {};
-  if (typeof raw.engine === "string" && ["simple", "advanced", "aero", "tui"].includes(raw.engine)) {
+  if (typeof raw.engine === "string" && ["simple", "advanced", "aero", "tui", "liquid"].includes(raw.engine)) {
     theme.engine = raw.engine as ThemeEngine;
     theme.theme = asObject<UserTheme>(raw.theme, {});
   }
