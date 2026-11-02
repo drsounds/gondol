@@ -1,0 +1,338 @@
+/* ── Liquid theme engine (src/theme/liquidTheme.ts) ───────────────────────────
+   Apple's Liquid Glass: every surface is a sheet of glass over one background
+   image. The theme engine sets data-theme-engine="liquid" and the settings as
+   variables (liquidVars()):
+
+     --liquid-blur, --liquid-saturate  how much the glass frosts what's behind it
+     --liquid-rim                      brightness (alpha) of the specular rims
+     --liquid-fill                     how opaque the glass is
+     --liquid-tint, --liquid-tint-amount  the glass's colour
+
+   <LiquidBackdrop/> paints the background (and the frost under the big shell
+   panels, which can't carry a backdrop-filter of their own because they hold
+   sheets and other fixed layers) on a fixed canvas, and moves the light as
+   anything scrolls: --liquid-angle turns the sheen, --liquid-lx/--liquid-ly
+   (the direction of the light, -1–1) slide the rim highlight round the edges.
+
+   Small surfaces frost for real with backdrop-filter. Containers that may hold
+   a position: fixed child (the content's top bar, the tab bar) frost through a
+   ::before layer instead, so they don't become those children's containing block. */
+
+:root[data-theme-engine="liquid"] {
+  --liquid-blur: 15px;
+  --liquid-saturate: 160%;
+  --liquid-rim: 0.65;
+  --liquid-fill: 35%;
+  --liquid-tint: #ffffff;
+  --liquid-tint-amount: 0%;
+  --app-frame-radius: 1.5rem;
+  --bungalow-radius-sm: 0.75rem;
+  --bungalow-radius-md: 1.25rem;
+
+  /* Light: milky glass. */
+  --liquid-base: #ffffff;
+  --liquid-rim-color: 255 255 255;
+  --liquid-sheen-hi: 0.55;
+  --liquid-sheen-lo: 0.2;
+  --liquid-edge: rgb(255 255 255 / calc(var(--liquid-rim) * 0.75));
+  --liquid-drop: 0 8px 28px rgb(15 23 42 / 0.14), 0 1px 3px rgb(15 23 42 / 0.08);
+  --liquid-ink-soft: rgb(0 0 0 / 0.06);
+
+  --liquid-tinted: color-mix(in srgb, var(--liquid-tint) var(--liquid-tint-amount), var(--liquid-base));
+  --liquid-glass: color-mix(in srgb, var(--liquid-tinted) var(--liquid-fill), transparent);
+  /* Sheets, menus and popovers carry more text over busier content: thicker glass. */
+  --liquid-glass-thick: color-mix(in srgb, var(--liquid-tinted) min(96%, calc(var(--liquid-fill) + 45%)), transparent);
+  --liquid-glass-thin: color-mix(in srgb, var(--liquid-tinted) calc(var(--liquid-fill) * 0.6), transparent);
+  --liquid-frost: blur(var(--liquid-blur)) saturate(var(--liquid-saturate));
+
+  /* A broad sheen across the glass, from the side the light comes from, and a faint one opposite. */
+  --liquid-sheen: linear-gradient(
+    var(--liquid-angle, 150deg),
+    rgb(255 255 255 / calc(var(--liquid-rim) * var(--liquid-sheen-hi))) 0%,
+    rgb(255 255 255 / 0) 34%,
+    rgb(255 255 255 / 0) 68%,
+    rgb(255 255 255 / calc(var(--liquid-rim) * var(--liquid-sheen-lo))) 100%
+  );
+  /* The rims: a bright crescent on the lit edge, a softer one on the far edge (light passing
+     through the glass) and a hairline all round. */
+  --liquid-rims:
+    inset calc(var(--liquid-lx, -0.5) * -1.5px) calc(var(--liquid-ly, -0.87) * -1.5px) 0.5px -0.5px rgb(var(--liquid-rim-color) / var(--liquid-rim)),
+    inset calc(var(--liquid-lx, -0.5) * 1.5px) calc(var(--liquid-ly, -0.87) * 1.5px) 1px -0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.45)),
+    inset 0 0 0 0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.35));
+
+  color-scheme: light;
+  background: linear-gradient(135deg, #bfe6ff, #d9ccff 50%, #b8f5e1);
+}
+
+:root[data-theme-engine="liquid"][data-color-scheme="dark"] {
+  /* Dark: smoked glass. */
+  --liquid-base: #1c1c22;
+  --liquid-sheen-hi: 0.22;
+  --liquid-sheen-lo: 0.08;
+  --liquid-edge: rgb(255 255 255 / calc(var(--liquid-rim) * 0.22));
+  --liquid-drop: 0 10px 32px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.3);
+  --liquid-rims:
+    inset calc(var(--liquid-lx, -0.5) * -1.5px) calc(var(--liquid-ly, -0.87) * -1.5px) 0.5px -0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.55)),
+    inset calc(var(--liquid-lx, -0.5) * 1.5px) calc(var(--liquid-ly, -0.87) * 1.5px) 1px -0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.22)),
+    inset 0 0 0 0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.18));
+  --liquid-ink-soft: rgb(255 255 255 / 0.08);
+  --bungalow-color-border: rgb(255 255 255 / 0.1);
+  color-scheme: dark;
+  background: linear-gradient(135deg, #04121f, #140a2a 50%, #031a14);
+}
+
+/* The light glides instead of jumping between scroll frames. */
+@property --liquid-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 150deg;
+}
+
+/* ── Backdrop and frame ───────────────────────────────────────────────────── */
+
+.liquid-backdrop {
+  height: 100vh;
+  height: 100lvh;
+  inset: 0 auto auto 0;
+  pointer-events: none;
+  position: fixed;
+  width: 100vw;
+  z-index: -1;
+}
+
+:root[data-theme-engine="liquid"] body,
+:root[data-theme-engine="liquid"] .app-frame,
+:root[data-theme-engine="liquid"] .chrome-bar {
+  background: transparent;
+}
+:root[data-theme-engine="liquid"] .chrome-bar { border: 0; box-shadow: none; }
+
+/* ── The big shell panels: content, menu, Your Library (frosted on the canvas) ── */
+
+:root[data-theme-engine="liquid"] .app-main {
+  background: var(--liquid-sheen) var(--liquid-glass);
+}
+@media (min-width: 64rem) {
+  :root[data-theme-engine="liquid"] :is(.app-main, .sidebar-column > .bottom-nav, .app-submenu, .sidebar-library) {
+    background: var(--liquid-sheen) var(--liquid-glass);
+    border: 0;
+    border-radius: var(--app-frame-radius);
+    box-shadow: var(--liquid-rims), var(--liquid-drop);
+  }
+  :root[data-theme-engine="liquid"] .sidebar-resize-handle::after { background: var(--liquid-edge); }
+}
+
+/* The content's own header stays readable over what scrolls under it. */
+:root[data-theme-engine="liquid"] .top-bar {
+  background: transparent;
+  border-bottom: 0;
+}
+:root[data-theme-engine="liquid"] .top-bar::before {
+  -webkit-backdrop-filter: var(--liquid-frost);
+  backdrop-filter: var(--liquid-frost);
+  background: var(--liquid-glass-thin);
+  content: "";
+  inset: 0;
+  -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  mask-image: linear-gradient(to bottom, #000 70%, transparent);
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+
+/* ── Floating surfaces: cards, sheets, menus ──────────────────────────────── */
+
+:root[data-theme-engine="liquid"] .bungalow-card {
+  -webkit-backdrop-filter: var(--liquid-frost);
+  backdrop-filter: var(--liquid-frost);
+  background: var(--liquid-sheen) var(--liquid-glass);
+  border: 0;
+  box-shadow: var(--liquid-rims), var(--liquid-drop);
+}
+
+:root[data-theme-engine="liquid"] :is(.sheet, .action-menu, .share-sheet, .nav-drawer) {
+  -webkit-backdrop-filter: blur(calc(var(--liquid-blur) * 1.6)) saturate(var(--liquid-saturate));
+  backdrop-filter: blur(calc(var(--liquid-blur) * 1.6)) saturate(var(--liquid-saturate));
+  background: var(--liquid-sheen) var(--liquid-glass-thick);
+  border: 0;
+  box-shadow: var(--liquid-rims), var(--liquid-drop);
+}
+:root[data-theme-engine="liquid"] .sheet { border-radius: var(--bungalow-radius-md); }
+:root[data-theme-engine="liquid"] :is(.sheet__header, .sheet__footer) {
+  background: transparent;
+  border-color: var(--liquid-ink-soft);
+}
+:root[data-theme-engine="liquid"] .action-menu__item:hover { background: var(--liquid-ink-soft); }
+
+/* ── Buttons: clear glass capsules; the primary one is glass tinted with the accent ── */
+
+:root[data-theme-engine="liquid"] :is(.bungalow-button--solid, .plus-button, .task-player__play):not(.walkthrough__tooltip *) {
+  --_liquid-btn: var(--button-color, var(--bungalow-color-primary));
+  -webkit-backdrop-filter: var(--liquid-frost);
+  backdrop-filter: var(--liquid-frost);
+  background:
+    var(--liquid-sheen)
+    color-mix(in srgb, var(--_liquid-btn) min(92%, calc(55% + var(--liquid-fill) * 0.5)), transparent);
+  border: 0;
+  box-shadow:
+    var(--liquid-rims),
+    0 4px 14px color-mix(in srgb, var(--_liquid-btn) 35%, transparent);
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
+  transition: box-shadow 0.2s ease, background-color 0.2s ease, transform 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+:root[data-theme-engine="liquid"] :is(.bungalow-button--outline, .chrome-nav-btn, .chip, .action-menu-trigger):not(.walkthrough__tooltip *) {
+  -webkit-backdrop-filter: var(--liquid-frost);
+  backdrop-filter: var(--liquid-frost);
+  background: var(--liquid-sheen) var(--liquid-glass);
+  border: 0;
+  box-shadow: var(--liquid-rims), 0 2px 8px rgb(0 0 0 / 0.08);
+  transition: box-shadow 0.2s ease, background-color 0.2s ease, transform 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+/* The neutral tone's colour is a surface wash here, too faint for text: neutral buttons are clear
+   glass with ink. */
+:root[data-theme-engine="liquid"] .bungalow-tone-default:is(.bungalow-button--outline, .bungalow-button--ghost):not(.walkthrough__tooltip *) {
+  color: var(--bungalow-color-ink);
+}
+:root[data-theme-engine="liquid"] .bungalow-button--solid.bungalow-tone-default:not(.walkthrough__tooltip *) {
+  background: var(--liquid-sheen) var(--liquid-glass-thick);
+  box-shadow: var(--liquid-rims), 0 2px 8px rgb(0 0 0 / 0.08);
+  color: var(--bungalow-color-ink);
+  text-shadow: none;
+}
+:root[data-theme-engine="liquid"] .bungalow-button--ghost:not(.walkthrough__tooltip *):hover:not(:disabled) {
+  background: var(--liquid-sheen) var(--liquid-glass-thin);
+  box-shadow: var(--liquid-rims);
+}
+:root[data-theme-engine="liquid"] .chip[aria-pressed="true"] {
+  background: var(--liquid-sheen) color-mix(in srgb, var(--bungalow-color-primary) 80%, transparent);
+  color: #ffffff;
+}
+/* Glass swells a little under the finger, and settles back with a spring. */
+:root[data-theme-engine="liquid"] :is(.bungalow-button, .chrome-nav-btn, .chip, .plus-button):hover:not(:disabled) {
+  box-shadow: var(--liquid-rims), 0 6px 18px rgb(0 0 0 / 0.14);
+}
+:root[data-theme-engine="liquid"] .bungalow-button:hover:not(:disabled) { scale: 1.03; }
+
+:root[data-theme-engine="liquid"] .bungalow-badge {
+  background-image: var(--liquid-sheen);
+  box-shadow: var(--liquid-rims);
+}
+
+/* ── Fields: glass recessed into the panel ───────────────────────────────── */
+
+:root[data-theme-engine="liquid"] :is(.bungalow-input, .bungalow-select, .chrome-bar__search, textarea) {
+  -webkit-backdrop-filter: var(--liquid-frost);
+  backdrop-filter: var(--liquid-frost);
+  background-color: var(--liquid-glass-thin);
+  border: 0;
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 0.12),
+    inset 0 0 0 0.5px rgb(var(--liquid-rim-color) / calc(var(--liquid-rim) * 0.5));
+}
+:root[data-theme-engine="liquid"] :is(.bungalow-input, .bungalow-select, .chrome-bar__search):not(textarea) { border-radius: var(--bungalow-radius-pill); }
+:root[data-theme-engine="liquid"] :is(.bungalow-input, .bungalow-select, textarea):focus,
+:root[data-theme-engine="liquid"] .chrome-bar__search:focus-within {
+  box-shadow:
+    inset 0 1px 3px rgb(0 0 0 / 0.12),
+    0 0 0 3px color-mix(in srgb, var(--bungalow-color-primary) 35%, transparent);
+  outline: none;
+}
+
+/* ── Navigation and tabs: the current one sits in a glass bubble ─────────── */
+
+:root[data-theme-engine="liquid"] :is(.nav-item, [role="tab"]:not(.bungalow-button)) {
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+:root[data-theme-engine="liquid"] :is(.nav-item, [role="tab"]:not(.bungalow-button)):hover {
+  background: var(--liquid-ink-soft);
+}
+:root[data-theme-engine="liquid"] :is(.nav-item[aria-current="page"], [role="tab"][aria-selected="true"]:not(.bungalow-button)) {
+  background: var(--liquid-sheen) var(--liquid-glass-thick);
+  box-shadow: var(--liquid-rims), 0 2px 8px rgb(0 0 0 / 0.1);
+  color: var(--bungalow-color-primary);
+}
+
+/* ── Tables sit straight on the glass ────────────────────────────────────── */
+
+:root[data-theme-engine="liquid"] .data-table thead th { background: transparent; }
+:root[data-theme-engine="liquid"] .data-table :is(td, th) { border-color: var(--liquid-ink-soft); }
+:root[data-theme-engine="liquid"] .data-table tbody tr:hover td { background-color: var(--liquid-ink-soft); }
+
+/* ── Phones: a floating glass tab bar and mini player ────────────────────────
+   The engine turns on the fading tab bar's layout (base.css: the bar and the dock
+   float over the content, which runs the full height of the screen), and the
+   bar becomes a capsule hovering over the bottom edge. */
+
+@media (max-width: 63.99rem) {
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .bottom-nav {
+    border-radius: 999px;
+    bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    box-shadow: var(--liquid-rims), var(--liquid-drop);
+    gap: 0;
+    left: 0.75rem;
+    padding: 0.3rem;
+    right: 0.75rem;
+  }
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .bottom-nav::before {
+    -webkit-backdrop-filter: blur(calc(var(--liquid-blur) * 1.3)) saturate(var(--liquid-saturate));
+    backdrop-filter: blur(calc(var(--liquid-blur) * 1.3)) saturate(var(--liquid-saturate));
+    background: var(--liquid-sheen) var(--liquid-glass);
+    border-radius: inherit;
+    height: auto;
+    inset: 0;
+  }
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .bottom-nav .nav-item {
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    padding: 0.4rem 0.25rem;
+  }
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .bottom-nav .plus-button { padding: 0.6rem; }
+  /* The dock floats above the bar, and the content leaves room for both and the gaps. */
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .app-dock {
+    bottom: calc(var(--tab-bar-height, 0px) + 1.25rem + env(safe-area-inset-bottom));
+  }
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .app-main::after {
+    flex-basis: calc(var(--tab-bar-height, 0px) + var(--dock-height, 0px) + 1.75rem + env(safe-area-inset-bottom));
+  }
+  :root[data-theme-engine="liquid"][data-fading-tab-bar] .app-frame .app-dock > .task-player {
+    -webkit-backdrop-filter: var(--liquid-frost);
+    backdrop-filter: var(--liquid-frost);
+    background: var(--liquid-sheen) var(--liquid-glass-thick);
+    border-radius: 999px;
+    box-shadow: var(--liquid-rims), var(--liquid-drop);
+    margin: 0 0.75rem;
+  }
+  /* The content runs edge to edge on phones. */
+  :root[data-theme-engine="liquid"] .app-main { box-shadow: none; }
+}
+
+/* ── Scrollbars and selection ────────────────────────────────────────────── */
+
+:root[data-theme-engine="liquid"] *:hover::-webkit-scrollbar-thumb {
+  background: rgb(127 127 127 / 0.45);
+  background-clip: padding-box;
+}
+:root[data-theme-engine="liquid"] ::selection {
+  background-color: color-mix(in srgb, var(--bungalow-color-primary) 35%, transparent);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-theme-engine="liquid"] { --liquid-fill: 88%; }
+}
+
+/* Wallpaper swatch in the engine's settings (LiquidThemeSettings.tsx). */
+.liquid-swatch {
+  aspect-ratio: 4 / 3;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.5), 0 2px 6px rgb(0 0 0 / 0.15);
+  justify-self: center;
+  width: 3.25rem;
+}
+.liquid-swatch--custom {
+  background:
+    repeating-conic-gradient(rgb(127 127 127 / 0.25) 0 25%, transparent 0 50%) 0 0 / 0.75rem 0.75rem;
+  background-position: center;
+  background-size: cover;
+}

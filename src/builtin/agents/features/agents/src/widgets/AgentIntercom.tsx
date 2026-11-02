@@ -54,7 +54,8 @@ function useBottomInset(): number {
         .filter((r) => r.height && r.width >= window.innerWidth * 0.5)
         .sort((a, b) => b.bottom - a.bottom);
       for (const r of bars) {
-        if (r.bottom < top - 4) break;
+        // A floating bar (the liquid engine's) leaves a small gap under it and between it and the next.
+        if (r.bottom < top - 32) break;
         top = Math.min(top, r.top);
       }
       setInset(Math.max(0, Math.round(window.innerHeight - top)));
