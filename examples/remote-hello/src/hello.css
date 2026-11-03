@@ -1,0 +1,3 @@
+.remote-hello { padding: 1.5rem; }
+.remote-hello__form { display: flex; gap: 0.5rem; margin: 1rem 0; }
+.remote-hello__greeting { font-size: 1.5rem; color: var(--bungalow-color-accent, currentColor); }

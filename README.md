@@ -48,6 +48,7 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **Generative UI**: A2UI (v0.8 messages, the standard catalogue plus your own components), Open-JSON-UI trees and MCP-UI / MCP Apps resources (sandboxed HTML views with a `window.mcpUi` helper), rendered in the AI chat from answers and tool results
 - ✅ **The studio app**: lightweight apps built from generated UI pages, with entity types, relations and records of their own, in the main menu; built by the user or by agents through MCP tools
 - ✅ **App APIs and OAuth**: apps declare HTTP APIs in their manifests (OpenAPI), served by one gateway; the oauth app gives HTML5 and other apps credentials (secrets shown once, stored hashed) and a consent page
+- ✅ **Remote apps**: load apps from a gondol apps runtime at run time (ES modules sharing the host's React and gondol through a System.js-style registry), with backend functions served only once an admin approves them, and a dev mode on Vite (`gondol-apps serve`/`dev`/`build`)
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
 - ✅ **English and Swedish** strings, merged with the app's own catalogue

@@ -256,6 +256,13 @@ is up to your app (Spacify keeps them in an `apps` table):
 - `faviconUrlFor(embedUrl)` is a default icon.
 - `appPathKey(app)` is the `/app/<key>` segment: its slug, else its id.
 
+## Remote apps
+
+Apps can also come from outside the build: a [gondol apps runtime](./remote-apps.md) serves them
+(`gondol-apps serve`, or `gondol-apps dev` from source with Vite), and `RemoteAppsRegistrar` loads
+them at run time as ES modules that use the host's own React and gondol. Their backend functions
+reach the app router only once an admin approves them.
+
 ## Checklist for a new app
 
 1. Create `apps/<id>/` with `manifest.json` (with `$schema`), `index.ts`, `features/` and `models/`.

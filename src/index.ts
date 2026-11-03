@@ -76,8 +76,11 @@ export function configureGondol(config: GondolConfig): void {
   registerAppContributions();
 }
 
-/** What the apps (and the host's resolutions) declare about entities and routing, registered once. */
-function registerAppContributions(): void {
+/**
+ * What the apps (and the host's resolutions) declare about entities and routing. configureGondol
+ * registers it; call it again after registering apps at run time (remote apps), which adds theirs.
+ */
+export function registerAppContributions(): void {
   const routes: Partial<Record<EntityType, EntityRoute>> = {};
   const sources: Partial<Record<EntityType, EntitySource>> = {};
   const art: Partial<Record<EntityType, EntityArtStyle>> = {};
