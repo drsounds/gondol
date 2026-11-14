@@ -15,7 +15,8 @@
 // LangChain Deep Agents to <dir>/ai-openai/index.ts and <dir>/ai-deepagents/index.ts (from
 // supabase/functions/) with the AI credits they share (<dir>/_shared/aiCredits.ts, which a host's
 // own AI functions can import too), and, when the built-in agents app is, its runner to
-// <dir>/ai-agents/index.ts and <dir>/_shared/agentPrompt.ts.
+// <dir>/ai-agents/index.ts and <dir>/_shared/agentPrompt.ts, and, when the built-in mastodon app
+// is, its server to <dir>/mastodon/index.ts and <dir>/_shared/activitypub.ts.
 //
 // `--check` writes nothing and fails when the files are out of date (for CI). `--title` and
 // `--version` set the document's info.
@@ -83,6 +84,11 @@ if (functionsDir) {
   if (builtin.includes("agents")) {
     copy("ai-agents/index.ts");
     copy("_shared/agentPrompt.ts");
+  }
+  // The mastodon app's server: federation over ActivityPub and the Mastodon client API.
+  if (builtin.includes("mastodon")) {
+    copy("mastodon/index.ts");
+    copy("_shared/activitypub.ts");
   }
 }
 
