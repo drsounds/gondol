@@ -47,6 +47,7 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **The analytics app**: stream analytics filtered by period, time of day, entity type and conditions on subject, predicate, object, context, motivation and task
 - ✅ **Generative UI**: A2UI (v0.8 messages, the standard catalogue plus your own components), Open-JSON-UI trees and MCP-UI / MCP Apps resources (sandboxed HTML views with a `window.mcpUi` helper), rendered in the AI chat from answers and tool results
 - ✅ **The studio app**: lightweight apps built from generated UI pages, with entity types, relations and records of their own, in the main menu; built by the user or by agents through MCP tools
+- ✅ **The mastodon app**: a Mastodon server (federating over ActivityPub, with a subset of the client API) and client in one: servers on your own domains, profiles, timelines, posts, follows, lists, notifications, moderation, and other servers signed in to; every Mastodon entity is an entity type of its own
 - ✅ **App APIs and OAuth**: apps declare HTTP APIs in their manifests (OpenAPI), served by one gateway; the oauth app gives HTML5 and other apps credentials (secrets shown once, stored hashed) and a consent page
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
@@ -190,7 +191,7 @@ and `useNavCollapsed`.
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
 | `api/` | Apps' HTTP APIs: the manifest's `api` (OpenAPI), the document builder and the gateway that serves it with OAuth 2 |
-| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `service-finder` (MCP servers from MCP registries, installed for the AI chat and agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps) and `studio` (apps built from generated UI) |
+| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `service-finder` (MCP servers from MCP registries, installed for the AI chat and agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps), `studio` (apps built from generated UI) and `mastodon` (a Mastodon server and client) |
 | `genui/` | Generative UI: the A2UI renderer (`A2uiView`), Open-JSON-UI conversion, MCP-UI resources (`McpUiResource`), `GenerativeUi` |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
