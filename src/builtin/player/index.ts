@@ -18,28 +18,27 @@ import { toggleNowPlaying } from "./models/nowPlaying";
  * Switch it on like the others: `configureGondol({ apps: [...apps, playerApp, ytMusicServiceApp] })`.
  * Its tables are in docs/guide/playback.md.
  */
+const hasQueue = () => playback.getSnapshot().queue.length > 0;
+
 export const playerApp = defineApp({
   manifest,
   pages: {
     "music-services": () => import("./features/music-services/src/pages/MusicServicesPage").then((m) => m.MusicServicesPage),
   },
   actions: {
-    "player.toggle": () => {
-      if (playback.getSnapshot().queue.length) playback.toggle();
-    },
-    "player.next": () => playback.next(),
-    "player.previous": () => playback.previous(),
-    "player.seekForward": () => playback.seekBy(5000),
-    "player.seekBack": () => playback.seekBy(-5000),
+    // While nothing is in the queue the keys stay the page's (Space scrolls, Shift+→ selects).
+    "player.toggle": { perform: () => playback.toggle(), when: hasQueue },
+    "player.next": { perform: () => playback.next(), when: hasQueue },
+    "player.previous": { perform: () => playback.previous(), when: hasQueue },
+    "player.seekForward": { perform: () => playback.seekBy(5000), when: hasQueue },
+    "player.seekBack": { perform: () => playback.seekBy(-5000), when: hasQueue },
     "player.volumeUp": () => playback.setVolume(playback.getSnapshot().volume + 0.1),
     "player.volumeDown": () => playback.setVolume(playback.getSnapshot().volume - 0.1),
     "player.mute": () => playback.toggleMute(),
     "player.shuffle": () => playback.toggleShuffle(),
     "player.repeat": () => playback.cycleRepeat(),
-    "player.nowPlaying": () => {
-      if (playback.getSnapshot().queue.length) toggleNowPlaying();
-    },
-    "player.playWith": () => void playback.playWith(),
+    "player.nowPlaying": { perform: () => toggleNowPlaying(), when: hasQueue },
+    "player.playWith": { perform: () => void playback.playWith(), when: hasQueue },
   },
   widgets: {
     Providers: [PlaybackHost],

@@ -109,17 +109,17 @@ export async function saveSignIn(serviceId: string, account: ServiceAccount, sec
     status: "signed_in",
     signed_in_at: now,
   };
+  // One signed-in account per service (a unique index holds to it): sign the others out first.
+  const others = all.filter((a) => a.service_id === serviceId && a.status === "signed_in" && a.id !== existing?.id).map((a) => a.id);
+  if (others.length) {
+    const { error: outError } = await playerDb().from("external_service_accounts").update({ status: "signed_out", signed_out_at: now }).in("id", others);
+    if (outError) throw outError;
+  }
   const { data, error } = existing
     ? await playerDb().from("external_service_accounts").update(values).eq("id", existing.id).select(ACCOUNT_COLUMNS).single()
     : await playerDb().from("external_service_accounts").insert({ ...values, user_id: userId, service_id: serviceId }).select(ACCOUNT_COLUMNS).single();
   if (error) throw error;
   const row = data as ExternalServiceAccount;
-  // One signed-in account per service: the others are signed out.
-  const others = all.filter((a) => a.service_id === serviceId && a.status === "signed_in" && a.id !== row.id).map((a) => a.id);
-  if (others.length) {
-    const { error: outError } = await playerDb().from("external_service_accounts").update({ status: "signed_out", signed_out_at: now }).in("id", others);
-    if (outError) throw outError;
-  }
   if (secret !== undefined) await setAccountSecret(row.id, secret);
   await accountsCache.load();
   return row;

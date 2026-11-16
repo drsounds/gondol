@@ -83,6 +83,11 @@ export interface AppAction extends Capability {
   local?: boolean;
   /** Leave the shortcut to text fields while one has focus (Mod+Z keeps the field's own undo). */
   skipInFields?: boolean;
+  /**
+   * Asked when the shortcut is pressed: false lets the key through as if the action weren't there
+   * (Space scrolls the page while nothing is in the player's queue).
+   */
+  when?: () => boolean;
 }
 
 /** An app's page. Its `roles`/`aspects`, else those declared in the manifest, say which sites offer it. */

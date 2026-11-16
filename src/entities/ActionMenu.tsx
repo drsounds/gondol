@@ -229,7 +229,7 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
     // Rows whose main button already takes focus (EntityRow) need no second tab stop.
     if (host.querySelector(".library-row__main:not([tabindex='-1'])")) return;
     host.tabIndex = 0;
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.target !== host || event.defaultPrevented) return;
       if (event.key === "Enter" && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
         const main = host.querySelector<HTMLElement>(".library-row__main, a[href], button:not(.action-menu-trigger):not(.action-row__like)");

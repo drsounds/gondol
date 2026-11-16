@@ -429,6 +429,7 @@ export function ActionsProvider({
         if (editable && action.skipInFields) continue;
         // Space and Enter on their own press the focused button or link.
         if (control && isBareShortcut(action.shortcut) && /^(space|enter| )$/i.test(action.shortcut)) continue;
+        if (action.when && !action.when()) continue;
         if (action.disabled) {
           // A disabled action still owns its keys (Mod+Z with nothing to undo does nothing).
           if (matchesShortcut(event, action.shortcut)) {

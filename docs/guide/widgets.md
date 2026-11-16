@@ -25,6 +25,7 @@ export const planningApp: InternalAppBundle = {
 | `sidebarNavWidgets` | Inside the navigation, after your own nav items (also in the phone menu drawer). | `AppSidebarWidgetProps` |
 | `menuWidgets` | Inside your app's own menu section, below its pages (sidebar, apps submenu or inset, phone menu drawer). | `AppMenuWidgetProps` |
 | `sidebarPanelWidgets` | Below the navigation, filling the sidebar column (desktop only). | `AppSidebarWidgetProps` |
+| `sidebarBottomWidgets` | At the bottom of the desktop sidebar, under Your Library (the player's service dock). | `AppSidebarWidgetProps` |
 | `sidebarWidgets` | Collected for shells that render them; `AppShell` doesn't. | `AppSidebarWidgetProps` |
 | `bottomWidgets` | After the content, for fixed bars along the bottom. | `AppBottomWidgetProps` |
 | `contentHeadWidgets` | Above the page content (notices, load errors). | none |

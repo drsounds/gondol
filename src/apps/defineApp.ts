@@ -45,7 +45,7 @@ export interface AppDefinition {
   /** Every feature's page, by feature id, loaded lazily. */
   pages: Record<string, PageLoader>;
   /** Implementations of the manifest's actions that have no `navigate`, by action id. */
-  actions?: Record<string, (context: AppActionContext) => void | Promise<void>>;
+  actions?: Record<string, ((context: AppActionContext) => void | Promise<void>) | { perform: (context: AppActionContext) => void | Promise<void>; when?: () => boolean }>;
   /** Widgets (lazyWidget keeps their code out of the first load) and Providers. */
   widgets?: AppWidgets;
   /** Answers to hooks in code, next to those the manifest declares. */
@@ -119,12 +119,16 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
   }
 
   const toAction = (action: ManifestAction): AppAction => {
+    const implementation = implementations[action.id];
     const perform = action.navigate
       ? ({ navigate }: AppActionContext) => navigate(action.navigate!)
-      : implementations[action.id];
+      : typeof implementation === "function"
+        ? implementation
+        : implementation?.perform;
     if (!perform) throw new Error(`${where}: action "${action.id}" has no \`navigate\` and no implementation in defineApp's actions`);
     const { navigate: _navigate, ...rest } = action;
-    return { ...rest, perform };
+    const when = typeof implementation === "object" ? implementation.when : undefined;
+    return { ...rest, perform, ...(when ? { when } : {}) };
   };
 
   const resolutions: Resolution[] = [];
@@ -167,7 +171,8 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
       );
     }
     for (const item of feature.create ?? []) {
-      const perform = item.action ? implementations[item.action] : undefined;
+      const implementation = item.action ? implementations[item.action] : undefined;
+      const perform = typeof implementation === "function" ? implementation : implementation?.perform;
       const navigateTo = item.action ? manifest.features.flatMap((f) => f.actions ?? []).find((a) => a.id === item.action)?.navigate : undefined;
       resolutions.push(
         answer(
