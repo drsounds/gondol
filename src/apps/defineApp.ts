@@ -21,6 +21,8 @@ import type {
   InternalAppBundle,
 } from "./types";
 import type { EntitySource } from "../entities/lookup";
+import type { Concept, ServiceDefinition } from "../services/concept";
+import { createSurfaceService } from "../playback/surfaceService";
 import type { EntityType, MessageKey } from "../register";
 
 /**
@@ -51,6 +53,13 @@ export interface AppDefinition {
   /** Entity types whose row label needs code, next to (or replacing) the manifest's `source`. */
   entitySources?: Partial<Record<EntityType, EntitySource>>;
   hooks?: AppBundleHooks;
+  /**
+   * The code of the manifest's `services`, by service id: makes the service when the app comes on
+   * (services/concept.ts). A service with a `surface` and no code here runs entirely in its page.
+   */
+  services?: Record<string, ServiceDefinition["create"]>;
+  /** What the app does when it comes on and goes off, beyond its services (services/concept.ts). */
+  concept?: Concept;
 }
 
 /** `/ideas/{key}/edit` -> key => `/ideas/<key>/edit`. */
@@ -203,6 +212,24 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     resolutions.push(answer(routingHook, { staticPaths: manifest.staticPaths, uuidPaths: manifest.uuidPaths, menuAspects: manifest.menuAspects }));
   }
 
+  for (const serviceId of Object.keys(definition.services ?? {})) {
+    if (!manifest.services?.some((service) => service.id === serviceId)) throw new Error(`${where}: code for service "${serviceId}", which its manifest doesn't declare`);
+  }
+  const services: ServiceDefinition[] = (manifest.services ?? []).map((service) => {
+    const create = definition.services?.[service.id] ?? (service.surface ? createSurfaceService : undefined);
+    if (!create) throw new Error(`${where}: service "${service.id}" has no \`surface\` and no code in defineApp's services`);
+    return {
+      id: service.id,
+      name: getLocalizedText(service.name, "en"),
+      aspects: [...service.aspects],
+      iconName: service.iconName,
+      hosts: service.hosts,
+      schemes: service.schemes,
+      surface: service.surface,
+      create,
+    };
+  });
+
   return {
     id: manifest.id,
     slug: manifest.slug,
@@ -218,5 +245,7 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     defaultActive: manifest.defaultActive ?? true,
     hooks: definition.hooks,
     resolutions: [...resolutions, ...(definition.resolutions ?? [])],
+    ...(services.length ? { services } : {}),
+    ...(definition.concept ? { concept: definition.concept } : {}),
   };
 }

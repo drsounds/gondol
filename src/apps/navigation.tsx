@@ -183,6 +183,7 @@ export function useActiveAppWidgets() {
     const sidebarNavWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const sidebarPanelWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const sidebarWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
+    const sidebarBottomWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const bottomWidgets: ComponentType<AppBottomWidgetProps>[] = [];
     const overlayWidgets: ComponentType[] = [];
     const contentHeadWidgets: ComponentType[] = [];
@@ -205,6 +206,9 @@ export function useActiveAppWidgets() {
         }
         if (bundle.widgets.sidebarWidgets) {
           sidebarWidgets.push(...bundle.widgets.sidebarWidgets);
+        }
+        if (bundle.widgets.sidebarBottomWidgets) {
+          sidebarBottomWidgets.push(...bundle.widgets.sidebarBottomWidgets);
         }
         if (bundle.widgets.bottomWidgets) {
           bottomWidgets.push(...bundle.widgets.bottomWidgets);
@@ -229,6 +233,7 @@ export function useActiveAppWidgets() {
       sidebarNavWidgets,
       sidebarPanelWidgets,
       sidebarWidgets,
+      sidebarBottomWidgets,
       bottomWidgets,
       overlayWidgets,
       contentHeadWidgets,

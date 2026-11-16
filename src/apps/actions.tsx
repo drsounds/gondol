@@ -13,7 +13,9 @@ import { byOrder, navItemsHook } from "./shellHooks";
 import { useActiveBundles } from "./hooks";
 import { featureCapability } from "./registry";
 import { mergeCapability, useSiteOffers } from "../sites/capabilities";
-import { matchesShortcut, isEditableElement } from "../navigation/shortcuts";
+import { matchesShortcut, isEditableElement, isControlElement, isBareShortcut } from "../navigation/shortcuts";
+import { undoManager, useUndoState } from "../navigation/undo";
+import { useI18n } from "../i18n/i18n";
 
 interface ActionsContextValue {
   isOpen: boolean;
@@ -80,6 +82,8 @@ export function ActionsProvider({
   );
 
   const activeBundles = useActiveBundles();
+  const { t } = useI18n();
+  const undoState = useUndoState();
   const navItems = useResolutions(navItemsHook);
   const ROOT_TABS = useMemo(
     () =>
@@ -219,6 +223,46 @@ export function ActionsProvider({
       });
     }
 
+    // Undo / redo in the view being worked in (navigation/undo.ts); text fields keep their own.
+    list.push(
+      {
+        id: "core.undo",
+        title: undoState.undoLabel ? t("undo.undoThing", { thing: undoState.undoLabel }) : t("undo.undo"),
+        description: t("undo.undoDescription"),
+        category: "General",
+        iconName: "history",
+        shortcut: "Mod+Z",
+        skipInFields: true,
+        disabled: !undoState.canUndo,
+        keywords: ["undo", "back", "revert"],
+        perform: () => void undoManager.undo(),
+      },
+      {
+        id: "core.redo",
+        title: undoState.redoLabel ? t("undo.redoThing", { thing: undoState.redoLabel }) : t("undo.redo"),
+        description: t("undo.redoDescription"),
+        category: "General",
+        iconName: "forward",
+        shortcut: "Mod+Shift+Z",
+        skipInFields: true,
+        disabled: !undoState.canRedo,
+        keywords: ["redo", "again"],
+        perform: () => void undoManager.redo(),
+      },
+      {
+        id: "core.redoY",
+        title: t("undo.redo"),
+        description: t("undo.redoDescription"),
+        category: "General",
+        iconName: "forward",
+        shortcut: "Mod+Y",
+        skipInFields: true,
+        disabled: !undoState.canRedo,
+        keywords: ["redo"],
+        perform: () => void undoManager.redo(),
+      },
+    );
+
     // Tab Navigation Actions
     ROOT_TABS.forEach((tab) => {
       list.push({
@@ -281,6 +325,11 @@ export function ActionsProvider({
     navigate,
     pathname,
     ROOT_TABS,
+    undoState.canUndo,
+    undoState.canRedo,
+    undoState.undoLabel,
+    undoState.redoLabel,
+    t,
   ]);
 
   // Combine actions from:
@@ -366,13 +415,26 @@ export function ActionsProvider({
       }
 
       const editable = isEditableElement(event.target);
+      const control = isControlElement(event.target);
 
       // Check all action shortcuts
       for (const action of allActions) {
-        if (!action.shortcut || action.disabled) continue;
+        if (!action.shortcut || action.local) continue;
 
         // Don't fire single-character shortcuts (like "?") when typing inside an input/textarea
         if (editable && !event.metaKey && !event.ctrlKey) {
+          continue;
+        }
+        // Mod+Z and friends belong to the field while one has focus.
+        if (editable && action.skipInFields) continue;
+        // Space and Enter on their own press the focused button or link.
+        if (control && isBareShortcut(action.shortcut) && /^(space|enter| )$/i.test(action.shortcut)) continue;
+        if (action.disabled) {
+          // A disabled action still owns its keys (Mod+Z with nothing to undo does nothing).
+          if (matchesShortcut(event, action.shortcut)) {
+            event.preventDefault();
+            return;
+          }
           continue;
         }
 

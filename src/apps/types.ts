@@ -5,6 +5,7 @@ import type { Register } from "../register";
 import type { Capability } from "../sites/capabilities";
 import type { AppManifest, AppManifestFeature } from "./manifest";
 import type { Resolution } from "./contributions";
+import type { Concept, ServiceDefinition } from "../services/concept";
 export type { Capability };
 
 /** A type the app registers under `key` on gondol's `Register`, else `fallback`. */
@@ -75,6 +76,13 @@ export interface AppAction extends Capability {
   keywords?: string[];
   perform: (context: AppActionContext) => void | Promise<void>;
   disabled?: boolean;
+  /**
+   * Listed in the palette and the shortcuts help, but its shortcut is handled by the view itself
+   * (a playlist's arrows and Mod+C), so the global listener leaves the key alone.
+   */
+  local?: boolean;
+  /** Leave the shortcut to text fields while one has focus (Mod+Z keeps the field's own undo). */
+  skipInFields?: boolean;
 }
 
 /** An app's page. Its `roles`/`aspects`, else those declared in the manifest, say which sites offer it. */
@@ -137,6 +145,11 @@ export interface AppWidgets {
    * pie). The host places them with `<HeaderWidgets/>` (gondol/apps/navigation).
    */
   headerWidgets?: ComponentType[];
+  /**
+   * At the bottom of the desktop's left column, under the menu and Your Library (the player app's
+   * service dock, like the album art in early Spotify). Not on phones.
+   */
+  sidebarBottomWidgets?: ComponentType<AppSidebarWidgetProps>[];
   /** Wrap the whole shell; never lazy, since the shell waits for them. */
   Providers?: ComponentType<{ children: React.ReactNode }>[];
 }
@@ -169,6 +182,10 @@ export interface InternalAppBundle {
   hooks?: AppBundleHooks;
   /** The app's answers to the shell's hooks (./contributions.ts); defineApp adds the manifest's. */
   resolutions?: Resolution[];
+  /** The services it contributes while it is on (manifest `services`, code from defineApp's `services`). */
+  services?: ServiceDefinition[];
+  /** Its activation logic (services/concept.ts): what it registers while on, undone when off. */
+  concept?: Concept;
   /**
    * For bundles made at run time (registerDynamicApps): the app they are part of, whose site
    * settings they follow (a site with the studio app has the apps users built with it).

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMusikUri, isMusikUri, LEGACY_ISRC_PREFIX, parseMusikUri } from "../../../playback/musikUri";
 import { supabase } from "./db";
 import { mediaHost, type EntityCovers } from "../../../media/host";
 import { sessionUserId } from "../../../supabase/session";
@@ -63,16 +64,24 @@ export function isWebLink(value: string): boolean {
   }
 }
 
-/** Whether `value` can go in a playlist: a well-formed entity URI or a web link. */
+/** A musik: URI (a recording, artist, release, … by its identity; playback/musikUri.ts). */
+export function isMusikItem(value: string): boolean {
+  const trimmed = value.trim();
+  return (isMusikUri(trimmed) || trimmed.startsWith(LEGACY_ISRC_PREFIX)) && parseMusikUri(trimmed) !== null;
+}
+
+/** Whether `value` can go in a playlist: a well-formed entity URI, a musik: URI or a web link. */
 export function isPlaylistItemUri(value: string): boolean {
   const trimmed = value.trim();
+  if (isMusikItem(trimmed)) return true;
   if (isEntityUri(trimmed)) return parseEntityUri(trimmed) !== null;
   return isWebLink(trimmed);
 }
 
-/** The stored form of a entity URI (entity <type>:<id>); links are kept as typed. */
+/** The stored form of a entity URI (entity <type>:<id>) or musik: URI; links are kept as typed. */
 export function normalizePlaylistItemUri(value: string): string {
   const trimmed = value.trim();
+  if (isMusikItem(trimmed)) return formatMusikUri(parseMusikUri(trimmed)!);
   const parsed = isEntityUri(trimmed) ? parseEntityUri(trimmed) : null;
   return parsed ? toEntityUri(parsed.entityType, parsed.entityId) : trimmed;
 }

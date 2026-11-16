@@ -1,0 +1,37 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "yt-music-service",
+  "slug": "yt-music-service",
+  "name": { "en": "YouTube music service", "sv": "YouTube-musiktjänst" },
+  "description": {
+    "en": "YouTube as a music service for the player: plays YouTube links in YouTube's own player, and finds musik: URIs and tracks on YouTube by their title and artist.",
+    "sv": "YouTube som musiktjänst för spelaren: spelar YouTube-länkar i YouTubes egen spelare och hittar musik:-URI:er och spår på YouTube efter titel och artist."
+  },
+  "iconName": "video",
+  "defaultFeatureId": "youtube",
+  "dependencies": ["player"],
+  "defaultActive": true,
+  "roles": ["consumer", "curator", "creator", "admin"],
+  "features": [
+    {
+      "id": "youtube",
+      "name": { "en": "YouTube", "sv": "YouTube" },
+      "description": { "en": "How YouTube plays your music, and its account", "sv": "Hur YouTube spelar din musik, och dess konto" },
+      "path": "youtube-music-service",
+      "iconName": "video",
+      "hiddenFromNav": true,
+      "aspects": ["view", "configure"]
+    }
+  ],
+  "services": [
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "description": { "en": "YouTube's embedded player", "sv": "YouTubes inbäddade spelare" },
+      "aspects": ["media", "music", "auth"],
+      "iconName": "video",
+      "hosts": ["youtube.com", "youtu.be", "youtube-nocookie.com"],
+      "schemes": ["youtube:"]
+    }
+  ]
+}

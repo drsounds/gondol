@@ -114,6 +114,7 @@ export function SidebarLibrary({ onOpenUri, collapsed }: Props) {
         .filter(Boolean)
         .join(" ")}
       aria-label={t("sidebarLibrary.title")}
+      data-region="library"
       {...drop.props}
     >
       <div className="sidebar-library__top">

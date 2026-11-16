@@ -11,6 +11,8 @@ import { MobileNavDrawer } from "./MobileNavDrawer";
 import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
 import { useSiteOffers } from "../sites/capabilities";
 import { useOptionalUserTheme } from "../theme/userTheme";
+import { ConceptsHost } from "../services/ConceptsHost";
+import { useRegionKeys } from "../navigation/regions";
 
 const NAV_COLLAPSED_STORAGE_KEY = "cashflow-nav-collapsed";
 
@@ -123,7 +125,7 @@ export function AppShell({
   const navSections = useAppNavigation(intlLocale);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
 
-  const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
+  const { sidebarNavWidgets, sidebarPanelWidgets, sidebarBottomWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
   const userTheme = useOptionalUserTheme();
   const preferences = userTheme?.preferences;
   
@@ -244,11 +246,26 @@ export function AppShell({
     </div>
   );
   const searchForm = <ChromeSearchForm search={search} />;
+  // F6 / Shift+F6 move between the header, the menu, Your Library, the content and the player.
+  useRegionKeys(frameRef);
 
   return (
     <FeatureDotContext.Provider value={featureDot}>
     <main ref={frameRef} className="bungalow-root app-frame">
-      <header className="chrome-bar">
+      {/* The apps that are on, as concepts: their services registered and started (services/). */}
+      <ConceptsHost />
+      {/* The first stop for Tab: past the header and the menu, straight to the view. */}
+      <a
+        className="skip-link"
+        href="#app-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("app-content")?.focus();
+        }}
+      >
+        {t("shell.skipToContent")}
+      </a>
+      <header className="chrome-bar" data-region="header" aria-label={t("shell.header")}>
         {historyButtons}
         {searchForm}
         <div className="top-bar__actions">{topBarActions}</div>
@@ -273,7 +290,9 @@ export function AppShell({
             </button>
 
       {filterStrip ? <div className="global-filter-strip">{filterStrip}</div> : null}
-      <div className={contentFlush ? "app-content app-content--flush" : "app-content"}>{children}</div>
+      <div id="app-content" data-region="content" tabIndex={-1} aria-label={t("shell.content")} className={contentFlush ? "app-content app-content--flush" : "app-content"}>
+        {children}
+      </div>
       </div>
 
       {/* The open app's pages in a second menu right of the first (desktop, MenuStyle "appsBeside"). */}
@@ -305,6 +324,7 @@ export function AppShell({
       <nav
         ref={navRef}
         className={["bottom-nav", navCollapsed ? "bottom-nav--collapsed" : "", insetApp ? "bottom-nav--inset" : ""].filter(Boolean).join(" ")}
+        data-region="menu"
         aria-label={t("nav.label")}
         role="tablist"
         onKeyDown={handleNavKeyDown}
@@ -386,6 +406,12 @@ export function AppShell({
       {showLibrary
         ? sidebarPanelWidgets.map((Widget, idx) => <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />)
         : null}
+      {/* The bottom of the left column (desktop): the player's service dock, like early Spotify's art. */}
+      {sidebarBottomWidgets.length > 0 ? (
+        <div className="sidebar-bottom" data-region="dock">
+          <Widgets widgets={sidebarBottomWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
+        </div>
+      ) : null}
       {!navCollapsed ? (
         <div
           className="sidebar-resize-handle sidebar-resize-handle--width"

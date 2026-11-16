@@ -85,6 +85,8 @@ if (functionsDir) {
     copy("ai-agents/index.ts");
     copy("_shared/agentPrompt.ts");
   }
+  // The yt-music-service app's YouTube search (the browser can't search YouTube itself).
+  if (builtin.includes("yt-music-service")) copy("yt-music-service/index.ts");
   // The mastodon app's server: federation over ActivityPub and the Mastodon client API.
   if (builtin.includes("mastodon")) {
     copy("mastodon/index.ts");
