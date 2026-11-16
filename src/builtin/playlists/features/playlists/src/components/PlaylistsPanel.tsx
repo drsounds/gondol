@@ -20,6 +20,7 @@ import { EntityRow } from "../../../../../../entities/EntityRow";
 import { useLibraryPickerOptions } from "../../../../../library/models/library";
 import { mediaHost, type EntityCovers } from "../../../../../../media/host";
 import {
+  isMusikItem,
   isPlaylistItemUri,
   isWebLink,
   normalizePlaylistItemUri,
@@ -41,9 +42,17 @@ import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { entityKey, findByEntityKey } from "../../../../../../entities/slugs";
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { useSiteShows } from "../../../../../../sites/sites";
+import { playback } from "../../../../../../playback/coordinator";
+import { usePlaybackSelector } from "../../../../../../playback/usePlayback";
+import { musikLabel, parseMusikUri } from "../../../../../../playback/musikUri";
+import type { PlayRequest } from "../../../../../../playback/types";
+import { useUndoScope } from "../../../../../../navigation/undo";
 
 /** Drag payload for reordering within a playlist (alongside the usual entity payload). */
 const PLAYLIST_ITEM_MIME = "application/x-playlist-item";
+
+/** Rows PageUp / PageDown move by. */
+const PAGE = 10;
 
 interface Props {
   onOpenUri: (uri: string) => void;
@@ -548,7 +557,7 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
   /** Adds entities (entity URIs, by slug or identifier too) and web links at `at`. */
   async function insertUris(entries: { uri: string; title?: string }[], at: number, label: string) {
     const fresh = await Promise.all(
-      entries.map(async ({ uri, title }) => freshItem(isEntityUri(uri) ? await canonicalEntityUri(uri) : normalizePlaylistItemUri(uri), title?.trim() || null)),
+      entries.map(async ({ uri, title }) => freshItem(isEntityUri(uri) && !isMusikItem(uri) ? await canonicalEntityUri(uri) : normalizePlaylistItemUri(uri), title?.trim() || null)),
     );
     insertItems(fresh, at, label);
   }
@@ -695,6 +704,7 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
 
   async function resolvePasted(token: string): Promise<string | null> {
     const ref = entityRefFromText(token);
+    if (isMusikItem(token)) return normalizePlaylistItemUri(token);
     if (ref) return canonicalEntityUri(toEntityUri(ref.entityType, ref.entityId));
     if (!isWebLink(token) || !isPlaylistItemUri(token)) return null;
     if (!saveLink) return token;
@@ -726,6 +736,61 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
     openItemUri(item.uri, onOpenUri);
   }
 
+  // Mod+Z / Mod+Shift+Z go through the shell's undo (navigation/undo.ts): this playlist's history
+  // answers while it is open.
+  useUndoScope(
+    playlist && !readOnly
+      ? {
+          id: `playlist:${playlistId}`,
+          canUndo: history.canUndo,
+          canRedo: history.canRedo,
+          undoLabel: history.undoLabel,
+          redoLabel: history.redoLabel,
+          undo: () => travel("undo"),
+          redo: () => travel("redo"),
+          element: rootRef.current,
+        }
+      : null,
+  );
+
+  /** What playing an item asks the player for: musik: by identity, else the host's resolvers. */
+  async function requestsFor(list: PlaylistItem[]): Promise<PlayRequest[]> {
+    const found = await Promise.all(list.map((item) => playback.requestFor(item.uri, item.title ?? labelFor(labels, item.uri) ?? undefined)));
+    return found.filter((r): r is PlayRequest => !!r);
+  }
+
+  const playContext = playlist ? { label: playlist.name, uri: toEntityUri("playlist", playlist.id), path: `/playlists/${entityKey(playlist)}` } : null;
+
+  /** Plays the playlist from `item` (or the start), queueing everything playable after it. */
+  async function playFrom(item?: PlaylistItem) {
+    const from = item ? items.findIndex((i) => i.id === item.id) : 0;
+    const head = await requestsFor(items.slice(Math.max(0, from), Math.max(0, from) + 1));
+    if (item && head.length === 0) {
+      // Nothing plays it: open it instead (Enter on a row does what it can).
+      openItem(item);
+      return;
+    }
+    const rest = await requestsFor(items.slice(Math.max(0, from) + 1));
+    const all = [...head, ...rest];
+    if (all.length === 0) {
+      showToast(t("playlists.nothingToPlay"));
+      return;
+    }
+    await playback.playQueue(all, 0, playContext);
+  }
+
+  async function queueItems(chosen: PlaylistItem[], next: boolean) {
+    const requests = await requestsFor(chosen);
+    if (requests.length === 0) {
+      showToast(t("playlists.nothingToPlay"));
+      return;
+    }
+    playback.enqueue(requests, next);
+    showToast(t(next ? "playlists.queuedNext" : "playlists.queued", { count: requests.length }));
+  }
+
+  const playingUri = usePlaybackSelector((s) => (s.context?.uri && playlist && s.context.uri === toEntityUri("playlist", playlist.id) ? (s.queue[s.index]?.request.uri ?? null) : null));
+
   // Keyboard shortcuts and the clipboard, while focus is on the playlist (or nowhere in particular).
   const keys = useRef<PlaylistKeys | null>(null);
   keys.current = {
@@ -734,11 +799,7 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
       const mod = isMac() ? event.metaKey : event.ctrlKey;
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       const handled = () => event.preventDefault();
-      if (mod && !event.altKey && (key === "z" || (key === "y" && !event.shiftKey))) {
-        if (readOnly) return;
-        handled();
-        void travel(key === "y" || event.shiftKey ? "redo" : "undo");
-      } else if (mod && !event.altKey && !event.shiftKey && key === "a") {
+      if (mod && !event.altKey && !event.shiftKey && key === "a") {
         if (items.length === 0) return;
         handled();
         select(
@@ -759,6 +820,15 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
       } else if ((key === "Home" || key === "End") && !mod && !event.altKey && items.length > 0) {
         handled();
         goTo(key === "Home" ? 0 : items.length - 1, event.shiftKey);
+      } else if ((key === "PageUp" || key === "PageDown") && !mod && !event.altKey && items.length > 0) {
+        handled();
+        const at = Math.max(0, items.findIndex((i) => i.id === selection.cursor));
+        goTo(Math.max(0, Math.min(items.length - 1, at + (key === "PageUp" ? -PAGE : PAGE))), event.shiftKey);
+      } else if (key === "F2" && !mod && !event.altKey && !readOnly) {
+        const item = items.find((i) => i.id === selection.cursor);
+        if (!item) return;
+        handled();
+        itemModal.openEdit(entityKey(item));
       } else if (key === "Escape" && selection.ids.length > 0) {
         handled();
         select([], null, selection.cursor);
@@ -772,7 +842,9 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
         const item = items.find((i) => i.id === selection.cursor);
         if (!item) return;
         handled();
-        openItem(item);
+        // Enter plays (like Spotify) where something can; Mod+Enter, or nothing to play, opens.
+        if (mod || event.altKey) openItem(item);
+        else void playFrom(item);
       }
     },
     clipboard: (event) => {
@@ -900,7 +972,18 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
             uri={readOnly ? undefined : toEntityUri("playlist", playlist.id)}
             badge={readOnly ? t("visibility.public") : undefined}
             actions={
-              readOnly ? null : (
+              <>
+                <Button
+                  size="sm"
+                  tone="primary"
+                  disabled={items.length === 0}
+                  onClick={() => void playFrom()}
+                  title={t("playlists.playAll")}
+                  data-tour="playlist-play"
+                >
+                  <Icon name="play" /> {t("playback.play")}
+                </Button>
+                {readOnly ? null : (
                 <>
                   <Button
                     variant="ghost"
@@ -929,7 +1012,8 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
                     {t("playlists.addItem")}
                   </Button>
                 </>
-              )
+                )}
+              </>
             }
           />
 
@@ -957,8 +1041,12 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
               const openable = link || resolveEntityUri(uri) !== null;
               const acting = itemsFor(item);
               const many = acting.length > 1;
+              const musik = isMusikItem(uri);
               const actions: MenuAction[] = [
-                ...(openable ? [{ key: "open", label: link ? t("playlists.openLink") : t("actions.open"), onSelect: () => openItem(item) }] : []),
+                { key: "play", label: t("playback.play"), onSelect: () => void playFrom(item) },
+                { key: "play-next", label: t("playlists.playNext"), onSelect: () => void queueItems(acting, true) },
+                { key: "queue", label: t("playlists.addToQueue"), onSelect: () => void queueItems(acting, false) },
+                ...(openable && !musik ? [{ key: "open", label: link ? t("playlists.openLink") : t("actions.open"), onSelect: () => openItem(item) }] : []),
                 ...(link
                   ? [
                       {
@@ -1003,6 +1091,9 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
                 dropAfter: dropIndex === items.length && index === items.length - 1,
                 selected: selected.has(item.id),
                 cursor: selection.cursor === item.id,
+                // Roving focus: Tab lands on the cursor row (the first one before any), arrows move.
+                tabbable: selection.cursor ? selection.cursor === item.id : index === 0,
+                playing: playingUri === uri,
                 added: {
                   on: addedOn,
                   label: added,
@@ -1011,7 +1102,7 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
                     ? t("playlists.addedCustomHint", { date: dateFormat.format(new Date(item.added_at)) })
                     : t("playlists.addedHint", { date: added }),
                 },
-                onOpen: () => openItem(item),
+                onOpen: musik ? () => void playFrom(item) : () => openItem(item),
                 onDragOver: (e: DragEvent<HTMLLIElement>) => onDragOverRow(e, index),
                 onDrop: (e: DragEvent<HTMLLIElement>) => onDropAt(e, indexFromEvent(e, index)),
                 onClickCapture: (e: MouseEvent<HTMLLIElement>) => onRowClick(e, item, index),
@@ -1020,7 +1111,9 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
                 },
                 actions,
               };
-              return link ? (
+              return musik ? (
+                <MusikItemRow key={item.id} {...common} />
+              ) : link ? (
                 <LinkItemRow key={item.id} {...common} />
               ) : (
                 <EntityItemRow key={item.id} {...common} name={item.title ?? labelFor(labels, uri) ?? uri} openable={openable} />
@@ -1079,7 +1172,7 @@ function droppedLink(event: DragEvent<HTMLElement>): string | null {
       .filter((line) => line && !line.startsWith("#")),
     event.dataTransfer.getData("text/plain"),
   ].map((s) => s.trim());
-  return candidates.find((s) => isWebLink(s)) ?? null;
+  return candidates.find((s) => isWebLink(s) || isMusikItem(s)) ?? null;
 }
 
 interface ItemRowProps {
@@ -1090,6 +1183,10 @@ interface ItemRowProps {
   dropAfter: boolean;
   selected: boolean;
   cursor: boolean;
+  /** The row Tab lands on in the list (roving tabindex). */
+  tabbable: boolean;
+  /** What the player plays now, from this playlist. */
+  playing: boolean;
   /** When it was added (`on`, YYYY-MM-DD), as shown, and whether that's the user's own date. */
   added: { on: string; label: string; custom: boolean; hint: string };
   onOpen: () => void;
@@ -1101,13 +1198,14 @@ interface ItemRowProps {
 }
 
 /** What every item row shares: its classes, focus and selection state, and the date added. */
-function rowProps({ item, dropBefore, dropAfter, selected, cursor, added, onDragOver, onDrop, onClickCapture, onFocus }: ItemRowProps) {
+function rowProps({ item, dropBefore, dropAfter, selected, cursor, tabbable, playing, added, onDragOver, onDrop, onClickCapture, onFocus }: ItemRowProps) {
   const className = [
     "playlist-row",
     dropBefore ? "playlist-row--drop-before" : "",
     dropAfter ? "playlist-row--drop-after" : "",
     selected ? "playlist-row--selected" : "",
     cursor ? "playlist-row--cursor" : "",
+    playing ? "playlist-row--playing" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1115,7 +1213,10 @@ function rowProps({ item, dropBefore, dropAfter, selected, cursor, added, onDrag
     className,
     "data-item-id": item.id,
     "data-selected": selected ? "true" : undefined,
-    tabIndex: -1,
+    "aria-selected": selected,
+    "aria-current": playing ? ("true" as const) : undefined,
+    tabIndex: tabbable ? 0 : -1,
+    mainTabIndex: -1,
     onDragOver,
     onDrop,
     onClickCapture,
@@ -1202,6 +1303,37 @@ function LinkItemRow(props: ItemRowProps) {
   );
 }
 
+/** A musik: item (a recording by ISRC or by title and artist, …): plays through the music services. */
+function MusikItemRow(props: ItemRowProps) {
+  const { item, index, draggable, onOpen, actions, added } = props;
+  const { t } = useI18n();
+  const parsed = parseMusikUri(item.uri);
+  const name = item.title ?? musikLabel(item.uri) ?? item.uri;
+  const kind = parsed ? t(`playlists.musik.${parsed.kind}`) : "musik:";
+  return (
+    <EntityRow
+      {...rowProps(props)}
+      draggable={draggable}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(PLAYLIST_ITEM_MIME, item.id);
+        e.dataTransfer.setData("text/plain", item.uri);
+        e.dataTransfer.effectAllowed = "copyMove";
+      }}
+      number={index + 1}
+      name={name}
+      meta={rowMeta(parsed?.artist ? `${kind} · ${parsed.artist}` : kind, added)}
+      hint={item.uri}
+      art={
+        <span className="search-art search-art--sm" style={{ "--tile-hue": 330 } as CSSProperties} aria-hidden="true">
+          <Icon name="disc" />
+        </span>
+      }
+      onOpen={onOpen}
+      actions={actions}
+    />
+  );
+}
+
 function hostOf(url: string): string | null {
   try {
     return new URL(url).host.replace(/^www\./, "");
@@ -1229,7 +1361,7 @@ function AddItemSheet({
   const [linkInput, setLinkInput] = useState("");
   const [title, setTitle] = useState("");
   const link = linkInput.trim();
-  const linkValid = !!link && isWebLink(link) && isPlaylistItemUri(link);
+  const linkValid = !!link && (isWebLink(link) || isMusikItem(link)) && isPlaylistItemUri(link);
   const all = [...uris, ...(linkValid ? [link] : [])];
   // A custom title only makes sense for a single item.
   const single = all.length === 1 ? all[0] : null;

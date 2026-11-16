@@ -58,6 +58,7 @@ export default {
           { text: "The search app", link: "/guide/search" },
           { text: "The library app", link: "/guide/library" },
           { text: "The playlists app", link: "/guide/playlists" },
+          { text: "Playback and music services", link: "/guide/playback" },
           { text: "The ai app", link: "/guide/ai" },
           { text: "The agents app", link: "/guide/agents" },
           { text: "The streams app", link: "/guide/streams" },

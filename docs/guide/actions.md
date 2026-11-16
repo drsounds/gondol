@@ -80,6 +80,7 @@ Memoize the array: a new array on every render re-registers the actions every re
 | Create New… (when `openCreate` is passed) | `Mod+Shift+A` |
 | Go to … (the root tabs) | `Mod+1` to `Mod+9`, by position |
 | Previous Tab, Next Tab | `Mod+[`, `Mod+]` |
+| Undo, Redo (in the view being worked in, see below) | `Mod+Z`, `Mod+Shift+Z` or `Mod+Y` |
 
 ::: info
 The root tabs are Overview, Search, App Finder and Account (`DEFAULT_ROOT_TABS`, override with
@@ -126,10 +127,48 @@ Shortcuts are `+`-joined strings: modifiers, then one key.
 | A letter or digit | Matched by physical key (`event.code`), so layouts and Alt don't break it. |
 | `[`, `]`, `/`, `-`, … | Matched by key or physical key. |
 | A lone symbol such as `?` | Matched by the typed character, whatever Shift it needs. |
+| `Space`, `Enter`, `Escape`, `ArrowLeft` (or `Left`), `F2`, … | Named keys; shown as Space, ↵, Esc, ←. |
 
-Shortcuts without `Mod`, Ctrl or Meta don't fire while the user types in a field. While the palette
+Shortcuts without `Mod`, Ctrl or Meta don't fire while the user types in a field, and a bare
+`Space` or `Enter` doesn't fire while a button, link or other control has focus (it presses that).
+`skipInFields: true` leaves even a `Mod` shortcut to text fields (Undo keeps the field's own undo).
+`local: true` lists an action and its shortcut in the palette and the help dialog without the
+provider listening for it, for keys a view handles itself (a playlist's arrows). A disabled
+action's shortcut still swallows its key, so Mod+Z with nothing to undo does nothing. While the palette
 or the shortcuts dialog is open, only Escape (and the palette toggle) reach the provider.
 
 `gondol/navigation/shortcuts` exports the helpers the provider uses: `matchesShortcut(event,
 shortcut)`, `formatShortcut(shortcut)` (`⌘⇧P` on a Mac, `Ctrl+Shift+P` elsewhere), `isMac()` and
-`isEditableElement(target)`.
+`isEditableElement(target)`, `isControlElement(target)` and `isBareShortcut(shortcut)`.
+
+## Undo
+
+`gondol/navigation/undo` is the undo system behind the global Undo and Redo actions. A view with a
+history of its own registers it while it is mounted, and the most recently registered (or focused)
+scope answers:
+
+```ts
+import { useUndoScope } from "gondol/navigation/undo";
+
+useUndoScope({
+  id: `notes:${noteId}`,
+  canUndo: history.canUndo,
+  canRedo: history.canRedo,
+  undoLabel: history.undoLabel, // "Undo Move" in the palette
+  redoLabel: history.redoLabel,
+  undo: () => history.undo(),
+  redo: () => history.redo(),
+  element: rootRef.current,     // focus inside it makes it the active scope again
+});
+```
+
+Anything else pushes one-off steps with `pushUndo({ label, undo, redo })`; they answer while no
+scope is registered. `useUndoState()` re-renders with `canUndo`, `canRedo` and the labels.
+
+## Tab order and regions
+
+`AppShell` starts with a "Skip to content" link and marks its regions (`data-region`: header, menu,
+library, dock, content, player). F6 and Shift+F6 move focus between them (`useRegionKeys`,
+`gondol/navigation/regions`). Rows with an `ActionMenu` take focus (Enter clicks their main button
+or link, the menu key or Shift+F10 opens their menu) unless their list moves focus between rows
+itself by giving them a `tabindex`.

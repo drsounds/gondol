@@ -206,11 +206,44 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
       // On touch screens the menu opens by holding the row (below); Android also sends a
       // contextmenu half-way through that hold, which must not open the dropdown.
       if (holdingRef.current || (event as PointerEvent).pointerType === "touch") return;
+      // From the keyboard (the menu key, Shift+F10) there is no pointer: open it under the row's start.
+      if (event.clientX === 0 && event.clientY === 0) {
+        const rect = (event.target instanceof HTMLElement ? event.target : host).getBoundingClientRect();
+        show({ x: rect.left + 16, y: rect.bottom, align: "pointer" });
+        return;
+      }
       show({ x: event.clientX, y: event.clientY, align: "pointer" });
     };
     host.addEventListener("contextmenu", onContextMenu);
     return () => host.removeEventListener("contextmenu", onContextMenu);
   }, [row, show]);
+
+  // Tab browsing: a row can take focus itself (unless the list moves focus between its rows, and so
+  // set a tabindex of its own); Enter on it does what clicking its main button or link does.
+  useEffect(() => {
+    if (!row) return;
+    const host = triggerRef.current?.closest<HTMLElement>(".action-row");
+    if (!host) return;
+    // Lists that set a tabindex of their own also handle their own keys (a playlist's Enter plays).
+    if (host.hasAttribute("tabindex")) return;
+    // Rows whose main button already takes focus (EntityRow) need no second tab stop.
+    if (host.querySelector(".library-row__main:not([tabindex='-1'])")) return;
+    host.tabIndex = 0;
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.target !== host || event.defaultPrevented) return;
+      if (event.key === "Enter" && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        const main = host.querySelector<HTMLElement>(".library-row__main, a[href], button:not(.action-menu-trigger):not(.action-row__like)");
+        if (!main || (main as HTMLButtonElement).disabled) return;
+        event.preventDefault();
+        main.click();
+      }
+    };
+    host.addEventListener("keydown", onKeyDown);
+    return () => {
+      host.removeEventListener("keydown", onKeyDown);
+      host.removeAttribute("tabindex");
+    };
+  }, [row]);
 
   // Touch screens have no "⋯" on rows: pressing and holding the row for HOLD_MS opens the menu
   // as a sheet.

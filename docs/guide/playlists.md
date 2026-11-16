@@ -26,15 +26,29 @@ configureGondol({ apps: [...myApps, playlistsApp] });
 In a playlist (focus on its rows, or nowhere in particular) the arrow keys move between rows,
 Shift extends the selection (Home/End too), Ctrl/⌘ or Shift with a click (or a click on the number)
 select with the mouse, Mod+A selects all, Esc clears, Alt+↑/↓ (or Mod+Shift+↑/↓) moves the selection,
-Delete removes it and Enter opens the row. Mod+C / Mod+X put the selected items' URIs on the
+Delete removes it, PageUp/PageDown jump ten rows, F2 edits the item, Enter plays from the row (or
+opens it when nothing plays it; Mod+Enter always opens) and the menu key or Shift+F10 opens its row
+menu. Tab lands on one row (the cursor, else the first) and leaves the list in one more step: the
+rows move focus between themselves (a roving tabindex). Mod+C / Mod+X put the selected items' URIs on the
 clipboard (entity URIs, one per line, and web links); Mod+V pastes after the selection: entity URIs
 and app addresses as entities, and web links as bookmarks where the host keeps them
 (`playlistsHostHook`, below), else as links. Pasting a copy back keeps the items' titles, and a cut
 keeps their added dates (and, in the same playlist, their ids).
 
 Every change in the view (add, remove, move, cut, paste, edit) is a step of `usePlaylistHistory()`
-(`models/history.ts`): Mod+Z undoes it, Mod+Shift+Z or Mod+Y redoes it (also the Undo and Redo
-buttons). Items keep their ids and `added_at` through undo and redo. The history lasts for the page.
+(`models/history.ts`), registered as the open view's undo scope (`useUndoScope`,
+`gondol/navigation/undo`): the shell's Undo and Redo (Mod+Z, Mod+Shift+Z or Mod+Y, and the palette)
+undo and redo it, as do the Undo and Redo buttons. Items keep their ids and `added_at` through undo and redo. The history lasts for the page.
+
+## Playing and musik: items
+
+A playlist also takes `musik:` URIs (a recording by ISRC, by artist, release and name, or by title
+and artist; see the [playback guide](./playback.md)): paste or drop one, or type it in "Add". They
+show as recordings, artists or releases with music art. "Play" in the header plays the playlist
+from the top, and a row's menu has Play, "Play next" and "Add to queue": whatever the player can
+play (musik: items through the music services, links a service plays as they are, entities the host
+turns into a play request with `playbackHostHook`) goes in the queue, the rest is skipped. The row
+that plays shows in the accent colour.
 
 ## Bookmarks
 

@@ -2248,6 +2248,104 @@
         }
       },
       "additionalProperties": false
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][\\w.-]*$"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "description": "Text per locale (`en` required, e.g. `sv`).",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "description": {
+            "description": "Text per locale (`en` required, e.g. `sv`).",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "aspects": {
+            "description": "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out).",
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "media",
+                "music",
+                "catalogue",
+                "auth"
+              ]
+            }
+          },
+          "iconName": {
+            "description": "A glyph of the bungalow icon font (IconName).",
+            "type": "string",
+            "minLength": 1
+          },
+          "hosts": {
+            "description": "Web hosts whose links it plays as they are, e.g. `youtube.com`.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "schemes": {
+            "description": "URI prefixes it plays as they are.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+.-]*:"
+            }
+          },
+          "surface": {
+            "description": "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md).",
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "aspects"
+        ],
+        "additionalProperties": false
+      }
     }
   },
   "required": [

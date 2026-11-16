@@ -20,6 +20,11 @@ interface Props extends Omit<LiHTMLAttributes<HTMLLIElement>, "children" | "titl
   /** A column between the name and the row menu (a playlist item's date added); hidden on phones. */
   aside?: ReactNode;
   actions?: MenuAction[];
+  /**
+   * Tab index of the row's main button. Lists that move focus between rows themselves (a
+   * playlist's roving focus, arrows between rows) pass -1 so Tab leaves the list in one step.
+   */
+  mainTabIndex?: number;
 }
 
 /** 1 → "01", 12 → "12", 123 → "123". */
@@ -30,12 +35,12 @@ export const rowNumber = (n: number) => String(n).padStart(2, "0");
  * the left, the name over its type and details, the saved glyph and the "⋯" row menu. Render it in a
  * `.library-list` (`<ul>`/`<ol>`).
  */
-export function EntityRow({ name, meta, uri, art, number, openable = true, onOpen, hint, aside, actions = [], className, ...li }: Props) {
+export function EntityRow({ name, meta, uri, art, number, openable = true, onOpen, hint, aside, actions = [], mainTabIndex, className, ...li }: Props) {
   const parsed = uri ? parseEntityUri(uri) : null;
   return (
     <li {...li} className={["library-row library-row--entity action-row", className].filter(Boolean).join(" ")}>
       {number != null ? <span className="entity-row__number">{rowNumber(number)}</span> : null}
-      <button type="button" className="library-row__main" disabled={!openable} onClick={onOpen} title={hint}>
+      <button type="button" className="library-row__main" disabled={!openable} onClick={onOpen} title={hint} tabIndex={mainTabIndex}>
         {art ?? (parsed ? <EntityArt type={parsed.entityType} title={name} size="sm" uri={uri} /> : null)}
         <span className="library-row__text">
           <span className="library-row__label">{name}</span>

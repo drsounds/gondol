@@ -161,6 +161,30 @@ export const manifestEntitySchema = z
   })
   .strict();
 
+/** Capability aspects a service can implement (services/service.ts, playback/types.ts). */
+export const SERVICE_ASPECTS = ["media", "music", "catalogue", "auth"] as const;
+
+/**
+ * A service the app contributes while it is on (services/service.ts): a back-end such as a music
+ * streamer, picked by what it can do (`aspects`). Its code comes from defineApp's `services`, unless
+ * it runs entirely in a `surface` page (an iframe speaking gondol's service protocol).
+ */
+export const manifestServiceSchema = z
+  .object({
+    id,
+    name: z.union([z.string().min(1), localized]),
+    description: localized.optional(),
+    aspects: z
+      .array(z.enum(SERVICE_ASPECTS))
+      .min(1)
+      .meta({ description: "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out)." }),
+    iconName: iconName.optional(),
+    hosts: z.array(z.string().min(1)).optional().meta({ description: "Web hosts whose links it plays as they are, e.g. `youtube.com`." }),
+    schemes: z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:/, "a URI prefix such as `youtube:`")).optional().meta({ description: "URI prefixes it plays as they are." }),
+    surface: z.string().url().optional().meta({ description: "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md)." }),
+  })
+  .strict();
+
 export const appManifestSchema = z
   .object({
     $schema: z.string().optional(),
@@ -191,6 +215,7 @@ export const appManifestSchema = z
     api: appApiSchema.optional(),
     functions: appFunctionsSchema.optional(),
     mcp: appMcpSchema.optional(),
+    services: z.array(manifestServiceSchema).optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -220,6 +245,11 @@ export const appManifestSchema = z
         ctx.addIssue({ code: "custom", path: ["mcp", "tools", index, "function"], message: `no function "${tool.function}" in this app` });
       }
     }
+    const services = new Set<string>();
+    for (const [index, service] of (manifest.services ?? []).entries()) {
+      if (services.has(service.id)) ctx.addIssue({ code: "custom", path: ["services", index, "id"], message: `duplicate service id "${service.id}"` });
+      services.add(service.id);
+    }
     if (manifest.dependencies.includes(manifest.id)) {
       ctx.addIssue({ code: "custom", path: ["dependencies"], message: "an app can't depend on itself" });
     }
@@ -241,6 +271,7 @@ export type ManifestBrowseTile = z.infer<typeof manifestBrowseTileSchema>;
 export type ManifestNavItem = z.infer<typeof manifestNavItemSchema>;
 export type ManifestEntity = z.infer<typeof manifestEntitySchema>;
 export type ManifestEntitySource = z.infer<typeof manifestEntitySourceSchema>;
+export type ManifestService = z.infer<typeof manifestServiceSchema>;
 
 /** Validates a manifest.json, throwing an error that names the app and every problem. */
 export function parseManifest(json: unknown): AppManifest {
