@@ -1,0 +1,264 @@
+/* Multi-service playback (player app, playback/): the player bar, the service dock at the bottom of
+   the menu, Now playing, "Play with…", the service surfaces laid over their slots, and the music
+   services page. Colours come from the bungalow tokens only. */
+
+/* ---- skip link and focus ------------------------------------------------------------------ */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.5rem 0.875rem;
+  border-radius: 999px;
+  background: var(--bungalow-color-primary);
+  color: var(--bungalow-color-primary-foreground, #fff);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 120ms ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible { transform: none; outline: 2px solid var(--bungalow-color-foreground); outline-offset: 2px; }
+[data-region]:focus-visible,
+.action-row:focus-visible,
+.playlist-row:focus-visible { outline: 2px solid var(--bungalow-color-primary); outline-offset: -2px; }
+[data-region="content"]:focus { outline: none; }
+
+/* ---- shared controls ---------------------------------------------------------------------- */
+.playback-art {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bungalow-color-foreground) 10%, transparent);
+  color: var(--bungalow-color-muted-foreground);
+}
+.playback-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.playback-art--sm { width: 3rem; height: 3rem; }
+.playback-art--md { width: 100%; aspect-ratio: 1; }
+.playback-art--lg { width: min(100%, 22rem); aspect-ratio: 1; border-radius: 10px; box-shadow: 0 1.5rem 3rem rgb(0 0 0 / 0.35); }
+.playback-art--empty svg { width: 40%; height: 40%; }
+
+.playback-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--bungalow-color-muted-foreground);
+  cursor: pointer;
+}
+.playback-icon:hover:not(:disabled) { color: var(--bungalow-color-foreground); }
+.playback-icon:disabled { opacity: 0.4; cursor: default; }
+.playback-icon svg { width: 1.125rem; height: 1.125rem; }
+.playback-icon--on { color: var(--bungalow-color-primary); position: relative; }
+.playback-icon--on::after {
+  content: "";
+  position: absolute;
+  bottom: 0.125rem;
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+.playback-play {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--bungalow-color-foreground);
+  color: var(--bungalow-color-background);
+  cursor: pointer;
+}
+.playback-play svg { width: 1.125rem; height: 1.125rem; }
+.playback-play:disabled { opacity: 0.5; cursor: default; }
+.playback-icon:focus-visible,
+.playback-play:focus-visible,
+.playback-text-button:focus-visible { outline: 2px solid var(--bungalow-color-primary); outline-offset: 2px; }
+
+.playback-text-button {
+  border: 0;
+  background: transparent;
+  color: var(--bungalow-color-muted-foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.playback-text-button:hover:not(:disabled) { color: var(--bungalow-color-foreground); }
+.playback-text-button:disabled { opacity: 0.4; cursor: default; }
+
+.playback-transport { display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+.playback-transport--large { gap: 1.25rem; }
+.playback-transport--large .playback-icon { width: 2.75rem; height: 2.75rem; }
+.playback-transport--large .playback-icon svg { width: 1.5rem; height: 1.5rem; }
+.playback-transport--large .playback-play { width: 3.75rem; height: 3.75rem; }
+.playback-transport--large .playback-play svg { width: 1.75rem; height: 1.75rem; }
+
+.playback-seek { display: flex; align-items: center; gap: 0.5rem; width: 100%; }
+.playback-seek__time { flex: none; min-width: 2.5rem; font-size: 0.6875rem; font-variant-numeric: tabular-nums; color: var(--bungalow-color-muted-foreground); }
+.playback-seek__time:last-child { text-align: right; }
+.playback-volume { display: flex; align-items: center; gap: 0.25rem; }
+
+.playback-range {
+  flex: 1;
+  min-width: 0;
+  height: 1rem;
+  margin: 0;
+  background: transparent;
+  accent-color: var(--bungalow-color-foreground);
+  cursor: pointer;
+}
+.playback-range--volume { flex: none; width: 6rem; }
+.playback-range:hover { accent-color: var(--bungalow-color-primary); }
+.playback-range:focus-visible { outline: 2px solid var(--bungalow-color-primary); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- the player bar (a bottom widget) ----------------------------------------------------- */
+.playback-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--bungalow-color-border);
+  background: var(--bungalow-color-background);
+  color: var(--bungalow-color-foreground);
+}
+.playback-bar__now { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
+.playback-bar__text { display: flex; flex-direction: column; min-width: 0; }
+.playback-bar__title,
+.playback-bar__meta { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.playback-bar__title { font-size: 0.875rem; font-weight: 600; }
+.playback-bar__meta { font-size: 0.75rem; color: var(--bungalow-color-muted-foreground); }
+.playback-bar__center { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; max-width: 45rem; width: 100%; justify-self: center; }
+.playback-bar__side { display: flex; align-items: center; justify-content: flex-end; gap: 0.5rem; }
+.playback-bar[data-state="loading"] .playback-bar__meta,
+.playback-bar[data-state="buffering"] .playback-bar__meta { animation: playback-pulse 1.2s ease-in-out infinite; }
+@keyframes playback-pulse { 50% { opacity: 0.5; } }
+
+/* Phones: a mini player. The row opens Now playing; only play/pause and next stay. */
+@media (max-width: 63.99rem) {
+  .playback-bar { grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; padding: 0.375rem 0.5rem; }
+  .playback-bar__now { cursor: pointer; }
+  .playback-bar__center .playback-seek,
+  .playback-bar__center .playback-transport > .playback-icon:not(:nth-child(4)),
+  .playback-bar__side { display: none; }
+  .playback-bar .playback-art--sm { width: 2.5rem; height: 2.5rem; }
+}
+
+/* ---- the service dock at the bottom of the menu (desktop) ---------------------------------- */
+.sidebar-bottom { flex: none; padding: 0.5rem; }
+.service-dock { display: flex; flex-direction: column; gap: 0.375rem; }
+.service-dock__head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; font-size: 0.6875rem; }
+.service-dock__service { color: var(--bungalow-color-muted-foreground); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-dock__account { font-size: 0.6875rem; }
+.service-dock__slot {
+  width: 100%;
+  aspect-ratio: var(--stage-ratio, 16 / 9);
+  border-radius: 8px;
+  background: #000;
+}
+.service-dock__art { padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 8px; }
+.service-dock__now { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+.service-dock__title,
+.service-dock__artist { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.service-dock__title { font-size: 0.8125rem; font-weight: 600; }
+.service-dock__artist { font-size: 0.75rem; color: var(--bungalow-color-muted-foreground); }
+@media (max-width: 63.99rem) { .sidebar-bottom { display: none; } }
+
+/* ---- service surfaces: mounted once, laid over the dock's or the stage's slot --------------- */
+/* No position or z-index here: each surface sets its own z-index (over the dock or over Now playing). */
+.service-surfaces { pointer-events: none; }
+.service-surface { position: fixed; overflow: hidden; border-radius: 8px; background: #000; pointer-events: auto; }
+.service-surface iframe,
+.service-surface__frame { display: block; width: 100%; height: 100%; border: 0; }
+.service-surface:not([data-active]) { visibility: hidden; pointer-events: none; }
+
+/* ---- Now playing: always mounted, shown with visibility so the stage's player keeps playing -- */
+.playback-now {
+  position: fixed;
+  inset: 0;
+  z-index: 101;
+  display: flex;
+  flex-direction: column;
+  padding: max(1rem, env(safe-area-inset-top)) 1.5rem max(1rem, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--bungalow-color-primary) 30%, transparent), transparent 70%),
+    var(--bungalow-color-background);
+  color: var(--bungalow-color-foreground);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(2rem);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+.playback-now[data-open] { visibility: visible; opacity: 1; transform: none; transition: opacity 180ms ease, transform 180ms ease, visibility 0s; }
+.playback-now:focus { outline: none; }
+.playback-now__head { display: flex; align-items: center; gap: 1rem; }
+.playback-now__context { flex: 1; display: flex; flex-direction: column; align-items: center; min-width: 0; text-align: center; }
+.playback-now__eyebrow { font-size: 0.6875rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bungalow-color-muted-foreground); }
+.playback-now__context-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.playback-now__body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; padding-top: 1.5rem; overflow: auto; }
+.playback-now__main { display: flex; flex-direction: column; align-items: center; gap: 1rem; width: min(100%, 42rem); margin: 0 auto; }
+.playback-now__stage { width: 100%; aspect-ratio: var(--stage-ratio, 16 / 9); border-radius: 10px; background: #000; }
+.playback-now__art { width: 100%; display: grid; place-items: center; }
+.playback-now__text { align-self: stretch; }
+.playback-now__title { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.playback-now__artist { margin: 0.25rem 0 0; color: var(--bungalow-color-muted-foreground); }
+.playback-now__queue-title { margin: 0 0 0.5rem; font-size: 1rem; }
+.playback-queue { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.125rem; }
+.playback-queue__row { display: flex; align-items: center; gap: 0.25rem; border-radius: 6px; }
+.playback-queue__row:hover,
+.playback-queue__row:focus-within { background: color-mix(in srgb, var(--bungalow-color-foreground) 8%, transparent); }
+.playback-queue__play { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; padding: 0.375rem 0.5rem; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.playback-queue__title,
+.playback-queue__meta { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playback-queue__meta { font-size: 0.75rem; color: var(--bungalow-color-muted-foreground); }
+@media (min-width: 64rem) {
+  .playback-now__body { grid-template-columns: minmax(0, 1fr) 20rem; }
+  .playback-now__queue { overflow: auto; }
+}
+
+/* ---- "Play with…": over Now playing --------------------------------------------------------- */
+.playback-choice .sheet-backdrop { z-index: 110; }
+.playback-matches { display: flex; flex-direction: column; gap: 0.25rem; }
+.playback-match {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.playback-match:hover { background: color-mix(in srgb, var(--bungalow-color-foreground) 6%, transparent); }
+.playback-match--picked { border-color: var(--bungalow-color-primary); background: color-mix(in srgb, var(--bungalow-color-primary) 10%, transparent); }
+.playback-match input { accent-color: var(--bungalow-color-primary); }
+.playback-match__text { display: flex; flex-direction: column; min-width: 0; }
+.playback-match__title { font-weight: 600; }
+.playback-match__title,
+.playback-match__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.playback-match__meta { font-size: 0.75rem; color: var(--bungalow-color-muted-foreground); }
+
+/* ---- the music services page ------------------------------------------------------------- */
+.music-services { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.music-service {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--bungalow-color-border);
+  border-radius: 10px;
+}
+.music-service__text { display: flex; flex-direction: column; min-width: 0; }
+.music-service__name { font-weight: 600; }
+
+/* ---- playlists: the playing row ---------------------------------------------------------- */
+.playlist-row--playing .library-row__label,
+.playlist-row--playing .entity-row__number { color: var(--bungalow-color-primary); }

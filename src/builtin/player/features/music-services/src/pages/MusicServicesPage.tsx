@@ -14,7 +14,7 @@ import { hasAspect, serviceManager, type Service } from "../../../../../../servi
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { showToast } from "../../../../../../shell/clipboard";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
-import { accountsCache, deleteAccount, saveSignIn, saveSignOut, type ExternalServiceAccount } from "../../../../../models/accounts";
+import { accountsCache, deleteAccount, saveSignIn, saveSignOut, type ExternalServiceAccount } from "../../../../models/accounts";
 
 /**
  * Music services (`/music-services`): every service the apps that are on contribute (YouTube from

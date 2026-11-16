@@ -67,7 +67,7 @@ export function isWebLink(value: string): boolean {
 /** A musik: URI (a recording, artist, release, … by its identity; playback/musikUri.ts). */
 export function isMusikItem(value: string): boolean {
   const trimmed = value.trim();
-  return (isMusikUri(trimmed) || trimmed.startsWith(LEGACY_ISRC_PREFIX)) && parseMusikUri(trimmed) !== null;
+  return (trimmed.startsWith(LEGACY_ISRC_PREFIX) || isMusikUri(trimmed)) && parseMusikUri(trimmed) !== null;
 }
 
 /** Whether `value` can go in a playlist: a well-formed entity URI, a musik: URI or a web link. */
