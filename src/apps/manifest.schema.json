@@ -2123,6 +2123,11 @@
             "type": "string",
             "pattern": "^[a-z0-9][a-z0-9_-]*$"
           },
+          "server": {
+            "description": "Or an export of the app's server module, for apps served by a gondol apps runtime (package.json `gondol.server`): called with the input and the caller's user id once an admin approves the app's backend.",
+            "type": "string",
+            "pattern": "^[A-Za-z_$][\\w$]*$"
+          },
           "input": {
             "description": "The input, an object schema (default: any object).",
             "type": "object",

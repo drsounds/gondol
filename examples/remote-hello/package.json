@@ -1,0 +1,24 @@
+{
+  "name": "remote-hello",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A remote app for gondol hosts: a page and a backend function, served by the gondol apps runtime.",
+  "scripts": {
+    "dev": "gondol-apps dev",
+    "build": "gondol-apps build",
+    "start": "gondol-apps serve"
+  },
+  "gondol": {
+    "manifest": "./manifest.json",
+    "client": "./dist/client.mjs",
+    "server": "./dist/server.mjs",
+    "styles": ["./dist/client.css"],
+    "source": { "client": "./src/index.ts", "server": "./src/server.ts" }
+  },
+  "devDependencies": {
+    "gondol": "git+ssh://git@github.com/drsounds/gondol.git",
+    "react": "^19.2.0",
+    "vite": "^8.0.16"
+  }
+}

@@ -19,6 +19,8 @@ import {
   type PromptLine,
   type PromptSituation,
 } from "../../../../supabase/functions/_shared/agentPrompt.ts";
+import { CODING_TOOL_ROUNDS, codeWorkspacePrompt } from "../../../../supabase/functions/_shared/codeWorkspace.ts";
+import { conversationWorkspacePrompt } from "./code";
 import {
   agentConversationsKey,
   agentMessagesKey,
@@ -150,6 +152,10 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
     const tools = await agentTools(speaker, !!provider.supportsTools, ctx.signal);
     let system = agentSystemPrompt(speaker, context.situation);
     if (tools.tools.length && tools.instructions.trim()) system += `\n\nYou can use these apps through their tools:\n${tools.instructions.trim()}`;
+    // A conversation connected to a coding workspace: what's in it, and more tool rounds.
+    const workspace = run.conversation_id && tools.tools.some((t) => t.name.startsWith("agents__code_")) ? await conversationWorkspacePrompt(run.conversation_id) : null;
+    if (workspace) system += `\n\n${codeWorkspacePrompt(workspace)}`;
+    const maxRounds = workspace ? CODING_TOOL_ROUNDS : MAX_TOOL_ROUNDS;
     const messages: AiChatMessage[] = agentPromptMessages(system, context.lines, run.instructions, CONTEXT_MESSAGES);
 
     const runTool = async (call: AiToolCall): Promise<string> => {
@@ -179,14 +185,14 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
         temperature: speaker.temperature ?? (typeof ctx.settings.temperature === "number" ? ctx.settings.temperature : undefined),
         signal: ctx.signal,
         service,
-        ...(tools.tools.length && round < MAX_TOOL_ROUNDS ? { tools: aiToolsFor(tools.tools) } : {}),
+        ...(tools.tools.length && round < maxRounds ? { tools: aiToolsFor(tools.tools) } : {}),
         ...(provider.runsTools ? { runTool } : {}),
         onToken: () => undefined,
         app: "agents",
       });
       if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
       metrics = result.metrics ?? null;
-      if (!result.toolCalls?.length || round >= MAX_TOOL_ROUNDS) break;
+      if (!result.toolCalls?.length || round >= maxRounds) break;
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         messages.push({ role: "tool", content: await runTool(call), toolCallId: call.id, toolName: call.name });

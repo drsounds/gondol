@@ -33,6 +33,7 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { SignJWT } from "npm:jose@5";
 import { assertCredits, chargeCredits, creditContext, estimateTokens } from "../_shared/aiCredits.ts";
 import { agentMayUseTool, agentPromptMessages, agentSystemPrompt, agentThreadContext, type PromptLine, type PromptMessage, type PromptSituation } from "../_shared/agentPrompt.ts";
+import { CODING_TOOL_ROUNDS, codeWorkspacePrompt, type PromptWorkspace } from "../_shared/codeWorkspace.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
 const SUPABASE_URL = env("SUPABASE_URL")!;
@@ -403,6 +404,28 @@ async function context(run: Run, speaker: Agent, user: SupabaseClient): Promise<
   return { lines: [], situation: { kind: "task", title } };
 }
 
+/** The coding workspace a conversation is connected to (agent_workspaces), as the agent is told about it. */
+async function conversationWorkspace(user: SupabaseClient, conversationId: string): Promise<PromptWorkspace | null> {
+  const { data } = await user
+    .from("agent_workspaces")
+    .select("id, title, root_path, status, sandbox_url, agent_workspace_repositories(path, branch, cloned_at, code_repositories(name, full_name))")
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  if (!data) return null;
+  const root = (data.root_path as string | null) ?? "(set up on first use)";
+  const links = (data.agent_workspace_repositories ?? []) as unknown as { path: string | null; branch: string | null; cloned_at: string | null; code_repositories: { name: string; full_name: string | null } | null }[];
+  return {
+    id: data.id as string,
+    title: data.title as string | null,
+    root_path: root,
+    status: data.status as string,
+    sandbox_url: data.sandbox_url as string | null,
+    repositories: links
+      .filter((l) => l.code_repositories)
+      .map((l) => ({ name: l.code_repositories!.name, full_name: l.code_repositories!.full_name, path: l.path ? `${root}/${l.path}` : `${root}/${l.code_repositories!.name}`, branch: l.branch, cloned: !!l.cloned_at })),
+  };
+}
+
 async function finish(runId: string, values: { status: string; output?: string | null; error?: string | null; metrics?: Json }) {
   await admin!.from("agent_runs").update({ ...values, finished_at: new Date().toISOString() }).eq("id", runId);
 }
@@ -430,19 +453,23 @@ async function execute(run: Run, deadline: number): Promise<void> {
     const tools = await agentTools(token, speaker, deadline);
     let system = agentSystemPrompt(speaker, situation);
     if (tools.tools.length && tools.instructions.trim()) system += `\n\nYou can use these apps through their tools:\n${tools.instructions.trim()}`;
+    // A conversation connected to a coding workspace: what's in it, and more tool rounds.
+    const workspace = run.conversation_id && tools.tools.some((t) => t.name.startsWith("agents__code_")) ? await conversationWorkspace(user, run.conversation_id) : null;
+    if (workspace) system += `\n\n${codeWorkspacePrompt(workspace)}`;
+    const maxRounds = workspace ? CODING_TOOL_ROUNDS : MAX_TOOL_ROUNDS;
     const messages: ChatMessage[] = agentPromptMessages(system, lines, run.instructions, CONTEXT_MESSAGES);
     // The owner's AI credits (_shared/aiCredits.ts), on the root site and in their personal space.
     const credit = creditContext(null, {}, { userId: run.user_id, provider: endpoint.provider, model, app: "agents", workspaceId: null });
     for (let round = 0; ; round++) {
       await assertCredits(user, credit);
-      const result = await chat(endpoint, model, messages, round < MAX_TOOL_ROUNDS ? tools.tools : [], speaker.temperature, deadline);
+      const result = await chat(endpoint, model, messages, round < maxRounds ? tools.tools : [], speaker.temperature, deadline);
       await chargeCredits(credit, {
         inputTokens: result.metrics.promptTokens ?? estimateTokens(JSON.stringify(messages)),
         outputTokens: result.metrics.completionTokens ?? estimateTokens(result.content + JSON.stringify(result.toolCalls)),
       });
       if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
       metrics = result.metrics;
-      if (!result.toolCalls.length || round >= MAX_TOOL_ROUNDS) break;
+      if (!result.toolCalls.length || round >= maxRounds) break;
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         const tool = tools.tools.find((t) => t.name === call.name);

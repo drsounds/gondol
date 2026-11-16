@@ -25,6 +25,7 @@ import {
 import { setVisibleAgentConversation } from "../../../../models/intercom";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentChat } from "./AgentChat";
+import { AgentCodeBar } from "./CodePanel";
 import { AgentDeletedMessagesSheet, AgentMessageSheet } from "./AgentMessageSheets";
 import { useAgentActions } from "./useAgentActions";
 import { useAvailabilityText } from "./useAvailabilityText";
@@ -229,6 +230,7 @@ export function AgentChatPage({ agent, agents, parts, onQueued }: { agent: Agent
           </aside>
 
           <section className="agent-chat-page__chat">
+            {current ? <AgentCodeBar agent={agent} conversationId={current.id} /> : null}
             {current ? (
               <AgentChat
                 key={current.id}

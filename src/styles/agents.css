@@ -416,3 +416,12 @@
   .intercom__bin { transition: none; }
 }
 .agent-run__menu { margin-left: auto; }
+
+/* Coding (/code, CodePanel): the workspace bar over an agent conversation and command output. */
+.agent-code-bar { display: flex; align-items: center; gap: var(--bungalow-space-2, 0.5rem); padding: 0.25rem 0 0.5rem; flex-wrap: wrap; }
+.agent-code-bar__link { display: inline-flex; align-items: center; gap: 0.4rem; border: 1px solid var(--bungalow-color-border); border-radius: 999px; padding: 0.25rem 0.75rem; background: transparent; color: inherit; font: inherit; cursor: pointer; max-width: 100%; }
+.agent-code-bar__link:hover { background: var(--bungalow-color-surface-hover, var(--bungalow-color-surface)); }
+.agent-code-bar__kind { font-weight: 600; }
+.code-output { white-space: pre-wrap; word-break: break-word; font-size: 0.8rem; max-height: 16rem; overflow: auto; background: var(--bungalow-color-surface); border: 1px solid var(--bungalow-color-border); border-radius: 0.5rem; padding: 0.5rem 0.75rem; margin: 0.25rem 0 0; }
+.code-setup-result { margin: 0; padding-left: 1.25rem; }
+.code-github { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
