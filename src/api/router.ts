@@ -27,8 +27,11 @@
 // an access token from the app API's OAuth (its scopes). `authenticate` tells which.
 import { rpcArgName, validate, type InvokeResult, type JsonSchema } from "./gateway.ts";
 
-/** What a function or tool runs: a Postgres function, or an edge function. */
-export type RegistryTarget = { rpc: string } | { function: string };
+/**
+ * What a function or tool runs: a Postgres function, an edge function, or an export of an app's
+ * server module on a gondol apps runtime (its URL, `<runtime>/apps/<app>/functions/<name>`).
+ */
+export type RegistryTarget = { rpc: string } | { function: string } | { runtime: string };
 
 export type RegistryFunction = {
   title?: string;
@@ -89,6 +92,13 @@ export type UserMcpServer = {
   error?: string;
 };
 
+/**
+ * An app served by a gondol apps runtime whose backend an admin approved (`remoteApps`): its entry
+ * as buildAppRegistry made it from the approved manifest (its functions' targets are `runtime`
+ * URLs), and the secret the runtime expects as `Authorization: Bearer <secret>`.
+ */
+export type RemoteBackend = { app: RegistryApp; secret?: string | null };
+
 /** What the router serves for a request: an app, or a user's own server dressed as one. */
 type ScopeApp = RegistryApp & { user?: { headers: Record<string, string>; error?: string } };
 
@@ -142,7 +152,15 @@ export type AppRouterOptions = {
    * instructions.
    */
   entities?: boolean | EntityApiOptions;
-  /** For apps' own MCP servers (default: the global fetch). */
+  /**
+   * Apps loaded at run time from gondol apps runtimes whose backends an admin approved. Their
+   * functions and tools join the built-in apps' (which win on a clash of ids); calls go to the
+   * runtime with its secret and the caller's user id (`x-gondol-user`), never the caller's token.
+   * Asked for at most every `remoteAppsTtlMs` (default 30 s).
+   */
+  remoteApps?: () => Promise<RemoteBackend[]>;
+  remoteAppsTtlMs?: number;
+  /** For apps' own MCP servers and apps runtimes (default: the global fetch). */
   fetch?: typeof fetch;
   /** OAuth authorization servers MCP clients get tokens from (the app API's address). */
   authorizationServers?: string[];
@@ -481,11 +499,81 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     }
   }
 
+  // ── Apps served by a gondol apps runtime ───────────────────────────────────────────────────
+
+  let remoteCache: { at: number; apps: Record<string, RegistryApp>; secrets: Map<string, string> } | null = null;
+
+  /** The built-in apps and the approved remote ones (built-in ids win). */
+  async function appTable(): Promise<Record<string, RegistryApp>> {
+    if (!options.remoteApps) return apps;
+    const ttl = options.remoteAppsTtlMs ?? 30_000;
+    if (!remoteCache || Date.now() - remoteCache.at > ttl) {
+      const remoteApps: Record<string, RegistryApp> = {};
+      const secrets = new Map<string, string>();
+      try {
+        for (const { app, secret } of await options.remoteApps()) {
+          if (apps[app.id] || remoteApps[app.id] || (CORE_APP_IDS as readonly string[]).includes(app.id)) continue;
+          // An approved backend reaches its runtime only: no MCP server of its own (whose headers name the router's secrets).
+          const { endpoint: _endpoint, ...rest } = app;
+          remoteApps[app.id] = rest;
+          if (secret) secrets.set(app.id, secret);
+        }
+      } catch (error) {
+        console.error("app router: remote apps:", error);
+        if (remoteCache) return { ...remoteCache.apps, ...apps };
+      }
+      remoteCache = { at: Date.now(), apps: remoteApps, secrets };
+    }
+    return { ...remoteCache.apps, ...apps };
+  }
+
+  /** Calls an export of an app's server module on its runtime, as the caller (by user id, never their token). */
+  async function callRuntime(app: string, name: string, url: string, input: Record<string, unknown>, caller: RouterCaller | null, request: Request): Promise<InvokeResult> {
+    const secret = remoteCache?.secrets.get(app);
+    const forward: Record<string, string> = {};
+    const actor = request.headers.get("x-gondol-actor");
+    if (actor) forward["x-gondol-actor"] = actor;
+    const signal = typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(options.remoteTimeoutMs ?? 20_000) : undefined;
+    let response: Response;
+    try {
+      response = await doFetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(secret ? { Authorization: `Bearer ${secret}` } : {}),
+          "x-gondol-app": app,
+          "x-gondol-function": name,
+          ...(caller ? { "x-gondol-user": caller.userId } : {}),
+          ...(caller?.clientId ? { "x-gondol-client": caller.clientId } : {}),
+          ...forward,
+        },
+        body: JSON.stringify(input),
+        redirect: "error",
+        signal,
+      });
+    } catch (error) {
+      return { error: { status: 502, message: `The app's runtime couldn't be reached: ${error instanceof Error ? error.message : String(error)}` } };
+    }
+    const text = await response.text();
+    let body: unknown = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    if (response.ok) return { data: body };
+    const detail = body && typeof body === "object" ? ((body as { detail?: string; title?: string }).detail ?? (body as { title?: string }).title) : undefined;
+    const status = response.status >= 400 && response.status < 600 ? response.status : 502;
+    return { error: { status, message: detail ?? `The app's runtime answered ${response.status}` } };
+  }
+
   /** Runs a function or tool for a caller whose right to it is already checked. */
   async function run(app: string, name: string, fn: RegistryFunction, input: Record<string, unknown>, caller: RouterCaller | null, request: Request): Promise<InvokeResult> {
     const problems = validate(fn.input, input, undefined, "input");
     if (problems.length) return { error: { status: 422, message: problems.join("; ") } };
     if ("rpc" in fn.target) return await options.rpc({ app, name, input, caller, request, rpc: fn.target.rpc, args: rpcArgs(input) });
+    if ("runtime" in fn.target) return await callRuntime(app, name, fn.target.runtime, input, caller, request);
     return await options.callFunction({ app, name, input, caller, request, function: fn.target.function });
   }
 
@@ -622,9 +710,9 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
   }
 
   /** The registry's apps a request may see: all, or those `x-gondol-apps` names. */
-  function appsFor(request: Request): RegistryApp[] {
+  async function appsFor(request: Request): Promise<RegistryApp[]> {
     const only = headerList(request, "x-gondol-apps");
-    const all = Object.values(apps);
+    const all = Object.values(await appTable());
     return only ? all.filter((app) => only.includes(app.id)) : all;
   }
 
@@ -890,7 +978,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
   // ── Functions and the catalogue ────────────────────────────────────────────────────────────
 
   async function handleFunction(request: Request, appId: string, name: string): Promise<Response> {
-    const app = apps[appId];
+    const app = (await appTable())[appId];
     const fn = app?.functions[name];
     if (!app || !fn) return problem(404, "Not Found", `No function ${appId}/${name}`);
     if (request.method !== "POST") return problem(405, "Method Not Allowed", undefined, { Allow: "POST" });
@@ -914,7 +1002,7 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
     const caller = await callerOf(request);
     if (!caller) return problem(401, "Unauthorized", "Send a token: Authorization: Bearer <token>", challenge(request, caller === null ? "invalid_token" : undefined));
     const base = baseUrl(request);
-    const scope = appsFor(request);
+    const scope = await appsFor(request);
     const list = scope.map((app) => ({
       id: app.id,
       name: app.name,
@@ -990,10 +1078,10 @@ export function createAppRouter(options: AppRouterOptions): (request: Request) =
         });
       }
       if (path === "/apps" && request.method === "GET") return await handleCatalog(request);
-      if (path === "/mcp") return await handleMcp(request, appsFor(request), true);
+      if (path === "/mcp") return await handleMcp(request, await appsFor(request), true);
       const appMcp = /^\/apps\/([^/]+)\/mcp$/.exec(path);
       if (appMcp) {
-        const app = apps[decodeURIComponent(appMcp[1])];
+        const app = (await appTable())[decodeURIComponent(appMcp[1])];
         return app ? await handleMcp(request, [app], false) : problem(404, "Not Found", `No app ${appMcp[1]}`);
       }
       const fn = /^\/apps\/([^/]+)\/functions\/([^/]+)$/.exec(path);

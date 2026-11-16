@@ -1,4 +1,5 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
+import { getInternalApp } from "../apps/registry";
 import { supabase } from "../supabase/client";
 import type { McpTool, McpToolResult } from "./router";
 
@@ -68,8 +69,36 @@ async function invoke<T>(path: string, init: { method?: "GET" | "POST"; body?: u
   throw new AppRouterError(error instanceof Error ? error.message : String(error));
 }
 
+/**
+ * Runs a function of a remote app served by `gondol-apps dev` (apps/remote): straight on the
+ * runtime on this device, without the app router or an admin's approval, the way its backend will
+ * be called once approved (the input as JSON, the user's id in `x-gondol-user`).
+ */
+async function callDevRuntime<T>(functionsUrl: string, appId: string, name: string, input: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
+  const { data } = await supabase.auth.getSession();
+  const response = await fetch(`${functionsUrl.replace(/\/+$/, "")}/${encodeURIComponent(name)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "x-gondol-app": appId,
+      "x-gondol-function": name,
+      ...(data.session?.user.id ? { "x-gondol-user": data.session.user.id } : {}),
+    },
+    body: JSON.stringify(input),
+    signal,
+  });
+  const text = await response.text();
+  const body = text ? (JSON.parse(text) as unknown) : null;
+  if (response.ok) return body as T;
+  const detail = body && typeof body === "object" ? ((body as { detail?: string }).detail ?? (body as { title?: string }).title) : undefined;
+  throw new AppRouterError(detail ?? `The apps runtime answered ${response.status}`, response.status);
+}
+
 /** Runs an app's server function (its manifest's `functions.<name>`) with `input`. */
 export function callAppFunction<T = unknown>(appId: string, name: string, input: Record<string, unknown> = {}, signal?: AbortSignal): Promise<T> {
+  const remote = getInternalApp(appId)?.remote;
+  if (remote?.dev && remote.functionsUrl && remote.functions.includes(name)) return callDevRuntime<T>(remote.functionsUrl, appId, name, input, signal);
   return invoke<T>(`/apps/${encodeURIComponent(appId)}/functions/${encodeURIComponent(name)}`, { body: input, signal });
 }
 

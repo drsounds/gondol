@@ -50,6 +50,7 @@ export default {
           { text: "Platform services", link: "/guide/platform" },
           { text: "App APIs (OpenAPI)", link: "/guide/api" },
           { text: "App functions and MCP", link: "/guide/functions" },
+          { text: "Remote apps", link: "/guide/remote-apps" },
         ],
       },
       {

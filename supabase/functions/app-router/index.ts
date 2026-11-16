@@ -28,6 +28,12 @@
 // RLS decides). APP_ROUTER_ENTITIES=false turns the entity tools off (for a host without them),
 // APP_ROUTER_DISCOVERY=false the app tools.
 //
+// Remote apps' backends (apps loaded from a gondol apps runtime, docs/guide/remote-apps.md) join the
+// apps once an admin approved them: the host's approved_remote_app_backends() lists them (read with
+// SUPABASE_SERVICE_ROLE_KEY), and their functions are called on the runtime with its secret and the
+// caller's user id, never the caller's token. Runtimes must be public HTTPS hosts, unless
+// REMOTE_APPS_ALLOWED_HOSTS lists the host or REMOTE_APPS_ALLOW_PRIVATE=true.
+//
 // Users' own MCP servers (the ai app's ai_mcp_servers, with their header values from
 // ai_mcp_server_headers) join /mcp for callers with their own session; reading them takes
 // SUPABASE_SERVICE_ROLE_KEY. Their addresses must be public HTTPS, unless MCP_ALLOWED_HOSTS lists the
@@ -35,7 +41,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { SignJWT } from "npm:jose@5";
 import { statusForDbError } from "../_shared/gondol-api/gateway.ts";
-import { createAppRouter, type AppRegistry, type RouterCaller, type UserMcpServer } from "../_shared/gondol-api/router.ts";
+import { createAppRouter, type AppRegistry, type RegistryApp, type RemoteBackend, type RouterCaller, type UserMcpServer } from "../_shared/gondol-api/router.ts";
 import registry from "../_shared/gondol-api/apps.json" with { type: "json" };
 
 const env = (name: string) => Deno.env.get(name) || undefined;
@@ -136,26 +142,81 @@ const MCP_ALLOWED_HOSTS = (env("MCP_ALLOWED_HOSTS") ?? "")
   .map((entry) => entry.trim().toLowerCase())
   .filter(Boolean);
 
-/** Throws when the router may not call a user's MCP server at `value` (see the top of this file). */
-async function checkMcpUrl(value: string): Promise<void> {
+/**
+ * Throws when the router may not call `value`: only public HTTPS hosts, unless `allowedHosts` lists
+ * the host or `allowPrivate` (see the top of this file). `what` names it in the errors.
+ */
+async function checkPublicUrl(value: string, what: string, allowedHosts: string[], allowPrivate: boolean, allowedVariable: string): Promise<void> {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    throw new Error("The MCP server's address isn't a valid URL");
+    throw new Error(`The ${what}'s address isn't a valid URL`);
   }
-  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error("The MCP server's address must be an HTTP(S) URL without credentials");
+  if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) throw new Error(`The ${what}'s address must be an HTTP(S) URL without credentials`);
   const hostname = url.hostname.toLowerCase().replace(/\.$/, "");
-  if (env("MCP_ALLOW_PRIVATE") === "true" || MCP_ALLOWED_HOSTS.includes(url.host.toLowerCase()) || MCP_ALLOWED_HOSTS.includes(hostname)) return;
+  if (allowPrivate || allowedHosts.includes(url.host.toLowerCase()) || allowedHosts.includes(hostname)) return;
   const local = hostname === "localhost" || hostname.endsWith(".localhost") || hostname.endsWith(".local") || hostname.endsWith(".internal");
   const ipLiteral = hostname.includes(":") || /^\d+(?:\.\d+){3}$/.test(hostname);
-  if (url.protocol !== "https:" || local || ipLiteral) throw new Error("The server doesn't call this MCP address (only public HTTPS hosts, unless MCP_ALLOWED_HOSTS lists it)");
+  if (url.protocol !== "https:" || local || ipLiteral) throw new Error(`The server doesn't call this ${what} address (only public HTTPS hosts, unless ${allowedVariable} lists it)`);
   const records = await Promise.allSettled([Deno.resolveDns(hostname, "A"), Deno.resolveDns(hostname, "AAAA")]);
   const addresses = records.flatMap((record) => (record.status === "fulfilled" ? record.value : []));
-  if (!addresses.length) throw new Error("Couldn't resolve the MCP server's host");
+  if (!addresses.length) throw new Error(`Couldn't resolve the ${what}'s host`);
   if (addresses.some((address) => (address.includes(":") ? isPrivateIpv6(address) : isPrivateIpv4(address)))) {
-    throw new Error("The server doesn't call this MCP address (a private network)");
+    throw new Error(`The server doesn't call this ${what} address (a private network)`);
   }
+}
+
+/** Throws when the router may not call a user's MCP server at `value`. */
+const checkMcpUrl = (value: string) => checkPublicUrl(value, "MCP server", MCP_ALLOWED_HOSTS, env("MCP_ALLOW_PRIVATE") === "true", "MCP_ALLOWED_HOSTS");
+
+// ── Remote apps' backends ────────────────────────────────────────────────────────────────────
+
+const REMOTE_APPS_ALLOWED_HOSTS = (env("REMOTE_APPS_ALLOWED_HOSTS") ?? "")
+  .split(",")
+  .map((entry) => entry.trim().toLowerCase())
+  .filter(Boolean);
+
+/**
+ * The backends of remote apps an admin approved (gondol's docs/guide/remote-apps.md): the host's
+ * `approved_remote_app_backends()` (read with the service role) returns each one's registry entry,
+ * as built from the approved manifest, and the secret its runtime expects. Functions on a runtime
+ * that isn't a public HTTPS host (REMOTE_APPS_ALLOWED_HOSTS, REMOTE_APPS_ALLOW_PRIVATE) are left out.
+ */
+async function remoteApps(): Promise<RemoteBackend[]> {
+  if (!admin) return [];
+  const { data, error } = await admin.rpc("approved_remote_app_backends");
+  if (error) {
+    // 42883/PGRST202: the host has no remote apps.
+    if (error.code !== "42883" && error.code !== "PGRST202") console.error("app-router: approved_remote_app_backends:", error.message);
+    return [];
+  }
+  const rows = (data ?? []) as { app_id: string; registry: RegistryApp; secret: string | null }[];
+  const checked = new Map<string, boolean>();
+  const allowed = async (url: string) => {
+    const origin = new URL(url).origin;
+    if (!checked.has(origin)) {
+      try {
+        await checkPublicUrl(url, "apps runtime", REMOTE_APPS_ALLOWED_HOSTS, env("REMOTE_APPS_ALLOW_PRIVATE") === "true", "REMOTE_APPS_ALLOWED_HOSTS");
+        checked.set(origin, true);
+      } catch (caught) {
+        console.error(`app-router: remote app runtime ${origin}:`, caught instanceof Error ? caught.message : caught);
+        checked.set(origin, false);
+      }
+    }
+    return checked.get(origin)!;
+  };
+  const out: RemoteBackend[] = [];
+  for (const row of rows) {
+    if (!row.registry || row.registry.id !== row.app_id) continue;
+    const functions: RegistryApp["functions"] = {};
+    for (const [name, fn] of Object.entries(row.registry.functions ?? {})) {
+      if ("runtime" in fn.target && (await allowed(fn.target.runtime))) functions[name] = fn;
+    }
+    const tools = (row.registry.tools ?? []).filter((tool) => "runtime" in tool.target && Object.values(functions).some((fn) => "runtime" in fn.target && fn.target.runtime === (tool.target as { runtime: string }).runtime));
+    out.push({ app: { ...row.registry, functions, tools }, secret: row.secret });
+  }
+  return out;
 }
 
 /** The caller's enabled MCP servers with their headers (read with the service role, by owner). */
@@ -211,6 +272,7 @@ const handler = createAppRouter({
   authorizationServers: env("APP_API_PUBLIC_URL") ? [env("APP_API_PUBLIC_URL")!] : undefined,
   secret: env,
   userMcpServers,
+  remoteApps,
   discovery: env("APP_ROUTER_DISCOVERY") !== "false",
   entities: env("APP_ROUTER_ENTITIES") !== "false",
   headers: {

@@ -42,12 +42,20 @@ export const appFunctionSchema = z
       .regex(/^[a-z0-9][a-z0-9_-]*$/)
       .optional()
       .meta({ description: "An edge function that answers it instead: it gets the input as its JSON body and the caller's token." }),
+    server: z
+      .string()
+      .regex(/^[A-Za-z_$][\w$]*$/)
+      .optional()
+      .meta({
+        description:
+          "Or an export of the app's server module, for apps served by a gondol apps runtime (package.json `gondol.server`): called with the input and the caller's user id once an admin approves the app's backend.",
+      }),
     input: jsonSchema.optional().meta({ description: "The input, an object schema (default: any object)." }),
     output: jsonSchema.optional().meta({ description: "What it answers with." }),
     ...behaviour,
   })
   .strict()
-  .refine((fn) => !!fn.rpc !== !!fn.function, { message: "give exactly one of `rpc` and `function`" });
+  .refine((fn) => [fn.rpc, fn.function, fn.server].filter(Boolean).length === 1, { message: "give exactly one of `rpc`, `function` and `server`" });
 
 const mcpToolSchema = z
   .object({
@@ -110,6 +118,12 @@ export type FunctionSource = {
   }[];
   /** The entity types it owns (the manifest's `entities`). */
   entities?: Record<string, { slug: string | null; view?: string; edit?: string }>;
+  /**
+   * For an app served by a gondol apps runtime: where the runtime serves its functions
+   * (`<functionsUrl>/<name>`), which its `server` functions are routed to. Without it, `server`
+   * functions are a problem.
+   */
+  functionsUrl?: string;
 };
 
 /** An app's features as the registry keeps them: English names, paths with a leading slash. */
@@ -187,7 +201,15 @@ export function buildAppRegistry(sources: readonly FunctionSource[]): AppRegistr
     const functions: Record<string, RegistryFunction> = {};
     for (const [name, fn] of Object.entries(source.functions ?? {})) {
       checkScopes(`app "${source.id}", function ${name}`, fn.scopes);
-      const target: RegistryTarget = fn.rpc ? { rpc: fn.rpc } : { function: fn.function! };
+      if (fn.server && !source.functionsUrl) {
+        problems.push(`app "${source.id}", function ${name}: \`server\` functions need a gondol apps runtime (the app isn't served by one)`);
+        continue;
+      }
+      const target: RegistryTarget = fn.rpc
+        ? { rpc: fn.rpc }
+        : fn.function
+          ? { function: fn.function }
+          : { runtime: `${source.functionsUrl!.replace(/\/+$/, "")}/${encodeURIComponent(name)}` };
       functions[name] = {
         ...(fn.title ? { title: fn.title } : {}),
         description: fn.description,
