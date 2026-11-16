@@ -43,12 +43,14 @@ export function createAppsRuntime(options: {
   env?: Record<string, string | undefined>;
   log?: Pick<Console, "error">;
 }): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
-export function createDevServers(apps: AppPackage[], options: { httpServer: Server; port: number; logLevel?: "info" | "warn" | "error" | "silent" }): Promise<Map<string, ViteDevServer>>;
+export function createDevServers(apps: AppPackage[], options: { httpServer: Server; port: number; publicUrl?: string; logLevel?: "info" | "warn" | "error" | "silent" }): Promise<Map<string, ViteDevServer>>;
 export function startAppsRuntime(options: {
   paths: string[];
   port?: number;
   host?: string;
   dev?: boolean;
+  /** Dev: the address a proxy serves it at (HMR connects there); else GONDOL_APPS_PUBLIC_URL. */
+  publicUrl?: string;
   env?: Record<string, string | undefined>;
   log?: Pick<Console, "error">;
 }): Promise<{ server: Server; url: string; apps: AppPackage[]; close: () => Promise<void> }>;

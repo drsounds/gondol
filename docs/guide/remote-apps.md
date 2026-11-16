@@ -125,6 +125,7 @@ or a folder of them:
 gondol-apps build [paths…]                          # dist/client.mjs (+ chunks/), dist/client.css, dist/server.mjs
 GONDOL_APPS_SECRET=… gondol-apps serve [paths…] --port 8787
 gondol-apps dev [paths…] --port 5180                # from source, with Vite
+gondol-apps dev . --host 0.0.0.0 --public-url https://5180.sandbox.example.com   # behind a proxy
 ```
 
 | Route | |
@@ -195,7 +196,9 @@ Runtimes must be public HTTPS hosts unless `REMOTE_APPS_ALLOWED_HOSTS` lists the
 `gondol-apps dev` serves the apps from source through Vite's dev server (one per app, at
 `/apps/<id>/`): the index points at the source entry (`src/index.ts`), every request is transformed
 on the fly with the same shims, so the app renders with the host's React, and saving a file reloads
-it. Backend functions run the server source (`ssrLoadModule`), without a secret.
+it. Backend functions run the server source (`ssrLoadModule`), without a secret. Behind a proxy (a
+coding sandbox's preview address), `--public-url` (or `GONDOL_APPS_PUBLIC_URL`) tells live reload
+where to connect and lets Vite accept the proxy's host.
 
 The host loads a dev runtime like any source, but marked `dev`:
 

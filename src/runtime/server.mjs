@@ -309,10 +309,15 @@ export function createAppsRuntime({ apps, dev = null, env = process.env, log = c
  * One Vite dev server per app (middleware mode, base /apps/<id>/), with gondol/vite/remoteApp so
  * the app imports the host's React and gondol. Their HMR sockets share `httpServer`.
  */
-export async function createDevServers(apps, { httpServer, port, logLevel = "info" }) {
+export async function createDevServers(apps, { httpServer, port, publicUrl, logLevel = "info" }) {
   const { createServer } = await import("vite");
   const { gondolRemoteApp } = await import("../vite/remoteApp.mjs");
   const servers = new Map();
+  // Behind a proxy (a sandbox's preview address), the browser reaches the HMR socket there.
+  const pub = publicUrl ? new URL(publicUrl) : null;
+  const hmrAt = pub
+    ? { host: pub.hostname, clientPort: Number(pub.port) || (pub.protocol === "https:" ? 443 : 80), protocol: pub.protocol === "https:" ? "wss" : "ws" }
+    : { host: "localhost", clientPort: port, protocol: "ws" };
   for (const app of apps) {
     if (!app.source.client) throw new Error(`${app.dir}: dev mode needs the client's source (package.json "gondol.source.client")`);
     const server = await createServer({
@@ -324,8 +329,10 @@ export async function createDevServers(apps, { httpServer, port, logLevel = "inf
       plugins: [gondolRemoteApp({ root: app.dir })],
       server: {
         middlewareMode: true,
-        hmr: { server: httpServer, path: `/apps/${app.id}/__hmr`, host: "localhost", clientPort: port, protocol: "ws" },
+        hmr: { server: httpServer, path: `/apps/${app.id}/__hmr`, ...hmrAt },
         cors: false,
+        // A public address names a proxy in front of it, whose Host header Vite must accept.
+        ...(pub ? { allowedHosts: true } : {}),
       },
     });
     servers.set(app.id, server);
@@ -334,11 +341,11 @@ export async function createDevServers(apps, { httpServer, port, logLevel = "inf
 }
 
 /** Starts the runtime on `port` (dev: with Vite). Resolves to `{ server, url, close }`. */
-export async function startAppsRuntime({ paths, port = 8787, host = "localhost", dev = false, env = process.env, log = console }) {
+export async function startAppsRuntime({ paths, port = 8787, host = "localhost", dev = false, publicUrl = undefined, env = process.env, log = console }) {
   const apps = findAppPackages(paths);
   if (!apps.length) throw new Error(`gondol-apps: no app packages (a package.json with a "gondol" field) in ${paths.join(", ")}`);
   const httpServer = createHttpServer();
-  const devServers = dev ? await createDevServers(apps, { httpServer, port }) : null;
+  const devServers = dev ? await createDevServers(apps, { httpServer, port, publicUrl: publicUrl ?? env.GONDOL_APPS_PUBLIC_URL }) : null;
   const handle = createAppsRuntime({ apps, dev: devServers, env, log });
   httpServer.on("request", (req, res) => void handle(req, res));
   await new Promise((done, fail) => {
