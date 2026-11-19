@@ -10,6 +10,7 @@
   --chrome-fg-active: #ffffff;
   /* Desktop-only: rounds the floating sidebar/content panels and the chrome bar's pill controls. */
   --app-frame-radius: 0.75rem;
+  --button-font-weight: 800;
 }
 
 body {
