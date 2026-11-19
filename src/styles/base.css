@@ -45,7 +45,7 @@ html {
 :is(button, a[href], summary, input:is([type="button"], [type="submit"], [type="reset"], [type="checkbox"], [type="radio"]),
   [role="button"], [role="link"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"],
   [role="option"], [role="tab"], [role="switch"], [role="checkbox"], [role="radio"]):active:not(:disabled, [aria-disabled="true"]) {
-  scale: 0.9;
+  scale: 0.98;
 }
 
 /* A row doesn't shrink while a field inside it is being pressed. */
