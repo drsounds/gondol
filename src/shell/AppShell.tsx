@@ -275,6 +275,11 @@ export function AppShell({
       {banners}
 
       <div className="app-frame__body">
+      {/* The right-hand panel: the first child of the body, which is row-reversed on wide
+          screens (spacify's styles.css), so it lands right of the content. Hidden on phones. */}
+      <aside className="app-side-panel" aria-label="Hello World">
+        <h2 className="app-side-panel__title">Hello World</h2>
+      </aside>
       <div className="app-main">
             <button
               type="button"
