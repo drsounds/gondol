@@ -513,9 +513,9 @@ export async function claimAgentRuns(runId?: string): Promise<AgentRun[]> {
   return (data ?? []) as unknown as AgentRun[];
 }
 
-/** A run continuing where another stopped: its follow-up (followup_agent_run()). */
-export async function followupAgentRun(runId: string, instructions: string, minutes = 10): Promise<AgentRun> {
-  const { data, error } = await supabase.rpc("followup_agent_run", { p_run_id: runId, p_instructions: instructions, p_minutes: minutes });
+/** A run continuing where another stopped: its follow-up (followup_agent_run()), due at once. */
+export async function followupAgentRun(runId: string, instructions: string): Promise<AgentRun> {
+  const { data, error } = await supabase.rpc("followup_agent_run", { p_run_id: runId, p_instructions: instructions });
   if (error) throw error;
   return data as unknown as AgentRun;
 }

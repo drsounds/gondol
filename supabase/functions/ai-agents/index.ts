@@ -23,8 +23,8 @@
 // 2 s, also the heartbeat that says the runner is alive), so every open chat shows the answer as
 // it's generated. A coding run (a conversation with a workspace) that runs out of the worker's time
 // hands its streamed answer and its tool list over to a follow-up run (followup_agent_run()),
-// which continues the same task a few minutes later — long sessions survive many workers instead of
-// failing with "the model didn't answer in time".
+// which continues the same task right away (the next tick) — long sessions survive many workers
+// instead of failing with "the model didn't answer in time".
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET (or SUPABASE_JWT_SECRET). Optional:
 // AGENT_WORKER_WALL_MS (raise it with the router's workerTimeoutMs for slow models),
@@ -58,7 +58,7 @@ const PROGRESS_INTERVAL_MS = 2_000;
 /** How long a run may go with no progress at all before it counts as lost (a proxy cut the request). */
 const PROGRESS_STALE_MS = 90_000;
 /** Where a coding run hands over instead of failing on the runner's time (followup_agent_run()). */
-const FOLLOWUP_MINUTES = 10;
+const FOLLOWUP_INSTRUCTIONS = "pick up where it stopped";
 /** How long a follow-up may queue behind its wall clock and still be claimed. */
 const MIN_RUN_MS = 15_000;
 /** How long a tick may work in all: keep it under the worker's wall clock limit (workerTimeoutMs). */
@@ -713,7 +713,7 @@ async function execute(run: Run, deadline: number): Promise<void> {
     ]
       .filter(Boolean)
       .join("\n\n");
-    const { error } = await admin!.rpc("followup_agent_run", { p_run_id: run.id, p_instructions: instructions, p_minutes: FOLLOWUP_MINUTES });
+    const { error } = await admin!.rpc("followup_agent_run", { p_run_id: run.id, p_instructions: instructions });
     const handoverError = error ? error.message : null;
     await finish(run.id, {
       status: handoverError ? "failed" : "done",

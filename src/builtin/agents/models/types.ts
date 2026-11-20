@@ -355,11 +355,7 @@ export type AgentsDatabase = {
         Returns: AgentsDatabase["public"]["Tables"]["agent_runs"]["Row"];
       };
       followup_agent_run: {
-        Args: {
-          p_run_id: string;
-          p_instructions: string;
-          p_minutes?: number;
-        };
+        Args: { p_run_id: string; p_instructions: string };
         Returns: AgentsDatabase["public"]["Tables"]["agent_runs"]["Row"];
       };
     };

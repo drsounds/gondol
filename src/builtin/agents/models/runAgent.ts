@@ -43,8 +43,6 @@ const MAX_TOOL_RESULT = 20_000;
 const CONTEXT_MESSAGES = 30;
 /** How often a runner's progress at most is written (token updates coalesce; a tool call always writes). */
 const PROGRESS_INTERVAL_MS = 2_000;
-/** Where a coding run hands over instead of failing on the runner's time (followup_agent_run()). */
-const FOLLOWUP_MINUTES = 10;
 
 export interface AgentRunContext {
   settings: AiSettings;

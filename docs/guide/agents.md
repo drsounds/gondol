@@ -36,9 +36,9 @@ every tab that has the conversation open.
 **Long work continues.** A coding run — a conversation with a workspace (`agent_workspaces`) —
 that runs out of the server worker's time doesn't fail: what it has so far (its streamed answer,
 the tools it called) stays on the run, and it hands the task over to a follow-up run
-(`followup_agent_run()`): queued a few minutes later (`p_minutes`, default 10; working hours
-allowing) with instructions to continue from what's already done, in the same conversation. A long
-coding session therefore spans as many workers as it needs, each one's answer visible as it
+(`followup_agent_run()`): due at once (the next tick; the working-hours check applies as always)
+with instructions to continue from what's already done, in the same conversation. A long coding
+session therefore spans as many workers as it needs, each one's answer visible as it
 streams; runs the worker is killed in are, as before, failed by `fail_stale_agent_runs()`.
 
 ## What an agent is
