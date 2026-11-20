@@ -13,6 +13,8 @@ import { useSiteOffers } from "../sites/capabilities";
 import { useOptionalUserTheme } from "../theme/userTheme";
 import { ConceptsHost } from "../services/ConceptsHost";
 import { useRegionKeys } from "../navigation/regions";
+import { isDesktopApp } from "./desktopApp";
+import { isMac } from "../navigation/shortcuts";
 
 const NAV_COLLAPSED_STORAGE_KEY = "cashflow-nav-collapsed";
 
@@ -266,10 +268,27 @@ export function AppShell({
         {t("shell.skipToContent")}
       </a>
       <header className="chrome-bar" data-region="header" aria-label={t("shell.header")}>
-        {historyButtons}
+        <div>
+          {isMac() && isDesktopApp() && <div style={{ width: "200pt"}}></div>}
+          {isDesktopApp() && !isMac() && (
+            <button
+                type="button"
+                className="chrome-nav-btn top-bar__menu"
+                aria-label={t("nav.openMenu")}
+                title={t("nav.openMenu")}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen(true)}
+              >
+                <HamburgerIcon />
+              </button>
+          )}
+        </div>
+        {isDesktopApp() && historyButtons}
         {searchForm}
         <div className="top-bar__actions">{topBarActions}</div>
         <div className="chrome-bar__actions">{chromeActions}</div>
+        {!isMac() && isDesktopApp() && <div style={{ width: "200pt"}}></div>}
       </header>
 
       {banners}
@@ -281,18 +300,20 @@ export function AppShell({
         <h2 className="app-side-panel__title">Hello World</h2>
       </aside>
       <div className="app-main">
-            <button
-              type="button"
-              className="chrome-nav-btn top-bar__menu"
-              aria-label={t("nav.openMenu")}
-              title={t("nav.openMenu")}
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              style={{ position: "fixed", top: 0, left: 0, zIndex: 100 }}
-              onClick={() => setMenuOpen(true)}
-            >
-              <HamburgerIcon />
-            </button>
+            {!isDesktopApp() && (
+              <button
+                type="button"
+                className="chrome-nav-btn top-bar__menu"
+                aria-label={t("nav.openMenu")}
+                title={t("nav.openMenu")}
+                aria-haspopup="dialog"
+                aria-expanded={menuOpen}
+                style={{ position: "fixed", top: 0, left: 0, zIndex: 100 }}
+                onClick={() => setMenuOpen(true)}
+              >
+                <HamburgerIcon />
+              </button>
+            )}
 
       {filterStrip ? <div className="global-filter-strip">{filterStrip}</div> : null}
       <div id="app-content" data-region="content" tabIndex={-1} aria-label={t("shell.content")} className={contentFlush ? "app-content app-content--flush" : "app-content"}>

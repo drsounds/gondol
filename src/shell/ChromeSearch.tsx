@@ -5,6 +5,7 @@ import { isEntityUri, resolveEntityUri, type EntityUriTarget } from "../entities
 import type { SearchRouteSearch } from "../navigation/dateRangeSearch";
 import { SearchIcon } from "./icons";
 import { searchFieldProps } from "../search/searchFieldActive";
+import { MusicNoteIcon, QueueIcon } from "../builtin/player/components/icons";
 
 /**
  * The chrome search field, the desktop entry point to /search (like Spotify's top bar): typing
@@ -80,24 +81,30 @@ export type ChromeSearchState = ReturnType<typeof useChromeSearch>;
 export function ChromeSearchForm({ search }: { search: ChromeSearchState }) {
   const { t } = useI18n();
   return (
-    <form className="chrome-bar__search" role="search" onSubmit={search.submit}>
-      <label className="chrome-bar__search-label">
-        <SearchIcon className="chrome-bar__search-icon" />
-        <input
-          type="search"
-          name="q"
-          className="chrome-bar__search-input"
-          placeholder={t("chrome.searchPlaceholder")}
-          aria-label={t("chrome.searchPlaceholder")}
-          title={t("chrome.searchHint")}
-          {...searchFieldProps}
-          value={search.value}
-          onChange={(e) => {
-            e.target.setCustomValidity("");
-            search.change(e.target.value);
-          }}
-        />
-      </label>
-    </form>
+    <div style={{ display: "flex", alignItems: "center", flexDirection: 'row' }}>
+      <MusicNoteIcon className="chrome-bar__search-icon" />
+      <form className="chrome-bar__search" role="search" onSubmit={search.submit}>
+        <label className="chrome-bar__search-label">
+          <SearchIcon className="chrome-bar__search-icon" />
+          <input
+            type="search"
+            name="q"
+            className="chrome-bar__search-input"
+            placeholder={t("chrome.searchPlaceholder")}
+            aria-label={t("chrome.searchPlaceholder")}
+            title={t("chrome.searchHint")}
+            {...searchFieldProps}
+            value={search.value}
+            onChange={(e) => {
+              e.target.setCustomValidity("");
+              search.change(e.target.value);
+            }}
+          />
+          <div style={{ display: "flex", alignItems: "center", flexDirection: 'row', width: '2pt', height: '80%', background: 'rgba(127, 127, 127,. 5)' }}>
+          </div>
+          <QueueIcon className="chrome-bar__search-icon" />
+        </label>
+      </form>
+    </div>
   );
 }
