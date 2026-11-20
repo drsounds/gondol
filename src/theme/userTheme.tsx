@@ -188,6 +188,7 @@ export interface ShellSettings {
   /** Unset follows the site's default, else "always". */
   player?: PlayerVisibility;
   /** "Your Library" under the desktop menu (the apps' sidebar panels). Unset follows the site's default, else shown. */
+  sidebarLeftMenuNav?: boolean;
   sidebarLibrary?: boolean;
   /** Unset follows the site's default, else "features". */
   menuStyle?: MenuStyle;

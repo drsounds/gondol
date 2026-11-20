@@ -135,6 +135,7 @@ export function AppShell({
   const player = preferences?.player ?? "always";
   // "Your Library" (the apps' sidebar panels) under the desktop menu, unless turned off.
   const showLibrary = preferences?.sidebarLibrary ?? true;
+  const showLeftMenuNav = preferences?.sidebarLeftMenuNav ?? true;
   // Every app's pages in the menu, or one row per app opening its pages beside it or in place of it.
   const menuStyle = preferences?.menuStyle ?? "features";
   const appSections = navSections.filter((section) => section.items.length > 0);
@@ -349,7 +350,7 @@ export function AppShell({
         </div>
         {searchForm}
       </div>
-      <nav
+       {(showLeftMenuNav || !isDesktopApp()) && <nav
         ref={navRef}
         className={["bottom-nav", navCollapsed ? "bottom-nav--collapsed" : "", insetApp ? "bottom-nav--inset" : ""].filter(Boolean).join(" ")}
         data-region="menu"
@@ -412,7 +413,7 @@ export function AppShell({
           </button>
         </div>
         ) : null*/}
-      </nav>
+      </nav>}
       {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
         <div
           className="sidebar-resize-handle sidebar-resize-handle--height"
