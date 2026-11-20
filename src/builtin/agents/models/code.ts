@@ -166,7 +166,7 @@ export type CodeDatabase = {
   };
 };
 
-const db = lazy(() => getSupabaseClient<CodeDatabase>());
+export const db = lazy(() => getSupabaseClient<CodeDatabase>());
 
 export const codeRepositoriesKey = ["agents", "code", "repositories"] as const;
 export const codeSandboxesKey = ["agents", "code", "sandboxes"] as const;

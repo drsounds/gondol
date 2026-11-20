@@ -13,6 +13,7 @@ import {
   shellQuote,
   workspacePath,
 } from "../../../../supabase/functions/_shared/codeWorkspace.ts";
+import { mentionedRepos } from "../../../../src/builtin/agents/models/ensure";
 
 describe("agent coding helpers", () => {
   test("paths stay inside the workspace", () => {
@@ -81,5 +82,14 @@ describe("agent coding helpers", () => {
     expect(JSON.stringify(app.functions.code_run_command.target)).toContain("agent-code");
     expect(app.functions.code_read_file.readOnly).toBe(true);
     expect(app.tools.map((t) => t.name)).toContain("code_prepare_release");
+  });
+
+  test("a prompt's repository mentions", () => {
+    expect(mentionedRepos("Build a habit tracker on drsounds/spacify using my notes app")).toEqual(["drsounds/spacify"]);
+    expect(mentionedRepos("work on drsounds/spacify and drsounds/gondol, then fix #94")).toEqual(["drsounds/spacify", "drsounds/gondol"]);
+    expect(mentionedRepos("clone https://github.com/drsounds/spacify.git first")).toEqual([]);
+    expect(mentionedRepos("check drsounds.github.io and react/react-redux/redux")).toEqual([]);
+    expect(mentionedRepos("drsounds/spacify.git, drsounds/spacify.")).toEqual(["drsounds/spacify"]);
+    expect(mentionedRepos("")).toEqual([]);
   });
 });

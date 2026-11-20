@@ -13,7 +13,8 @@ import { EmptyState } from "../../../../../../shell/EmptyState";
 import { PageNotFound } from "../../../../../../shell/PageNotFound";
 import { useI18n, type MessageKey } from "../../../../../../i18n/i18n";
 import { useAiMcpServers } from "../../../../../ai/models/mcpServers";
-import { useAgentConversations, useAgents, type Agent } from "../../../../models/agents";
+import { CodeStart } from "./CodeStart";
+import { useAgentConversations, useAgentMessages, useAgents, type Agent } from "../../../../models/agents";
 import {
   GITHUB_MCP_URL,
   agentWorkspacesKey,
@@ -40,6 +41,7 @@ import {
   type CodeRepository,
   type CodeSandbox,
 } from "../../../../models/code";
+import { ensureAgentWorkspace, mentionedRepos, useKickstartWorkspace } from "../../../../models/ensure";
 import { githubFullName } from "../../../../../../../supabase/functions/_shared/codeWorkspace.ts";
 
 const TABS = ["workspaces", "repositories", "sandboxes", "apps"] as const;
@@ -59,20 +61,26 @@ export function CodePanel() {
   const parts = pathname.split("/").filter(Boolean).slice(1).map(decodeURIComponent);
   const tab: Tab = (TABS as readonly string[]).includes(parts[0] ?? "") ? (parts[0] as Tab) : "workspaces";
   const workspaceKey = tab === "workspaces" && parts[1] && parts[1] !== "new" && parts.length === 2 ? parts[1] : null;
+  // The start page is /code itself: the vibe-coding window. The tabs' home is /code/workspaces.
+  const startKey = !parts.length;
 
   return (
     <div className="stack">
       <div className="search-chips" role="tablist" aria-label={t("code.title")}>
+        <button key="start" type="button" role="tab" aria-selected={startKey} className="search-chip" onClick={() => go("/code")}>
+          {t("code.start.tab") as string}
+        </button>
         {TABS.map((to) => (
-          <button key={to} type="button" role="tab" aria-selected={to === tab} className="search-chip" onClick={() => go(to === "workspaces" ? "/code" : `/code/${to}`)}>
+          <button key={to} type="button" role="tab" aria-selected={!startKey && to === tab} className="search-chip" onClick={() => go(to === "workspaces" ? "/code/workspaces" : `/code/${to}`)}>
             {t(`code.tab.${to}` as MessageKey)}
           </button>
         ))}
       </div>
-      {tab === "workspaces" ? workspaceKey ? <WorkspaceView workspaceKey={workspaceKey} /> : <WorkspaceList /> : null}
-      {tab === "repositories" ? <RepositoryList /> : null}
-      {tab === "sandboxes" ? <SandboxList /> : null}
-      {tab === "apps" ? <ReleaseList /> : null}
+      {startKey ? <CodeStart /> : null}
+      {!startKey && tab === "workspaces" ? (workspaceKey ? <WorkspaceView workspaceKey={workspaceKey} /> : <WorkspaceList />) : null}
+      {!startKey && tab === "repositories" ? <RepositoryList /> : null}
+      {!startKey && tab === "sandboxes" ? <SandboxList /> : null}
+      {!startKey && tab === "apps" ? <ReleaseList /> : null}
     </div>
   );
 }
@@ -174,38 +182,32 @@ function WorkspaceList() {
   );
 }
 
-/** The bar over an agent conversation: its workspace, or a button that connects one. */
+/** The bar over an agent conversation: its workspace, or a button that creates and prepares one. */
 export function AgentCodeBar({ agent, conversationId }: { agent: Agent; conversationId: string }) {
   const { t } = useI18n();
   const go = useNavigateKeepingSearch();
   const workspaces = useAgentWorkspaces();
   const workspace = (workspaces.data ?? []).find((w) => w.conversation_id === conversationId);
   const repos = useWorkspaceRepositories(workspace?.id ?? null).data ?? [];
-  const save = useSaveWorkspace();
+  const ensure = useKickstartWorkspace();
+  const messages = useAgentMessages(conversationId);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   if (workspaces.isLoading) return null;
   if (!workspace) {
+    const ask = () =>
+      // The conversation's latest messages name what to work on: their owner/name mentions
+      // are the repositories, and the workspace is made and prepared with them at once.
+      ensure.mutate({
+        conversationId,
+        agentId: agent.id,
+        repositoryUrls: mentionedRepos((messages.data ?? []).slice(-5).map((m) => m.content).join("\n")),
+      });
     return (
       <div className="agent-code-bar">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={save.isPending || agent.status === "fired"}
-          onClick={() =>
-            save.mutate(
-              { values: { title: null, agent_id: agent.id, conversation_id: conversationId, sandbox_id: null }, repositoryIds: [] },
-              {
-                onSuccess: (ws) => {
-                  closeEditBackTo(`/code/workspaces/${entityKey(ws)}/edit`, pathname);
-                  go(`/code/workspaces/${entityKey(ws)}/edit`);
-                },
-              },
-            )
-          }
-        >
+        <Button size="sm" variant="ghost" loading={ensure.isPending} disabled={agent.status === "fired"} onClick={ask} data-tour="connect-workspace">
           {t("code.bar.connect")}
         </Button>
-        <ErrorText error={save.error} />
+        <ErrorText error={ensure.error} />
       </div>
     );
   }
