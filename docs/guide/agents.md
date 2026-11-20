@@ -177,7 +177,7 @@ id owns it. `code_app_registry()` lists the latest published release of each app
 load; the host adds them to its remote app sources:
 
 ```tsx
-import { useAgentAppSources } from "gondol/builtin/agents/models/code";
+import { useAgentAppSources } from "gondol/builtin/agents/models";
 <RemoteAppsRegistrar sources={[...ownSources, ...useAgentAppSources()]} />
 ```
 
