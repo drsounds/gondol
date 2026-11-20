@@ -334,7 +334,7 @@ export function AppShell({
         role="tablist"
         onKeyDown={handleNavKeyDown}
         // A dragged height replaces the app's own cap on the menu (getMaxMenuHeight() bounds it instead).
-        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px`, maxHeight: "none" }}
+        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px`, maxHeight: "none", display: 'none' }}
       >
         <button
           type="button"
@@ -369,7 +369,7 @@ export function AppShell({
           <AppInset key={insetApp.id} section={insetApp} pathname={pathname} onBack={() => setOpenApp(null)} onNavigate={onNavigate} />
         ) : null}
         {/* A site that doesn't offer creating (its aspects, sites/capabilities.ts) has no plus button. */}
-        {canCreate ? (
+        {/*canCreate ? (
         <div className="bottom-nav__add">
           <button
             type="button"
@@ -388,7 +388,7 @@ export function AppShell({
             <span className="plus-button__text">{t("nav.add")}</span>
           </button>
         </div>
-        ) : null}
+        ) : null*/}
       </nav>
       {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
         <div
