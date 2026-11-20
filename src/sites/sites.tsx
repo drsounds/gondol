@@ -5,6 +5,7 @@ import { useSession } from "../supabase/useSession";
 import { entityExtensions } from "../entities/extensions";
 import { namespaced } from "../shell/storage";
 import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type EntityType } from "../entities/uri";
+import { faviconUrlFor } from "../apps/external";
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
@@ -13,6 +14,7 @@ import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
 import { isSiteAspect, isSiteRole, siteOffers, type SiteAspect, type SiteRole } from "./capabilities";
+import { applySiteHead, isFaviconUrl } from "./siteHead";
 
 const appDependencies = (id: string) => getInternalApp(id)?.dependencies ?? [];
 
@@ -49,6 +51,8 @@ export interface SiteLayout {
   menuStyle?: MenuStyle;
   darkTabBar?: boolean;
   darkFrame?: boolean;
+  /** The phone tab bar floats over the content on a fading background (ShellSettings.fadingTabBar). */
+  fadingTabBar?: boolean;
   hideSoftDeletedEntities?: boolean;
   hideFutureEntities?: boolean;
   /** The browser's native menu and text selection (shell/developerMode.ts). */
@@ -122,7 +126,7 @@ export function toSiteTheme(value: unknown): SiteTheme | null {
   const raw = asObject<Record<string, unknown> | null>(value, null);
   if (!raw) return null;
   const theme: SiteTheme = {};
-  if (typeof raw.engine === "string" && ["simple", "advanced", "aero", "tui"].includes(raw.engine)) {
+  if (typeof raw.engine === "string" && ["simple", "advanced", "aero", "tui", "liquid"].includes(raw.engine)) {
     theme.engine = raw.engine as ThemeEngine;
     theme.theme = asObject<UserTheme>(raw.theme, {});
   }
@@ -161,6 +165,8 @@ export interface SiteConfig {
   name: string;
   domain: string;
   description: string | null;
+  /** The site's own favicon (an http(s) address), replacing the app's icons there; null keeps them. */
+  favicon_url: string | null;
   enabled_apps: string[] | null;
   layout: SiteLayout;
   theme: SiteTheme | null;
@@ -184,17 +190,28 @@ export interface SiteConfig {
   is_member: boolean;
 }
 
+export function siteBrowserMetadata(site: Pick<SiteConfig, "name" | "domain"> | null): { title: string; faviconUrl: string | null } | null {
+  if (!site) return null;
+  const domain = normalizeSiteDomain(site.domain);
+  return {
+    title: site.name.trim() || domain,
+    faviconUrl: domain ? faviconUrlFor(`https://${domain}`) : null,
+  };
+}
+
 const sitePreviewKey = () => namespaced("site-preview");
 const siteCacheKey = (key: string) => namespaced(`site:${key}`);
 
 /** Domains are compared lower-case without a scheme, port, path or leading "www." (as normalize_site_domain() in SQL). */
 export function normalizeSiteDomain(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^[a-z][a-z0-9+.-]*:\/\//, "")
-    .replace(/[:/?#].*$/, "")
-    .replace(/^www\./, "");
+  let domain = value.trim().toLowerCase();
+  const schemeSeparator = domain.indexOf("://");
+  if (schemeSeparator > 0 && /^[a-z][a-z0-9+.-]*$/.test(domain.slice(0, schemeSeparator))) {
+    domain = domain.slice(schemeSeparator + 3);
+  }
+  const delimiter = domain.search(/[:/?#]/);
+  if (delimiter >= 0) domain = domain.slice(0, delimiter);
+  return domain.startsWith("www.") ? domain.slice(4) : domain;
 }
 
 export const SITE_DOMAIN_PATTERN = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/;
@@ -250,6 +267,7 @@ export function toSiteConfig(row: Record<string, unknown>): SiteConfig {
     name: String(row.name ?? ""),
     domain: String(row.domain ?? ""),
     description: (row.description as string | null) ?? null,
+    favicon_url: isFaviconUrl(row.favicon_url as string | null) ? (row.favicon_url as string) : null,
     enabled_apps: (row.enabled_apps as string[] | null) ?? null,
     layout: asObject<SiteLayout>(row.layout, {}),
     theme: toSiteTheme(row.theme),
@@ -333,6 +351,42 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   // every list header (styles/base.css) goes with the plus button and the create picker.
   const site = query.data ?? null;
   currentSite = site;
+  const browserMetadata = siteBrowserMetadata(site);
+  const browserTitle = browserMetadata?.title;
+  const browserFaviconUrl = browserMetadata?.faviconUrl;
+  useEffect(() => {
+    if (!browserTitle) return;
+
+    const previousTitle = document.title;
+    document.title = browserTitle;
+
+    let icon: HTMLLinkElement | null = null;
+    let createdIcon = false;
+    let previousIconUrl: string | null = null;
+    if (browserFaviconUrl) {
+      icon = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+      createdIcon = !icon;
+      if (!icon) {
+        icon = document.createElement("link");
+        icon.rel = "icon";
+        document.head.append(icon);
+      }
+      previousIconUrl = icon.getAttribute("href");
+      icon.href = browserFaviconUrl;
+    }
+
+    return () => {
+      document.title = previousTitle;
+      if (icon) {
+        if (previousIconUrl === null) {
+          if (createdIcon) icon.remove();
+          else icon.removeAttribute("href");
+        } else {
+          icon.href = previousIconUrl;
+        }
+      }
+    };
+  }, [browserTitle, browserFaviconUrl]);
   const createOff = !siteOffers(site, { aspects: ["create"] });
   useEffect(() => {
     if (createOff) document.documentElement.setAttribute("data-site-create", "off");
@@ -344,6 +398,10 @@ export function SiteProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setSiteDeveloperMode(siteDeveloperMode, developerModeLocked);
   }, [siteDeveloperMode, developerModeLocked]);
+  // The site's name in the page title and its favicon in place of the app's (./siteHead.ts).
+  const siteName = site?.name ?? "";
+  const siteFavicon = site?.favicon_url ?? null;
+  useEffect(() => applySiteHead(siteName || siteFavicon ? { name: siteName, favicon_url: siteFavicon } : null), [siteName, siteFavicon]);
 
   const value = useMemo<SiteValue>(
     () => ({
@@ -387,6 +445,9 @@ export function useSite(): SiteValue {
 /** Whether the site lets an internal app run (its own list plus what those apps depend on). */
 export function siteAllowsApp(site: SiteConfig | null, appId: string, dependencies: (id: string) => string[] = () => []): boolean {
   if (!site?.enabled_apps) return true;
+  // An app made at run time goes with the app it is part of (a user-built app with the studio).
+  const partOf = getInternalApps().find((app) => app.id === appId)?.partOf;
+  if (partOf && partOf !== appId) return siteAllowsApp(site, partOf, dependencies);
   const allowed = new Set<string>();
   const visit = (id: string) => {
     if (allowed.has(id)) return;

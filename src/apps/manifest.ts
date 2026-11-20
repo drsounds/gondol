@@ -2,6 +2,8 @@ import { z } from "zod/v4";
 import { SITE_ASPECTS, SITE_ROLES } from "../sites/capabilities";
 import { appSettingsSchema } from "../settings/schema";
 import { settingsProblems } from "../settings/tree";
+import { appApiSchema } from "../api/openapi";
+import { appFunctionsSchema, appMcpSchema } from "../api/functions";
 
 /**
  * The schema of an app's `manifest.json`: everything an app declares about itself as data, checked
@@ -12,7 +14,8 @@ import { settingsProblems } from "../settings/tree";
  * What a manifest declares, the shell reads without knowing any app (see ./contributions.ts): the
  * features and their paths, palette actions, the root navigation items, the create picker's items,
  * the search page's browse tiles, the app's entity types (addresses, tile art, where their rows
- * live) and its settings (../settings/schema.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
+ * live), its settings (../settings/schema.ts), its HTTP API (../api/openapi.ts), the server functions it lets
+ * other code call and what it offers AI models over MCP (../api/functions.ts). Code an app needs (pages, widgets, actions that do more than navigate) is attached in its
  * index.ts with defineApp.
  */
 
@@ -158,41 +161,63 @@ export const manifestEntitySchema = z
   })
   .strict();
 
-/** A third-party service the app uses (shellHooks' PrivacyService), listed in cookie consent and the privacy policy. */
-export const manifestServiceSchema = z
-  .object({
-    id,
-    name: z.string().min(1),
-    provider: z.string().optional().meta({ description: "The legal entity behind it, when it differs from `name`." }),
-    category: z.string().min(1).default("necessary").meta({ description: "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures." }),
-    countries: z
-      .array(z.string().regex(/^([A-Z]{2}|EU|EEA)$/, "an ISO 3166-1 alpha-2 code, EU or EEA"))
-      .min(1)
-      .meta({ description: "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA." }),
-    domains: z
-      .array(z.string().regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "a host name, optionally *.example.com"))
-      .optional()
-      .meta({ description: "Domains the app contacts for it." }),
-    purpose: localized,
-    data: localized.optional().meta({ description: "Which personal data it gets." }),
-    legalBasis: z.enum(["consent", "contract", "legitimateInterest", "legalObligation"]).optional(),
-    transfer: localized.optional().meta({ description: "How transfers outside the EU/EEA are safeguarded." }),
-    policyUrl: z.string().url().optional(),
-    storage: z
-      .array(
-        z
-          .object({
-            name: z.string().min(1),
-            kind: z.enum(["cookie", "localStorage", "sessionStorage", "indexedDB"]),
-            purpose: localized,
-            duration: localized,
-          })
-          .strict(),
-      )
-      .optional()
-      .meta({ description: "Cookies and storage it sets in the browser." }),
-  })
-  .strict();
+/** Capability aspects a service can implement (services/service.ts, playback/types.ts). */
+export const SERVICE_ASPECTS = ["media", "music", "catalogue", "auth"] as const;
+
+const serviceIdentity = {
+  id,
+  name: z.union([z.string().min(1), localized]),
+};
+
+const privacyServiceFields = {
+  provider: z.string().optional().meta({ description: "The legal entity behind it, when it differs from `name`." }),
+  category: z.string().min(1).default("necessary").meta({ description: "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures." }),
+  countries: z
+    .array(z.string().regex(/^([A-Z]{2}|EU|EEA)$/, "an ISO 3166-1 alpha-2 code, EU or EEA"))
+    .min(1)
+    .meta({ description: "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA." }),
+  domains: z
+    .array(z.string().regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "a host name, optionally *.example.com"))
+    .optional()
+    .meta({ description: "Domains the app contacts for it." }),
+  purpose: localized,
+  data: localized.optional().meta({ description: "Which personal data it gets." }),
+  legalBasis: z.enum(["consent", "contract", "legitimateInterest", "legalObligation"]).optional(),
+  transfer: localized.optional().meta({ description: "How transfers outside the EU/EEA are safeguarded." }),
+  policyUrl: z.string().url().optional(),
+  storage: z
+    .array(
+      z
+        .object({
+          name: z.string().min(1),
+          kind: z.enum(["cookie", "localStorage", "sessionStorage", "indexedDB"]),
+          purpose: localized,
+          duration: localized,
+        })
+        .strict(),
+    )
+    .optional()
+    .meta({ description: "Cookies and storage it sets in the browser." }),
+};
+
+const runtimeServiceFields = {
+  description: localized.optional(),
+  aspects: z
+    .array(z.enum(SERVICE_ASPECTS))
+    .min(1)
+    .meta({ description: "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out)." }),
+  iconName: iconName.optional(),
+  hosts: z.array(z.string().min(1)).optional().meta({ description: "Web hosts whose links it plays as they are, e.g. `youtube.com`." }),
+  schemes: z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:/, "a URI prefix such as `youtube:`")).optional().meta({ description: "URI prefixes it plays as they are." }),
+  surface: z.string().url().optional().meta({ description: "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md)." }),
+};
+
+/** A service used for privacy reporting, runtime capabilities, or both. */
+export const manifestServiceSchema = z.union([
+  z.object({ ...serviceIdentity, ...privacyServiceFields }).strict(),
+  z.object({ ...serviceIdentity, ...runtimeServiceFields }).strict(),
+  z.object({ ...serviceIdentity, ...privacyServiceFields, ...runtimeServiceFields }).strict(),
+]);
 
 export const appManifestSchema = z
   .object({
@@ -225,6 +250,9 @@ export const appManifestSchema = z
       .array(manifestServiceSchema)
       .optional()
       .meta({ description: "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy." }),
+    api: appApiSchema.optional(),
+    functions: appFunctionsSchema.optional(),
+    mcp: appMcpSchema.optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {
@@ -248,6 +276,16 @@ export const appManifestSchema = z
     }
     for (const problem of manifest.settings ? settingsProblems(manifest.settings) : []) {
       ctx.addIssue({ code: "custom", path: ["settings", ...problem.path], message: problem.message });
+    }
+    for (const [index, tool] of (manifest.mcp?.tools ?? []).entries()) {
+      if (tool.function && !manifest.functions?.[tool.function]) {
+        ctx.addIssue({ code: "custom", path: ["mcp", "tools", index, "function"], message: `no function "${tool.function}" in this app` });
+      }
+    }
+    const services = new Set<string>();
+    for (const [index, service] of (manifest.services ?? []).entries()) {
+      if (services.has(service.id)) ctx.addIssue({ code: "custom", path: ["services", index, "id"], message: `duplicate service id "${service.id}"` });
+      services.add(service.id);
     }
     if (manifest.dependencies.includes(manifest.id)) {
       ctx.addIssue({ code: "custom", path: ["dependencies"], message: "an app can't depend on itself" });

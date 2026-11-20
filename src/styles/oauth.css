@@ -1,0 +1,79 @@
+/* The oauth app (builtin/oauth): the consent page, and the credentials list's secret sheet. */
+.oauth-consent {
+  display: flex;
+  justify-content: center;
+  padding: var(--bungalow-space-6) 0;
+}
+
+.oauth-consent__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-4);
+  max-width: 32rem;
+  width: 100%;
+}
+
+.oauth-consent__title {
+  font-size: 1.5rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.oauth-consent__scopes {
+  display: grid;
+  gap: var(--bungalow-space-2);
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.oauth-consent__redirect,
+.oauth-consent__detail {
+  overflow-wrap: anywhere;
+}
+
+.oauth-consent__actions {
+  display: flex;
+  gap: var(--bungalow-space-3);
+  justify-content: flex-end;
+}
+
+.oauth-credentials__uri {
+  max-width: 18rem;
+  overflow-wrap: anywhere;
+}
+
+.oauth-credentials__scopes {
+  border: 0;
+  display: grid;
+  gap: var(--bungalow-space-2);
+  margin: 0;
+  padding: 0;
+}
+
+.oauth-credentials__secret-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bungalow-space-3);
+  justify-content: space-between;
+}
+
+.oauth-secret {
+  align-items: center;
+  display: grid;
+  gap: var(--bungalow-space-2) var(--bungalow-space-3);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.oauth-secret .bungalow-label {
+  grid-column: 1 / -1;
+}
+
+.oauth-secret__value {
+  background: var(--bungalow-color-surface-muted, rgba(127, 127, 127, 0.12));
+  border-radius: var(--bungalow-radius-sm, 4px);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+  padding: var(--bungalow-space-2) var(--bungalow-space-3);
+  user-select: all;
+}

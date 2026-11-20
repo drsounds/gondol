@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import { useActiveAppWidgets, useAppNavigation, Widgets } from "../apps/navigation";
 import { ActionsPalette } from "../apps/components/ActionsPalette";
 import { KeyboardShortcutsDialog } from "../apps/components/KeyboardShortcutsDialog";
 import { ChromeSearchForm, type ChromeSearchState } from "./ChromeSearch";
 import { ChevronIcon, HamburgerIcon } from "./icons";
-import { FeatureDotContext, NavItem, type FeatureDot } from "./NavItem";
+import { FeatureDotContext, type FeatureDot } from "./NavItem";
 import { MobileNavDrawer } from "./MobileNavDrawer";
-import { AppInset, AppPages, AppRows, isPathActive, useOpenApp } from "./AppMenu";
+import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
 import { useSiteOffers } from "../sites/capabilities";
 import { useOptionalUserTheme } from "../theme/userTheme";
+import { ConceptsHost } from "../services/ConceptsHost";
+import { useRegionKeys } from "../navigation/regions";
 
 const NAV_COLLAPSED_STORAGE_KEY = "cashflow-nav-collapsed";
 
@@ -124,8 +125,9 @@ export function AppShell({
   const navSections = useAppNavigation(intlLocale);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
 
-  const { sidebarNavWidgets, sidebarPanelWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
-  const preferences = useOptionalUserTheme()?.preferences;
+  const { sidebarNavWidgets, sidebarPanelWidgets, sidebarBottomWidgets, bottomWidgets, overlayWidgets } = useActiveAppWidgets();
+  const userTheme = useOptionalUserTheme();
+  const preferences = userTheme?.preferences;
   
   // The bottom player: always, only while something plays (the widget decides), or never.
   const player = preferences?.player ?? "always";
@@ -141,6 +143,28 @@ export function AppShell({
   const [menuHeight, setMenuHeight] = useState<number | null>(null);
   const sidebarColumnRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLElement>(null);
+  const frameRef = useRef<HTMLElement>(null);
+  const dockRef = useRef<HTMLDivElement>(null);
+  // Fading tab bar (phones): the tab bar and the dock (the bottom widgets) float over the content,
+  // so the content needs their heights to leave room under its last row (base.css).
+  const fadingTabBar = !!preferences?.fadingTabBar || userTheme?.applied.engine === "liquid";
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!fadingTabBar || !frame || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      frame.style.setProperty("--tab-bar-height", `${navRef.current?.offsetHeight ?? 0}px`);
+      frame.style.setProperty("--dock-height", `${dockRef.current?.offsetHeight ?? 0}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    if (navRef.current) observer.observe(navRef.current);
+    if (dockRef.current) observer.observe(dockRef.current);
+    measure();
+    return () => {
+      observer.disconnect();
+      frame.style.removeProperty("--tab-bar-height");
+      frame.style.removeProperty("--dock-height");
+    };
+  }, [fadingTabBar]);
   const resizeDrag = useRef<{ axis: "horizontal" | "vertical"; pointerId: number; start: number; size: number } | null>(null);
   // The menu grows by what the panels under it (Your Library) can still give up, down to their own
   // min-height (128px when they set none), so it never pushes them out of the column.
@@ -222,11 +246,26 @@ export function AppShell({
     </div>
   );
   const searchForm = <ChromeSearchForm search={search} />;
+  // F6 / Shift+F6 move between the header, the menu, Your Library, the content and the player.
+  useRegionKeys(frameRef);
 
   return (
     <FeatureDotContext.Provider value={featureDot}>
-    <main className="bungalow-root app-frame">
-      <header className="chrome-bar">
+    <main ref={frameRef} className="bungalow-root app-frame">
+      {/* The apps that are on, as concepts: their services registered and started (services/). */}
+      <ConceptsHost />
+      {/* The first stop for Tab: past the header and the menu, straight to the view. */}
+      <a
+        className="skip-link"
+        href="#app-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("app-content")?.focus();
+        }}
+      >
+        {t("shell.skipToContent")}
+      </a>
+      <header className="chrome-bar" data-region="header" aria-label={t("shell.header")}>
         {historyButtons}
         {searchForm}
         <div className="top-bar__actions">{topBarActions}</div>
@@ -236,6 +275,11 @@ export function AppShell({
       {banners}
 
       <div className="app-frame__body">
+      {/* The right-hand panel: the first child of the body, which is row-reversed on wide
+          screens (spacify's styles.css), so it lands right of the content. Hidden on phones. */}
+      <aside className="app-side-panel" aria-label="Hello World">
+        <h2 className="app-side-panel__title">Hello World</h2>
+      </aside>
       <div className="app-main">
             <button
               type="button"
@@ -251,7 +295,9 @@ export function AppShell({
             </button>
 
       {filterStrip ? <div className="global-filter-strip">{filterStrip}</div> : null}
-      <div className={contentFlush ? "app-content app-content--flush" : "app-content"}>{children}</div>
+      <div id="app-content" data-region="content" tabIndex={-1} aria-label={t("shell.content")} className={contentFlush ? "app-content app-content--flush" : "app-content"}>
+        {children}
+      </div>
       </div>
 
       {/* The open app's pages in a second menu right of the first (desktop, MenuStyle "appsBeside"). */}
@@ -283,11 +329,12 @@ export function AppShell({
       <nav
         ref={navRef}
         className={["bottom-nav", navCollapsed ? "bottom-nav--collapsed" : "", insetApp ? "bottom-nav--inset" : ""].filter(Boolean).join(" ")}
+        data-region="menu"
         aria-label={t("nav.label")}
         role="tablist"
         onKeyDown={handleNavKeyDown}
         // A dragged height replaces the app's own cap on the menu (getMaxMenuHeight() bounds it instead).
-        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px`, maxHeight: "none" }}
+        style={menuHeight === null || navCollapsed ? undefined : { height: `${menuHeight}px`, flex: `0 0 ${menuHeight}px`, maxHeight: "none", display: 'none' }}
       >
         <button
           type="button"
@@ -313,16 +360,7 @@ export function AppShell({
           ? navSections.map((section) => (
               <div key={section.id} className="nav-group bottom-nav__group">
                 <div className="nav-group__label">{section.title}</div>
-                {section.items.map((item) => (
-                  <NavItem
-                    key={item.id}
-                    icon={<Icon name={item.iconName} />}
-                    label={item.name}
-                    extra
-                    active={isPathActive(pathname, item.path)}
-                    onClick={() => onNavigate(item.path)}
-                  />
-                ))}
+                <AppPages section={section} pathname={pathname} onNavigate={onNavigate} extra collapsed={navCollapsed} />
               </div>
             ))
           : <AppRows sections={appSections} pathname={pathname} openId={openApp?.id ?? null} onOpen={setOpenApp} onNavigate={onNavigate} extra />}
@@ -331,7 +369,7 @@ export function AppShell({
           <AppInset key={insetApp.id} section={insetApp} pathname={pathname} onBack={() => setOpenApp(null)} onNavigate={onNavigate} />
         ) : null}
         {/* A site that doesn't offer creating (its aspects, sites/capabilities.ts) has no plus button. */}
-        {canCreate ? (
+        {/*canCreate ? (
         <div className="bottom-nav__add">
           <button
             type="button"
@@ -350,7 +388,7 @@ export function AppShell({
             <span className="plus-button__text">{t("nav.add")}</span>
           </button>
         </div>
-        ) : null}
+        ) : null*/}
       </nav>
       {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
         <div
@@ -369,11 +407,16 @@ export function AppShell({
           onKeyDown={(event) => resizeWithKeyboard("vertical", event)}
         />
       ) : null}
-      {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary) */}
-      <Widgets widgets={sidebarPanelWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
+      {/* Dynamic sidebar panel widgets (e.g. SidebarLibrary), unless Your Library is turned off. */}
       {showLibrary
         ? sidebarPanelWidgets.map((Widget, idx) => <Widget key={idx} onOpenUri={onOpenUri} collapsed={navCollapsed} />)
         : null}
+      {/* The bottom of the left column (desktop): the player's service dock, like early Spotify's art. */}
+      {sidebarBottomWidgets.length > 0 ? (
+        <div className="sidebar-bottom" data-region="dock">
+          <Widgets widgets={sidebarBottomWidgets} props={{ onOpenUri, collapsed: navCollapsed }} />
+        </div>
+      ) : null}
       {!navCollapsed ? (
         <div
           className="sidebar-resize-handle sidebar-resize-handle--width"
@@ -409,7 +452,10 @@ export function AppShell({
       ) : null}
 
       {/* Dynamic bottom widgets (e.g. TaskPlayer), unless the player is hidden (ShellSettings.player). */}
-      {player === "hidden" ? null : <Widgets widgets={bottomWidgets} props={{ alwaysShow: player === "always" }} />}
+      {/* The dock is display: contents, except over the content under a fading tab bar (base.css). */}
+      <div ref={dockRef} className="app-dock">
+        {player === "hidden" ? null : <Widgets widgets={bottomWidgets} props={{ alwaysShow: player === "always" }} />}
+      </div>
 
       {overlays}
       {/* Sheets the apps own (e.g. an entity type that opens in its app's own sheet). */}

@@ -1371,174 +1371,1426 @@
       "description": "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy.",
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9][\\w.-]*$"
-          },
-          "name": {
-            "type": "string",
-            "minLength": 1
-          },
-          "provider": {
-            "description": "The legal entity behind it, when it differs from `name`.",
-            "type": "string"
-          },
-          "category": {
-            "description": "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures.",
-            "default": "necessary",
-            "type": "string",
-            "minLength": 1
-          },
-          "countries": {
-            "description": "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA.",
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^([A-Z]{2}|EU|EEA)$"
-            }
-          },
-          "domains": {
-            "description": "Domains the app contacts for it.",
-            "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$"
-            }
-          },
-          "purpose": {
-            "description": "Text per locale (`en` required, e.g. `sv`).",
+        "anyOf": [
+          {
             "type": "object",
             "properties": {
-              "en": {
+              "id": {
                 "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "en"
-            ],
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "data": {
-            "description": "Which personal data it gets.",
-            "type": "object",
-            "properties": {
-              "en": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "en"
-            ],
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "legalBasis": {
-            "type": "string",
-            "enum": [
-              "consent",
-              "contract",
-              "legitimateInterest",
-              "legalObligation"
-            ]
-          },
-          "transfer": {
-            "description": "How transfers outside the EU/EEA are safeguarded.",
-            "type": "object",
-            "properties": {
-              "en": {
-                "type": "string",
-                "minLength": 1
-              }
-            },
-            "required": [
-              "en"
-            ],
-            "additionalProperties": {
-              "type": "string"
-            }
-          },
-          "policyUrl": {
-            "type": "string",
-            "format": "uri"
-          },
-          "storage": {
-            "description": "Cookies and storage it sets in the browser.",
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "kind": {
-                  "type": "string",
-                  "enum": [
-                    "cookie",
-                    "localStorage",
-                    "sessionStorage",
-                    "indexedDB"
-                  ]
-                },
-                "purpose": {
-                  "description": "Text per locale (`en` required, e.g. `sv`).",
-                  "type": "object",
-                  "properties": {
-                    "en": {
-                      "type": "string",
-                      "minLength": 1
-                    }
+                "pattern": "^[A-Za-z0-9][\\w.-]*$"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
                   },
-                  "required": [
-                    "en"
-                  ],
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                },
-                "duration": {
-                  "description": "Text per locale (`en` required, e.g. `sv`).",
-                  "type": "object",
-                  "properties": {
-                    "en": {
-                      "type": "string",
-                      "minLength": 1
+                  {
+                    "description": "Text per locale (`en` required, e.g. `sv`).",
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "en"
+                    ],
+                    "additionalProperties": {
+                      "type": "string"
                     }
-                  },
-                  "required": [
-                    "en"
-                  ],
-                  "additionalProperties": {
-                    "type": "string"
                   }
+                ]
+              },
+              "provider": {
+                "description": "The legal entity behind it, when it differs from `name`.",
+                "type": "string"
+              },
+              "category": {
+                "description": "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures.",
+                "default": "necessary",
+                "type": "string",
+                "minLength": 1
+              },
+              "countries": {
+                "description": "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA.",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([A-Z]{2}|EU|EEA)$"
                 }
               },
-              "required": [
-                "name",
-                "kind",
-                "purpose",
-                "duration"
-              ],
-              "additionalProperties": false
+              "domains": {
+                "description": "Domains the app contacts for it.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$"
+                }
+              },
+              "purpose": {
+                "description": "Text per locale (`en` required, e.g. `sv`).",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "data": {
+                "description": "Which personal data it gets.",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "legalBasis": {
+                "type": "string",
+                "enum": [
+                  "consent",
+                  "contract",
+                  "legitimateInterest",
+                  "legalObligation"
+                ]
+              },
+              "transfer": {
+                "description": "How transfers outside the EU/EEA are safeguarded.",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "policyUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "storage": {
+                "description": "Cookies and storage it sets in the browser.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cookie",
+                        "localStorage",
+                        "sessionStorage",
+                        "indexedDB"
+                      ]
+                    },
+                    "purpose": {
+                      "description": "Text per locale (`en` required, e.g. `sv`).",
+                      "type": "object",
+                      "properties": {
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "en"
+                      ],
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "duration": {
+                      "description": "Text per locale (`en` required, e.g. `sv`).",
+                      "type": "object",
+                      "properties": {
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "en"
+                      ],
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "kind",
+                    "purpose",
+                    "duration"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "countries",
+              "purpose"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][\\w.-]*$"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "description": "Text per locale (`en` required, e.g. `sv`).",
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "en"
+                    ],
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "description": {
+                "description": "Text per locale (`en` required, e.g. `sv`).",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "aspects": {
+                "description": "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out).",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "media",
+                    "music",
+                    "catalogue",
+                    "auth"
+                  ]
+                }
+              },
+              "iconName": {
+                "description": "A glyph of the bungalow icon font (IconName).",
+                "type": "string",
+                "minLength": 1
+              },
+              "hosts": {
+                "description": "Web hosts whose links it plays as they are, e.g. `youtube.com`.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "schemes": {
+                "description": "URI prefixes it plays as they are.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9+.-]*:"
+                }
+              },
+              "surface": {
+                "description": "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md).",
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "aspects"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][\\w.-]*$"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "description": "Text per locale (`en` required, e.g. `sv`).",
+                    "type": "object",
+                    "properties": {
+                      "en": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "en"
+                    ],
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "provider": {
+                "description": "The legal entity behind it, when it differs from `name`.",
+                "type": "string"
+              },
+              "category": {
+                "description": "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures.",
+                "default": "necessary",
+                "type": "string",
+                "minLength": 1
+              },
+              "countries": {
+                "description": "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA.",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^([A-Z]{2}|EU|EEA)$"
+                }
+              },
+              "domains": {
+                "description": "Domains the app contacts for it.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)+$"
+                }
+              },
+              "purpose": {
+                "description": "Text per locale (`en` required, e.g. `sv`).",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "data": {
+                "description": "Which personal data it gets.",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "legalBasis": {
+                "type": "string",
+                "enum": [
+                  "consent",
+                  "contract",
+                  "legitimateInterest",
+                  "legalObligation"
+                ]
+              },
+              "transfer": {
+                "description": "How transfers outside the EU/EEA are safeguarded.",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "policyUrl": {
+                "type": "string",
+                "format": "uri"
+              },
+              "storage": {
+                "description": "Cookies and storage it sets in the browser.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cookie",
+                        "localStorage",
+                        "sessionStorage",
+                        "indexedDB"
+                      ]
+                    },
+                    "purpose": {
+                      "description": "Text per locale (`en` required, e.g. `sv`).",
+                      "type": "object",
+                      "properties": {
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "en"
+                      ],
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    },
+                    "duration": {
+                      "description": "Text per locale (`en` required, e.g. `sv`).",
+                      "type": "object",
+                      "properties": {
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "en"
+                      ],
+                      "additionalProperties": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "kind",
+                    "purpose",
+                    "duration"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "description": {
+                "description": "Text per locale (`en` required, e.g. `sv`).",
+                "type": "object",
+                "properties": {
+                  "en": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "en"
+                ],
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "aspects": {
+                "description": "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out).",
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "media",
+                    "music",
+                    "catalogue",
+                    "auth"
+                  ]
+                }
+              },
+              "iconName": {
+                "description": "A glyph of the bungalow icon font (IconName).",
+                "type": "string",
+                "minLength": 1
+              },
+              "hosts": {
+                "description": "Web hosts whose links it plays as they are, e.g. `youtube.com`.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "schemes": {
+                "description": "URI prefixes it plays as they are.",
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9+.-]*:"
+                }
+              },
+              "surface": {
+                "description": "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md).",
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "countries",
+              "purpose",
+              "aspects"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "api": {
+      "description": "The app's HTTP API (OpenAPI subset), served by the gondol API gateway.",
+      "type": "object",
+      "properties": {
+        "scopes": {
+          "description": "Scopes this app introduces, with what granting one lets a client do.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
             }
           }
         },
+        "schemas": {
+          "description": "Shared schemas, as `#/components/schemas/<name>`.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z_]\\w*$"
+          },
+          "additionalProperties": {
+            "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "paths": {
+          "description": "Operations by path and method.",
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^\\/[\\w\\-./{}]*$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "get": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "put": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "post": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "patch": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              },
+              "delete": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z_]\\w*$"
+                  },
+                  "summary": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "deprecated": {
+                    "type": "boolean"
+                  },
+                  "rpc": {
+                    "description": "The Postgres function that answers it, called as the signed-in user with `p_<name>` arguments.",
+                    "type": "string",
+                    "pattern": "^[a-z_][a-z0-9_]*$"
+                  },
+                  "scopes": {
+                    "description": "Scopes the access token needs (all of them). Omitted: any valid token; []: no token at all.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_.:-]*$"
+                    }
+                  },
+                  "parameters": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z_]\\w*$"
+                        },
+                        "in": {
+                          "type": "string",
+                          "enum": [
+                            "path",
+                            "query",
+                            "header"
+                          ]
+                        },
+                        "required": {
+                          "type": "boolean"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "in"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "requestBody": {
+                    "description": "The JSON body (application/json).",
+                    "type": "object",
+                    "properties": {
+                      "required": {
+                        "type": "boolean"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "schema": {
+                        "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      }
+                    },
+                    "required": [
+                      "schema"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "responses": {
+                    "description": "By status code; the first 2xx is what a success answers with (default 200).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[1-5]\\d\\d$"
+                    },
+                    "additionalProperties": {
+                      "type": "object",
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "schema": {
+                          "description": "A JSON Schema; refer to shared ones with `#/components/schemas/<name>`.",
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "description"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "operationId",
+                  "rpc"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "paths"
+      ],
+      "additionalProperties": false
+    },
+    "functions": {
+      "description": "Server functions other apps, scripts and AI can call through the app router.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "description": "What it does, for developers and AI models (English).",
+            "type": "string",
+            "minLength": 1
+          },
+          "rpc": {
+            "description": "The Postgres function that answers it, called as the user with `p_<field>` arguments.",
+            "type": "string",
+            "pattern": "^[a-z_][a-z0-9_]*$"
+          },
+          "function": {
+            "description": "An edge function that answers it instead: it gets the input as its JSON body and the caller's token.",
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]*$"
+          },
+          "server": {
+            "description": "Or an export of the app's server module, for apps served by a gondol apps runtime (package.json `gondol.server`): called with the input and the caller's user id once an admin approves the app's backend.",
+            "type": "string",
+            "pattern": "^[A-Za-z_$][\\w$]*$"
+          },
+          "input": {
+            "description": "The input, an object schema (default: any object).",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "output": {
+            "description": "What it answers with.",
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          },
+          "scopes": {
+            "description": "OAuth scopes a token needs (all of them; the app API's `scopes`). Omitted: any signed-in caller; []: anyone, also signed out.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_.:-]*$"
+            }
+          },
+          "readOnly": {
+            "description": "It only reads: an AI may call it without asking.",
+            "type": "boolean"
+          },
+          "destructive": {
+            "description": "It deletes or overwrites: an AI always asks first.",
+            "type": "boolean"
+          }
+        },
         "required": [
-          "id",
-          "name",
-          "countries",
-          "purpose"
+          "description"
         ],
         "additionalProperties": false
       }
+    },
+    "mcp": {
+      "description": "What the app offers AI models over the Model Context Protocol.",
+      "type": "object",
+      "properties": {
+        "instructions": {
+          "description": "What the app is for and when to use its tools, told to AI models (English).",
+          "type": "string"
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "description": "The tool's name, unique in the app; the router serves it as `<app>__<name>`.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "description": "Default: the function's or operation's.",
+                "type": "string"
+              },
+              "function": {
+                "description": "One of the app's `functions` that the tool runs.",
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "operation": {
+                "description": "Or an `operationId` of the app's `api`: its parameters and body become the tool's input.",
+                "type": "string",
+                "pattern": "^[A-Za-z_]\\w*$"
+              },
+              "inputSchema": {
+                "description": "Default: the function's input, or the operation's parameters and body.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "readOnly": {
+                "description": "It only reads: an AI may call it without asking.",
+                "type": "boolean"
+              },
+              "destructive": {
+                "description": "It deletes or overwrites: an AI always asks first.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "endpoint": {
+          "description": "An MCP server of the app's own (Streamable HTTP), proxied by the router.",
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https:\\/\\/[^\\s]+$"
+            },
+            "headers": {
+              "description": "Headers to send, by name, each read from the server secret named (e.g. `{ \"Authorization\": \"MYAPP_MCP_TOKEN\" }`).",
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]+$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

@@ -1,0 +1,50 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "player",
+  "slug": "player",
+  "name": { "en": "Player", "sv": "Spelare" },
+  "description": {
+    "en": "Plays musik: URIs, links and entities through the music services the other apps bring (YouTube, …): a player bar, Now playing, the service dock at the bottom of the menu, \"Play with…\", and the accounts the services are signed in with.",
+    "sv": "Spelar musik:-URI:er, länkar och entiteter via musiktjänsterna som andra appar har med sig (YouTube, …): en spelarlist, Spelas nu, tjänstdockan längst ner i menyn, \"Spela med…\" och kontona tjänsterna är inloggade med."
+  },
+  "iconName": "play",
+  "defaultFeatureId": "music-services",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": ["consumer", "curator", "creator", "admin"],
+  "staticPaths": ["/music-services/accounts/new"],
+  "features": [
+    {
+      "id": "music-services",
+      "name": { "en": "Music services", "sv": "Musiktjänster" },
+      "description": { "en": "The services that play your music, and the accounts they're signed in with", "sv": "Tjänsterna som spelar din musik och kontona de är inloggade med" },
+      "path": "music-services",
+      "iconName": "disc",
+      "aspects": ["view", "create", "edit", "configure", "delete"],
+      "actions": [
+        { "id": "player.services", "title": "Music services", "category": "Playback", "iconName": "disc", "navigate": "/music-services", "keywords": ["music", "services", "youtube", "accounts", "sign in"] },
+        { "id": "player.toggle", "title": "Play / pause", "category": "Playback", "iconName": "play", "shortcut": "Space", "keywords": ["play", "pause", "music"], "aspects": ["view"] },
+        { "id": "player.next", "title": "Next track", "category": "Playback", "iconName": "skip-to-next", "shortcut": "Alt+Shift+ArrowRight", "keywords": ["skip", "next"], "aspects": ["view"] },
+        { "id": "player.previous", "title": "Previous track", "category": "Playback", "iconName": "skip-to-prev", "shortcut": "Alt+Shift+ArrowLeft", "keywords": ["previous", "back"], "aspects": ["view"] },
+        { "id": "player.seekForward", "title": "Seek forward 5 seconds", "category": "Playback", "iconName": "forward", "shortcut": "Shift+ArrowRight", "keywords": ["seek", "forward"], "aspects": ["view"] },
+        { "id": "player.seekBack", "title": "Seek back 5 seconds", "category": "Playback", "iconName": "rewind", "shortcut": "Shift+ArrowLeft", "keywords": ["seek", "back", "rewind"], "aspects": ["view"] },
+        { "id": "player.volumeUp", "title": "Volume up", "category": "Playback", "shortcut": "Alt+Shift+ArrowUp", "keywords": ["volume", "louder"], "aspects": ["view"] },
+        { "id": "player.volumeDown", "title": "Volume down", "category": "Playback", "shortcut": "Alt+Shift+ArrowDown", "keywords": ["volume", "quieter"], "aspects": ["view"] },
+        { "id": "player.mute", "title": "Mute / unmute", "category": "Playback", "shortcut": "Alt+Shift+M", "keywords": ["mute", "sound"], "aspects": ["view"] },
+        { "id": "player.shuffle", "title": "Shuffle", "category": "Playback", "shortcut": "Alt+S", "keywords": ["shuffle", "random"], "aspects": ["view"] },
+        { "id": "player.repeat", "title": "Repeat", "category": "Playback", "iconName": "repeat", "shortcut": "Alt+R", "keywords": ["repeat", "loop"], "aspects": ["view"] },
+        { "id": "player.nowPlaying", "title": "Now playing", "category": "Playback", "iconName": "tv", "shortcut": "Alt+Shift+R", "keywords": ["now playing", "full screen", "player", "video"], "aspects": ["view"] },
+        { "id": "player.playWith", "title": "Play with…", "category": "Playback", "iconName": "disc", "shortcut": "Alt+Shift+P", "keywords": ["service", "resolve", "choose", "match"], "aspects": ["view"] },
+        { "id": "player.addAccount", "title": "Sign in to a music service", "category": "Playback", "iconName": "user", "navigate": "/music-services/accounts/new", "keywords": ["account", "sign in", "login"], "aspects": ["create"] }
+      ]
+    }
+  ],
+  "entities": {
+    "external_service_account": {
+      "slug": "service-account",
+      "edit": "/music-services/accounts/{key}/edit",
+      "art": { "iconName": "user", "hue": 330 },
+      "source": { "table": "external_service_accounts", "columns": "id, name, service_id", "label": "name" }
+    }
+  }
+}

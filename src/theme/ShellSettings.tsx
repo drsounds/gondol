@@ -17,7 +17,7 @@ import {
 } from "./userTheme";
 
 /** App shell preferences: the desktop layout (every engine), the menu, Your Library, the bottom player, edit sheets as a
- * modal or a page, lines between table rows, the saved icon, which entities show and, in the simple engine, a dark tab bar / frame and left menu while the
+ * modal or a page, lines between table rows, the saved icon, which entities show, a fading tab bar on phones and, in the simple engine, a dark tab bar / frame and left menu while the
  * rest of the app is light. Each shows the value in effect; one the site locks is disabled
  * (sites/preferences.ts). */
 export function ShellSettings() {
@@ -29,6 +29,7 @@ export function ShellSettings() {
   const locked = {
     darkTabBar: !!useSitePreferenceLock("darkTabBar"),
     darkFrame: !!useSitePreferenceLock("darkFrame"),
+    fadingTabBar: !!useSitePreferenceLock("fadingTabBar"),
     desktopLayout: !!useSitePreferenceLock("desktopLayout"),
     player: !!useSitePreferenceLock("player"),
     sidebarLibrary: !!useSitePreferenceLock("sidebarLibrary"),
@@ -67,6 +68,19 @@ export function ShellSettings() {
           {locked.darkTabBar ? <SiteLockHint preference="darkTabBar" /> : <SiteLockHint preference="darkFrame" />}
         </div>
       ) : null}
+      <div className="bungalow-field">
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.fadingTabBar}
+            disabled={locked.fadingTabBar}
+            onChange={(e) => update({ fadingTabBar: e.target.checked })}
+          />
+          <span>{t("appearance.fadingTabBar")}</span>
+        </label>
+        <span className="bungalow-help">{t("appearance.fadingTabBar.hint")}</span>
+        <SiteLockHint preference="fadingTabBar" />
+      </div>
       <Select
         label={t("appearance.desktopLayout")}
         value={layout}

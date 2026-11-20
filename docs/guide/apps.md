@@ -191,9 +191,10 @@ app needs fails the build. This is the build-time counterpart of a site's `enabl
 
 Gondol ships apps of its own under `src/builtin/`, which a host builds in by id:
 `gondolApps({ dir: "apps", builtin: ["ai"] })`, or imports and adds to `configureGondol({ apps })`
-by hand (`import { aiApp } from "gondol/builtin/ai"`). There are four: the [ai app](./ai.md),
-the [streams app](./streams.md), the [analytics app](./analytics.md), which needs streams, and the
-[consent app](./consent.md) (cookie consent and the privacy policy).
+by hand (`import { aiApp } from "gondol/builtin/ai"`). They are the [search app](./search.md),
+the [library app](./library.md), the [playlists app](./playlists.md) (which needs library), the
+[ai app](./ai.md), the [agents app](./agents.md) (which needs ai), the [streams app](./streams.md),
+the [analytics app](./analytics.md) (which needs streams), the [consent app](./consent.md) (cookie consent and the privacy policy), the [Service Finder](./service-finder.md) (which needs ai), the [mastodon app](./mastodon.md) and the [oauth app](./oauth.md).
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`
@@ -255,6 +256,13 @@ is up to your app (Spacify keeps them in an `apps` table):
 - `externalWindowUrl(app)` is the plain URL of an app that opens in a new window instead.
 - `faviconUrlFor(embedUrl)` is a default icon.
 - `appPathKey(app)` is the `/app/<key>` segment: its slug, else its id.
+
+## Remote apps
+
+Apps can also come from outside the build: a [gondol apps runtime](./remote-apps.md) serves them
+(`gondol-apps serve`, or `gondol-apps dev` from source with Vite), and `RemoteAppsRegistrar` loads
+them at run time as ES modules that use the host's own React and gondol. Their backend functions
+reach the app router only once an admin approves them.
 
 ## Checklist for a new app
 

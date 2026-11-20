@@ -1,10 +1,9 @@
 import { useEffect, useRef, type ComponentType, type ReactNode } from "react";
-import { Icon } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
+import { useSite } from "../sites/sites";
 import type { AppSidebarWidgetProps, DynamicMenuSection } from "../apps/types";
 import { Widgets } from "../apps/navigation";
-import { NavItem } from "./NavItem";
-import { AppInset, AppRows, useOpenApp } from "./AppMenu";
+import { AppInset, AppPages, AppRows, useOpenApp } from "./AppMenu";
 
 /**
  * Phone-only left drawer with the same dynamic navigation as the desktop sidebar: the app's
@@ -35,6 +34,7 @@ export function MobileNavDrawer({
   onOpenUri: (uri: string) => void;
 }) {
   const { t } = useI18n();
+  const { site } = useSite();
   const closeRef = useRef<HTMLButtonElement>(null);
   const appSections = navSections.filter((section) => section.items.length > 0);
   const { open: openApp, setOpenId: setOpenApp } = useOpenApp(appSections, currentPath);
@@ -57,7 +57,7 @@ export function MobileNavDrawer({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="nav-drawer__header">
-          <span className="nav-drawer__title">{t("app.name")}</span>
+          <span className="nav-drawer__title">{site?.name || t("app.name")}</span>
           <button ref={closeRef} type="button" className="sheet__close" onClick={onClose} aria-label={t("nav.closeMenu")}>
             <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
               <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -78,15 +78,7 @@ export function MobileNavDrawer({
           ) : navSections.map((section) => (
             <div key={section.id} className="nav-group">
               <div className="nav-group__label">{section.title}</div>
-              {section.items.map((item) => (
-                <NavItem
-                  key={item.id}
-                  icon={<Icon name={item.iconName} />}
-                  label={item.name}
-                  active={currentPath === item.path || currentPath.startsWith(item.path + "/")}
-                  onClick={() => onNavigate(item.path)}
-                />
-              ))}
+              <AppPages section={section} pathname={currentPath} onNavigate={onNavigate} />
             </div>
           ))}
         </div>

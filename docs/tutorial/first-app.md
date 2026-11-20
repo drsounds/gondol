@@ -418,8 +418,8 @@ Start the app and check each piece:
 - **Create and edit.** "New note" opens `/notes/new`; saving closes the sheet. A row's "⋯" menu
   (or right-click) opens `/notes/<slug>/edit`, shown as `/note/<slug>/edit` in the address bar.
   Reloading keeps the sheet open, and Back closes it.
-- **URIs.** "Copy URI" copies `myapp:note:<slug>`. Paste it into the chrome search field and press
-  Enter to open the note. "Copy URL" copies `https://<your host>/note/<slug>`.
+- **URIs.** "Share" opens the share sheet, whose "Copy URI" copies `myapp:note:<slug>`. Paste it into the chrome search field and press
+  Enter to open the note. "Copy link" copies `https://<your host>/note/<slug>`.
 - **Palette.** `Mod+K` lists "Go to Notes" and "New Note"; `Mod+Alt+O` creates a note from anywhere.
 - **Search.** Typing a note's title on `/search` finds it, and an `EntityPicker` with
   `types={["note"]}` can pick it.

@@ -1,0 +1,39 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "playlists",
+  "slug": "playlists",
+  "name": { "en": "Playlists", "sv": "Spellistor" },
+  "description": {
+    "en": "Customisable playlists of any entity, and of web links.",
+    "sv": "Anpassningsbara spellistor med alla sorters objekt, och med webblänkar."
+  },
+  "iconName": "playlist",
+  "defaultFeatureId": "playlists",
+  "dependencies": ["library"],
+  "defaultActive": true,
+  "roles": ["curator", "consumer"],
+  "features": [
+    {
+      "id": "playlists",
+      "name": { "en": "Playlists", "sv": "Spellistor" },
+      "description": { "en": "Curated playlists of any entity or link, with drag-and-drop ordering", "sv": "Kurerade spellistor med alla sorters objekt och länkar, med dra-och-släpp-ordning" },
+      "path": "playlists",
+      "iconName": "playlist",
+      "entityTypes": ["playlist"],
+      "actions": [
+        { "id": "playlists.view", "title": "Go to Playlists", "description": "Manage playlists of entities and links", "category": "Playlists", "iconName": "playlist", "navigate": "/playlists", "keywords": ["playlists", "queue", "player"], "aspects": ["view"] },
+        { "id": "playlists.new", "title": "New Playlist", "description": "Create a new playlist", "category": "Playlists", "iconName": "plus", "navigate": "/playlists/new", "keywords": ["playlist", "new", "create"], "aspects": ["create"] }
+      ],
+      "browse": { "label": "nav.playlists", "iconName": "play", "hue": 141, "order": 20 }
+    }
+  ],
+  "entities": {
+    "playlist": {
+      "slug": "playlist",
+      "view": "/playlists/{key}",
+      "edit": "/playlists/{key}/edit",
+      "art": { "iconName": "playlist", "hue": 141 },
+      "source": { "table": "playlists", "columns": "id, name", "label": "name" }
+    }
+  }
+}

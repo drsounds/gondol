@@ -1,6 +1,9 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "../../../supabase/client";
-import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
+import { openAiTools, parseToolArguments } from "./openai";
+import { aiCreditFields, notifyAiCreditsChanged } from "./credits";
+import { AiSocketUnavailableError, canUseAiSockets, runAiSocket } from "./socket";
+import { AiProviderError, type AiChatMessage, type AiProvider, type AiServiceRef, type AiSettings, type AiToolCall } from "./provider";
 
 /**
  * Ollama (https://ollama.com), reached through a Supabase edge function rather than from the
@@ -8,8 +11,11 @@ import { AiProviderError, type AiProvider, type AiSettings } from "./provider";
  * /api/chat` for an answer) server-side for the signed-in user and streams the answer back as
  * server-sent events, one Ollama JSON chunk per event. So the address (the `ollama.baseUrl`
  * setting, or the function's OLLAMA_BASE_URL when it's empty) has to be reachable from the server,
- * and no CORS setup is needed on Ollama. The function's contract is in docs/guide/ai.md; Spacify's
- * is `supabase/functions/ai-ollama`.
+ * and no CORS setup is needed on Ollama. A service (ai_services) is named by `serviceId`: the
+ * function reads its address and key itself. Answers travel over a WebSocket (./socket.ts) unless the
+ * `ollama.transport` setting says `http`, so a model that takes long to load or answer isn't cut
+ * off by a proxy; when the function can't be reached that way the chat asks over HTTP instead. The
+ * function's contract is in docs/guide/ai.md; Spacify's is `supabase/functions/ai-ollama`.
  */
 
 let functionName = "ai-ollama";
@@ -25,7 +31,14 @@ export function ollamaBaseUrl(settings: AiSettings): string {
   return value.replace(/\/+$/, "");
 }
 
-type ErrorKind = "config" | "forbidden" | "unreachable" | "http" | "invalid";
+/** Where a request goes: the service, else the settings' address ("" = the server's default). */
+function target(settings: AiSettings, service?: AiServiceRef | null): Record<string, unknown> {
+  if (service) return { serviceId: service.id };
+  const baseUrl = ollamaBaseUrl(settings);
+  return baseUrl ? { baseUrl } : {};
+}
+
+type ErrorKind = AiProviderError["kind"];
 
 /** The function's answer, or an AiProviderError with what it said went wrong. */
 async function invoke(body: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
@@ -56,8 +69,13 @@ interface OllamaTag {
   details?: Record<string, unknown>;
 }
 
+interface OllamaToolCall {
+  id?: string;
+  function?: { name?: string; arguments?: unknown };
+}
+
 interface OllamaChunk {
-  message?: { role?: string; content?: string };
+  message?: { role?: string; content?: string; tool_calls?: OllamaToolCall[] };
   done?: boolean;
   error?: string;
   prompt_eval_count?: number;
@@ -71,14 +89,68 @@ function option(settings: AiSettings, key: string): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
+/** Messages in /api/chat's shape: tool calls carry their arguments as objects, results the tool's name. */
+export function ollamaMessages(messages: AiChatMessage[]): Record<string, unknown>[] {
+  return messages.map((message) => {
+    if (message.role === "tool") return { role: "tool", content: message.content, ...(message.toolName ? { tool_name: message.toolName } : {}) };
+    if (message.toolCalls?.length) {
+      return { role: "assistant", content: message.content, tool_calls: message.toolCalls.map((call) => ({ function: { name: call.name, arguments: call.arguments } })) };
+    }
+    return { role: message.role, content: message.content };
+  });
+}
+
+/** How chat answers travel: `websocket` (the default, falling back to HTTP) or `http` (server-sent events). */
+export function ollamaTransport(settings: AiSettings): "websocket" | "http" {
+  return settings["ollama.transport"] === "http" ? "http" : "websocket";
+}
+
+/** Asks for an answer over HTTP and hands each Ollama chunk of the server-sent events to `handle`. */
+async function streamOverHttp(body: Record<string, unknown>, signal: AbortSignal | undefined, handle: (chunk: OllamaChunk) => void): Promise<void> {
+  const response = await invoke(body, signal);
+  // A text/event-stream answer comes back as the Response itself.
+  if (!(response instanceof Response) || !response.body) throw new AiProviderError("The AI service sent no answer", "invalid");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const event = (text: string) => {
+    // Lines without `data:` are the function's keep-alive comments.
+    const data = text
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data) return;
+    let chunk: OllamaChunk;
+    try {
+      chunk = JSON.parse(data) as OllamaChunk;
+    } catch {
+      return;
+    }
+    handle(chunk);
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    events.forEach(event);
+  }
+  event(buffer + decoder.decode());
+}
+
 export const ollamaProvider: AiProvider = {
   id: "ollama",
   name: "Ollama",
   addressSetting: "ollama.baseUrl",
-  describe: (settings) => ollamaBaseUrl(settings),
+  supportsTools: true,
+  supportsServices: true,
+  defaultBaseUrl: "http://localhost:11434",
+  describe: (settings, service) => (service ? (service.base_url ?? "").replace(/\/+$/, "") : ollamaBaseUrl(settings)),
 
-  async listModels(settings, signal) {
-    const data = (await invoke({ action: "models", baseUrl: ollamaBaseUrl(settings) || undefined }, signal)) as { models?: OllamaTag[] } | null;
+  async listModels(settings, signal, service) {
+    const data = (await invoke({ action: "models", ...target(settings, service) }, signal)) as { models?: OllamaTag[] } | null;
     return (data?.models ?? [])
       .map((tag) => ({
         name: tag.name || tag.model || "",
@@ -89,45 +161,32 @@ export const ollamaProvider: AiProvider = {
       .filter((m) => m.name);
   },
 
-  async chat(settings, { model, messages, temperature, signal, onToken }) {
+  async chat(settings, { model, messages, temperature, signal, onToken, tools, service, app }) {
     const options: Record<string, number> = {};
     if (temperature !== undefined) options.temperature = temperature;
     const numCtx = option(settings, "ollama.numCtx");
     if (numCtx !== undefined) options.num_ctx = numCtx;
     const keepAlive = typeof settings["ollama.keepAlive"] === "string" && settings["ollama.keepAlive"].trim() ? settings["ollama.keepAlive"].trim() : undefined;
-    const response = await invoke(
-      {
-        action: "chat",
-        baseUrl: ollamaBaseUrl(settings) || undefined,
-        model,
-        messages,
-        ...(Object.keys(options).length ? { options } : {}),
-        ...(keepAlive ? { keep_alive: /^-?\d+$/.test(keepAlive) ? Number(keepAlive) : keepAlive } : {}),
-      },
-      signal,
-    );
-    // A text/event-stream answer comes back as the Response itself.
-    if (!(response instanceof Response) || !response.body) throw new AiProviderError("The AI service sent no answer", "invalid");
+    const body = {
+      action: "chat",
+      ...target(settings, service),
+      ...aiCreditFields(app),
+      model,
+      messages: ollamaMessages(messages),
+      ...(tools?.length ? { tools: openAiTools(tools) } : {}),
+      ...(Object.keys(options).length ? { options } : {}),
+      ...(keepAlive ? { keep_alive: /^-?\d+$/.test(keepAlive) ? Number(keepAlive) : keepAlive } : {}),
+    };
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
     let content = "";
     let last: OllamaChunk | null = null;
-    const handle = (event: string) => {
-      const data = event
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trimStart())
-        .join("\n");
-      if (!data) return;
-      let chunk: OllamaChunk;
-      try {
-        chunk = JSON.parse(data) as OllamaChunk;
-      } catch {
-        return;
-      }
+    const toolCalls: AiToolCall[] = [];
+    const handle = (chunk: OllamaChunk) => {
       if (chunk.error) throw new AiProviderError(chunk.error, "http");
+      for (const call of chunk.message?.tool_calls ?? []) {
+        if (!call.function?.name) continue;
+        toolCalls.push({ id: call.id || `call_${toolCalls.length}`, name: call.function.name, arguments: parseToolArguments(call.function.arguments) });
+      }
       const piece = chunk.message?.content ?? "";
       if (piece) {
         content += piece;
@@ -136,24 +195,36 @@ export const ollamaProvider: AiProvider = {
       if (chunk.done) last = chunk;
     };
     try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const events = buffer.split("\n\n");
-        buffer = events.pop() ?? "";
-        events.forEach(handle);
+      if (ollamaTransport(settings) === "websocket" && canUseAiSockets()) {
+        try {
+          // One `chunk` event per piece of Ollama's answer; `ping`s keep proxies from closing it while the model loads.
+          await runAiSocket(functionName, body, {
+            signal,
+            onEvent: (event) => {
+              if (event.type === "chunk" && event.chunk && typeof event.chunk === "object") handle(event.chunk as OllamaChunk);
+            },
+          });
+        } catch (error) {
+          // The function isn't reachable over a socket (an older deploy, a gateway that wants a JWT
+          // header): nothing was sent yet, so ask over HTTP instead.
+          if (!(error instanceof AiSocketUnavailableError)) throw error;
+          await streamOverHttp(body, signal, handle);
+        }
+      } else {
+        await streamOverHttp(body, signal, handle);
       }
-      handle(buffer + decoder.decode());
     } catch (error) {
       if (signal?.aborted) throw Object.assign(new AiProviderError("Stopped", "aborted"), { partial: content });
       throw error;
+    } finally {
+      notifyAiCreditsChanged();
     }
 
     const done = last as OllamaChunk | null;
     const evalSeconds = done?.eval_duration ? done.eval_duration / 1e9 : undefined;
     return {
       content,
+      ...(toolCalls.length ? { toolCalls } : {}),
       metrics: done
         ? {
             promptTokens: done.prompt_eval_count,

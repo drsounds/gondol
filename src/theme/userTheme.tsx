@@ -6,6 +6,8 @@ import { accentColorVars, useAccentColor } from "./accentColor";
 import { setNavigationViewTransitions } from "../navigation/navigationProgress";
 import { aeroUserTheme, resolveAeroColors, type AeroSettings } from "./aeroTheme";
 import { tuiStyleOf, tuiUserTheme, tuiVars, type TuiSettings } from "./tuiTheme";
+import { liquidUserTheme, liquidVars, type LiquidSettings } from "./liquidTheme";
+import { LiquidBackdrop } from "./LiquidBackdrop";
 import { isSiteThemeLocked, siteThemePartValue, useSite, type SiteTheme, type SiteThemePart } from "../sites/sites";
 import { resolveSitePreference, isSitePreferenceLocked, sitePreferenceValue } from "../sites/preferences";
 import type { SavedIconStyle } from "./savedIcon";
@@ -104,14 +106,44 @@ export interface UserTheme {
   aero?: AeroSettings | null;
   /** Settings of the TUI engine (src/lib/tuiTheme.ts); ignored by the other engines. */
   tui?: TuiSettings | null;
-  /** Only set on the theme an alternative engine derives (aeroUserTheme, tuiUserTheme), never stored. */
-  engine?: "aero" | "tui";
+  /** Settings of the Liquid (glass) engine (src/theme/liquidTheme.ts); ignored by the other engines. */
+  liquid?: LiquidSettings | null;
+  /** Settings of the simple engine (its own text and background colours); ignored by the other engines. */
+  simple?: SimpleSettings | null;
+  /** Only set on the theme an engine other than the advanced one derives (simpleUserTheme,
+   * aeroUserTheme, tuiUserTheme, liquidUserTheme), never stored. */
+  engine?: "simple" | "aero" | "tui" | "liquid";
   /** Neon flavor: glow strength, percent (0–200, default 100). */
   neonGlow?: number;
   /** Neon flavor: CRT scanline overlay. */
   neonScanlines?: boolean;
   /** App shell preferences (src/lib/userTheme.tsx, ShellSettings); kept across every engine. */
   shell?: ShellSettings | null;
+}
+
+/** A text (foreground) and a background colour, "#rrggbb"; unset keeps the design system's. */
+export interface SimpleColors {
+  foreground?: string | null;
+  background?: string | null;
+}
+
+/** The simple engine's own colours, one pair per colour scheme. */
+export interface SimpleSettings {
+  light?: SimpleColors | null;
+  dark?: SimpleColors | null;
+}
+
+/** The design system's text and background colours (theme.css, base.css), shown until one's own is set. */
+export const SIMPLE_DEFAULT_COLORS: Record<"light" | "dark", Required<{ [K in keyof SimpleColors]: string }>> = {
+  light: { foreground: "#111111", background: "#ffffff" },
+  dark: { foreground: "#fafafa", background: "#111111" },
+};
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+/** What the simple engine applies: only its own colours. */
+export function simpleUserTheme(simple: SimpleSettings | null | undefined): UserTheme {
+  return simple ? { engine: "simple", simple } : {};
 }
 
 /** "modern" is the Spotify-style shell: a header across the top (back/forward, search, account)
@@ -144,6 +176,10 @@ export interface ShellSettings {
   darkTabBar?: boolean;
   /** Simple engine, light mode: dark frame and left menu on desktop. */
   darkFrame?: boolean;
+  /** Phones: the tab bar (and the player above it) float over the content on a background that
+   * fades from transparent to the tab bar's colour, like Spotify; the content runs the full
+   * height behind them (data-fading-tab-bar). Unset follows the site's default, else off. */
+  fadingTabBar?: boolean;
   desktopLayout?: DesktopLayout;
   /** Classic layout: floating panels inside a frame (true) or flush, edge to edge (default). */
   classicFrame?: boolean;
@@ -274,12 +310,13 @@ export const USER_THEME_VARS_STORAGE_KEY = "cashflow-user-theme-vars";
 const ENGINE_STORAGE_KEY = "cashflow-theme-engine";
 
 /** "simple" is the original engine: light/dark mode plus one accent color
- * (src/lib/theme.tsx, src/lib/accentColor.tsx). "advanced" layers this file's
+ * (src/lib/theme.tsx, src/lib/accentColor.tsx) and, optionally, text and background colours of
+ * one's own per mode (UserTheme.simple). "advanced" layers this file's
  * palettes, flavors and preferences on top. Switching to "simple" applies
  * nothing from the advanced theme but keeps it stored, so switching back
  * restores it. */
-export type ThemeEngine = "simple" | "advanced" | "aero" | "tui";
-export const THEME_ENGINES: ThemeEngine[] = ["simple", "advanced", "aero", "tui"];
+export type ThemeEngine = "simple" | "advanced" | "aero" | "tui" | "liquid";
+export const THEME_ENGINES: ThemeEngine[] = ["simple", "advanced", "aero", "tui", "liquid"];
 
 export function isThemeEngine(value: unknown): value is ThemeEngine {
   return typeof value === "string" && (THEME_ENGINES as string[]).includes(value);
@@ -399,6 +436,13 @@ const MANAGED_VARS = [
   "--tui-text-glow",
   "--tui-line-glow",
   "--tui-element-glow",
+  // src/theme/liquidTheme.ts, liquidVars()
+  "--liquid-blur",
+  "--liquid-saturate",
+  "--liquid-rim",
+  "--liquid-fill",
+  "--liquid-tint",
+  "--liquid-tint-amount",
 ];
 
 export type ComputedVars = Record<string, string>;
@@ -466,6 +510,23 @@ export function computeThemeVars(theme: UserTheme, isDark: boolean, accentOverri
     }
   }
 
+  // The simple engine's own text and background colours for this colour scheme. The menus' frame
+  // follows the background: a shade towards the text in light mode, darker in dark mode, as the
+  // stock frame is to the stock background.
+  if (theme.engine === "simple") {
+    const colors = isDark ? theme.simple?.dark : theme.simple?.light;
+    if (colors?.background && HEX_COLOR.test(colors.background)) {
+      vars["--bungalow-color-canvas"] = colors.background;
+      vars["--chrome-bg"] = isDark
+        ? "color-mix(in srgb, #000000 45%, var(--bungalow-color-canvas))"
+        : "color-mix(in srgb, var(--bungalow-color-ink) 3%, var(--bungalow-color-canvas))";
+    }
+    if (colors?.foreground && HEX_COLOR.test(colors.foreground)) {
+      vars["--bungalow-color-ink"] = colors.foreground;
+      vars["--chrome-fg"] = "var(--bungalow-color-ink)";
+    }
+  }
+
   // Derive muted/surface tones from the (possibly new) canvas + ink so custom
   // backgrounds stay coherent instead of clashing with the stock greys.
   if (vars["--bungalow-color-canvas"] || vars["--bungalow-color-ink"]) {
@@ -504,6 +565,15 @@ export function computeThemeVars(theme: UserTheme, isDark: boolean, accentOverri
 
   if (theme.engine === "tui") Object.assign(vars, tuiVars(theme.tui));
 
+  if (theme.engine === "liquid") {
+    Object.assign(vars, liquidVars(theme.liquid));
+    // Surfaces are glass too: a wash of the ink over whatever is behind, never an opaque grey.
+    vars["--bungalow-color-surface"] = "color-mix(in srgb, var(--bungalow-color-ink) 6%, transparent)";
+    vars["--bungalow-color-surface-strong"] = "color-mix(in srgb, var(--bungalow-color-ink) 12%, transparent)";
+    vars["--chrome-bg"] = "color-mix(in srgb, var(--bungalow-color-canvas) 55%, transparent)";
+    if (!font?.value) vars["--bungalow-font-sans"] = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif";
+  }
+
   return vars;
 }
 
@@ -522,6 +592,8 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
   return {
     "data-dark-tab-bar": engine === "simple" && shell?.darkTabBar ? "" : null,
     "data-dark-frame": engine === "simple" && shell?.darkFrame ? "" : null,
+    // The liquid engine's phone tab bar floats over the content like the fading one (liquid.css).
+    "data-fading-tab-bar": shell?.fadingTabBar || engine === "liquid" ? "" : null,
     "data-desktop-layout": classic ? "classic" : null,
     "data-classic-frame": classic && shell?.classicFrame ? "" : null,
     // High contrast and the foreground accent re-declare the colour tokens on every element
@@ -767,7 +839,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
   // The site's accent, else the visitor's. "theme" (and null) is the theme's own accent.
   const chosenAccent = fromSite.accentColor ? siteThemePartValue(declaredSiteTheme, "accentColor") : ownAccent;
   const effectiveAccent = chosenAccent && chosenAccent !== "theme" ? chosenAccent : null;
-  // What actually gets applied: nothing from the advanced theme in simple mode,
+  // What actually gets applied: nothing from the advanced theme in simple mode but its own colours,
   // and only what the aero/TUI engine derives from its own settings in those modes.
   const activeTheme = useMemo<UserTheme>(() => {
     const base =
@@ -777,7 +849,9 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
           ? aeroUserTheme(appliedTheme.aero)
           : appliedEngine === "tui"
             ? tuiUserTheme(appliedTheme.tui)
-            : {};
+            : appliedEngine === "liquid"
+              ? liquidUserTheme(appliedTheme.liquid)
+              : simpleUserTheme(appliedTheme.simple);
     // The site's layout style: locked, or a default where the theme sets none.
     const layoutStyle = resolveSitePreference(siteLayout, "layoutStyle", base.layoutStyle);
     return layoutStyle ? { ...base, layoutStyle } : base;
@@ -804,6 +878,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       classicFrame: desktopFromSite ? !!siteLayout?.classicFrame : own.classicFrame,
       darkTabBar: resolveSitePreference(siteLayout, "darkTabBar", own.darkTabBar),
       darkFrame: resolveSitePreference(siteLayout, "darkFrame", own.darkFrame),
+      fadingTabBar: resolveSitePreference(siteLayout, "fadingTabBar", own.fadingTabBar),
       savedIcon: resolveSitePreference(siteLayout, "savedIcon", own.savedIcon),
       player: resolveSitePreference(siteLayout, "player", own.player),
       sidebarLibrary: resolveSitePreference(siteLayout, "sidebarLibrary", own.sidebarLibrary),
@@ -888,13 +963,13 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
         if (ownsTheme(partial)) setEngineChosen(true);
         persist({ ...userTheme, ...partial });
       },
-      // The aero and TUI engines' settings and the shell preferences ride along on the same
+      // The simple, aero, TUI and liquid engines' settings and the shell preferences ride along on the same
       // object; loading or resetting an advanced theme keeps them.
       replaceUserTheme: (next) => {
         setEngineChosen(true);
-        persist({ aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell, ...next });
+        persist({ simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, liquid: userTheme.liquid, shell: userTheme.shell, ...next });
       },
-      resetUserTheme: () => persist({ ...defaultUserTheme(), aero: userTheme.aero, tui: userTheme.tui, shell: userTheme.shell }),
+      resetUserTheme: () => persist({ ...defaultUserTheme(), simple: userTheme.simple, aero: userTheme.aero, tui: userTheme.tui, liquid: userTheme.liquid, shell: userTheme.shell }),
       savedThemes,
       saveCurrentTheme: (name) =>
         persistSaved([
@@ -909,7 +984,12 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [engine, userTheme, savedThemes, declaredSiteTheme, fromSite, appliedEngine, siteMode, mode, effectiveAccent, preferences]);
 
-  return <UserThemeContext.Provider value={value}>{children}</UserThemeContext.Provider>;
+  return (
+    <UserThemeContext.Provider value={value}>
+      {children}
+      {hydrated && activeTheme.engine === "liquid" ? <LiquidBackdrop settings={activeTheme.liquid ?? {}} dark={isDark} /> : null}
+    </UserThemeContext.Provider>
+  );
 }
 
 export function useUserTheme(): UserThemeValue {

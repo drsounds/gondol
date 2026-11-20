@@ -1,7 +1,18 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+// The ai app's way to OpenAI-compatible APIs (gondol/builtin/ai): the browser asks this function,
+// which calls the API server-side for the signed-in user.
+//
+// POST body: { action: "models", baseUrl } | { action: "models", serviceId }
+//            { action: "chat", baseUrl | serviceId, model, messages, temperature?, tools? }
+//            (chat also takes `app` and `workspaceId`, whose AI credits it uses: _shared/aiCredits.ts)
+//
+// With `baseUrl` the key is the user's `openai.apiKey` setting (app_settings). With `serviceId`
+// (one of the user's ai_services, provider "openai") the address is the service's (empty: OpenAI's)
+// and the key the service's, from ai_service_keys, which only the service role reads.
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { assertCredits, chargeCredits, creditContext, CreditsConfigError, CreditsError, estimateTokens, meterOpenAiStream } from "../_shared/aiCredits.ts";
 
 const corsHeaders = {
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-spacify-workspace",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Origin": "*",
 };
@@ -152,10 +163,53 @@ async function validateBaseUrl(value: unknown): Promise<URL> {
   return url;
 }
 
+type ChatMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+const TOOL_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
+
+function validateToolCalls(value: unknown): { id: string; type: "function"; function: { name: string; arguments: string } }[] {
+  if (!Array.isArray(value) || value.length > 64) throw new FunctionError("The tool calls are invalid", "invalid", 400);
+  return value.map((call) => {
+    const item = call as { id?: unknown; function?: { name?: unknown; arguments?: unknown } } | null;
+    if (!item || typeof item.id !== "string" || typeof item.function?.name !== "string" || !TOOL_NAME.test(item.function.name) || typeof item.function.arguments !== "string") {
+      throw new FunctionError("The tool calls are invalid", "invalid", 400);
+    }
+    return { id: item.id, type: "function" as const, function: { name: item.function.name, arguments: item.function.arguments } };
+  });
+}
+
+function validateTools(value: unknown): { type: "function"; function: { name: string; description?: string; parameters: Record<string, unknown> } }[] {
+  if (!Array.isArray(value) || value.length > 128) throw new FunctionError("The tools are invalid", "invalid", 400);
+  return value.map((tool) => {
+    const item = tool as { type?: unknown; function?: { name?: unknown; description?: unknown; parameters?: unknown } } | null;
+    const fn = item?.function;
+    if (
+      !item ||
+      item.type !== "function" ||
+      typeof fn?.name !== "string" ||
+      !TOOL_NAME.test(fn.name) ||
+      (fn.description !== undefined && typeof fn.description !== "string") ||
+      !fn.parameters ||
+      typeof fn.parameters !== "object" ||
+      Array.isArray(fn.parameters)
+    ) {
+      throw new FunctionError("The tools are invalid", "invalid", 400);
+    }
+    return {
+      type: "function" as const,
+      function: { name: fn.name, ...(typeof fn.description === "string" ? { description: fn.description } : {}), parameters: fn.parameters as Record<string, unknown> },
+    };
+  });
+}
+
 function validateChat(body: Record<string, unknown>): {
   model: string;
-  messages: { role: "system" | "user" | "assistant"; content: string }[];
+  messages: ChatMessage[];
   temperature?: number;
+  tools?: ReturnType<typeof validateTools>;
 } {
   if (typeof body.model !== "string" || !body.model.trim() || body.model.length > 200) {
     throw new FunctionError("A valid model is required", "invalid", 400);
@@ -165,28 +219,35 @@ function validateChat(body: Record<string, unknown>): {
   }
 
   let totalLength = 0;
-  const messages = body.messages.map((message) => {
+  const messages = body.messages.map((message): ChatMessage => {
     const item = message as Record<string, unknown> | null;
-    if (
-      !item ||
-      typeof item !== "object" ||
-      typeof item.role !== "string" ||
-      !["system", "user", "assistant"].includes(item.role) ||
-      typeof item.content !== "string"
-    ) {
-      throw new FunctionError("The chat messages are invalid", "invalid", 400);
+    if (!item || typeof item !== "object" || typeof item.role !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
+    if (item.role === "assistant" && item.tool_calls !== undefined) {
+      if (item.content !== null && typeof item.content !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
+      const toolCalls = validateToolCalls(item.tool_calls);
+      totalLength += (typeof item.content === "string" ? item.content.length : 0) + toolCalls.reduce((sum, call) => sum + call.function.arguments.length, 0);
+      return { role: "assistant", content: (item.content as string | null) ?? null, tool_calls: toolCalls };
     }
+    if (typeof item.content !== "string") throw new FunctionError("The chat messages are invalid", "invalid", 400);
     totalLength += item.content.length;
+    if (item.role === "tool") {
+      if (typeof item.tool_call_id !== "string" || !item.tool_call_id) throw new FunctionError("The chat messages are invalid", "invalid", 400);
+      return { role: "tool", tool_call_id: item.tool_call_id, content: item.content };
+    }
+    if (!["system", "user", "assistant"].includes(item.role)) throw new FunctionError("The chat messages are invalid", "invalid", 400);
     return { role: item.role as "system" | "user" | "assistant", content: item.content };
   });
   if (totalLength > 1_000_000) throw new FunctionError("The chat messages are too large", "invalid", 413);
   if (body.temperature !== undefined && (typeof body.temperature !== "number" || !Number.isFinite(body.temperature) || body.temperature < 0 || body.temperature > 2)) {
     throw new FunctionError("Temperature must be between 0 and 2", "invalid", 400);
   }
+  const tools = body.tools !== undefined ? validateTools(body.tools) : undefined;
+  if (tools && JSON.stringify(tools).length > 500_000) throw new FunctionError("The tools are too large", "invalid", 413);
   return {
     model: body.model,
     messages,
     ...(body.temperature !== undefined ? { temperature: body.temperature as number } : {}),
+    ...(tools?.length ? { tools } : {}),
   };
 }
 
@@ -194,6 +255,47 @@ function upstreamErrorMessage(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object" || !("error" in payload)) return undefined;
   const error = payload.error;
   return typeof error === "string" ? error : error && typeof error === "object" && "message" in error && typeof error.message === "string" ? error.message : undefined;
+}
+
+const OPENAI_BASE_URL = "https://api.openai.com/v1";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * One of the user's services (ai_services, read as the user so RLS applies), with its key, which
+ * only the service role can read (ai_service_keys).
+ */
+async function readService(
+  supabase: SupabaseClient,
+  userId: string,
+  serviceId: unknown,
+): Promise<{ baseUrl: string; apiKey: string }> {
+  if (typeof serviceId !== "string" || !UUID.test(serviceId)) throw new FunctionError("The AI service is invalid", "invalid", 400);
+  const { data: service, error } = await supabase
+    .from("ai_services")
+    .select("id, provider, base_url, enabled")
+    .eq("id", serviceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new FunctionError("Couldn't read the AI service", "config", 500);
+  const row = service as { provider?: string; base_url?: string | null; enabled?: boolean } | null;
+  if (!row) throw new FunctionError("There is no such AI service", "config", 404);
+  if (row.provider !== "openai") throw new FunctionError("The AI service doesn't speak an OpenAI-compatible API", "config", 400);
+  if (row.enabled === false) throw new FunctionError("The AI service is turned off", "config", 400);
+
+  const serviceKey = deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const supabaseUrl = deno.env.get("SUPABASE_URL");
+  if (!serviceKey || !supabaseUrl) throw new FunctionError("SUPABASE_SERVICE_ROLE_KEY isn't set for this function", "config", 500);
+  const admin = createClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: key, error: keyError } = await admin
+    .from("ai_service_keys")
+    .select("api_key")
+    .eq("service_id", serviceId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (keyError) throw new FunctionError("Couldn't read the AI service's key", "config", 500);
+  const stored = (key as { api_key?: unknown } | null)?.api_key;
+  const apiKey = typeof stored === "string" ? stored.trim() : "";
+  return { baseUrl: typeof row.base_url === "string" ? row.base_url.trim() : "", apiKey };
 }
 
 async function handleRequest(request: Request): Promise<Response> {
@@ -231,19 +333,30 @@ async function handleRequest(request: Request): Promise<Response> {
     throw new FunctionError("The requested action is invalid", "invalid", 400);
   }
 
-  const { data: settingsRow, error: settingsError } = await supabase
-    .from("app_settings")
-    .select("data")
-    .eq("app_id", "ai")
-    .eq("scope", "user")
-    .eq("scope_id", authData.user.id)
-    .maybeSingle();
-  if (settingsError) throw new FunctionError("Couldn't read your AI settings", "config", 500);
-  const settings = settingsRow?.data && typeof settingsRow.data === "object" && !Array.isArray(settingsRow.data)
-    ? settingsRow.data as Record<string, unknown>
-    : {};
-  const apiKey = typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
-  const baseUrl = await validateBaseUrl(input.baseUrl);
+  let apiKey = "";
+  let requestedBaseUrl: unknown = input.baseUrl;
+  if (input.serviceId !== undefined) {
+    const service = await readService(supabase, authData.user.id, input.serviceId);
+    apiKey = service.apiKey;
+    requestedBaseUrl = service.baseUrl || OPENAI_BASE_URL;
+  } else {
+    const { data: settingsRow, error: settingsError } = await supabase
+      .from("app_settings")
+      .select("data")
+      .eq("app_id", "ai")
+      .eq("scope", "user")
+      .eq("scope_id", authData.user.id)
+      .maybeSingle();
+    if (settingsError) throw new FunctionError("Couldn't read your AI settings", "config", 500);
+    const settings = settingsRow?.data && typeof settingsRow.data === "object" && !Array.isArray(settingsRow.data)
+      ? settingsRow.data as Record<string, unknown>
+      : {};
+    apiKey = typeof settings["openai.apiKey"] === "string" ? settings["openai.apiKey"].trim() : "";
+  }
+  const baseUrl = await validateBaseUrl(requestedBaseUrl);
+  const chat = input.action === "chat" ? validateChat(input) : null;
+  const credit = chat ? creditContext(request, input, { userId: authData.user.id, provider: "openai", model: chat.model }) : null;
+  const { limited } = credit ? await assertCredits(supabase, credit) : { limited: false };
   const endpoint = new URL(`${baseUrl.toString().replace(/\/+$/, "")}/${input.action === "models" ? "models" : "chat/completions"}`);
 
   let upstream: Response;
@@ -255,7 +368,8 @@ async function handleRequest(request: Request): Promise<Response> {
         ...(input.action === "chat" ? { "Content-Type": "application/json" } : {}),
         ...(apiKey ? { Authorization: "Bearer " + apiKey } : {}),
       },
-      ...(input.action === "chat" ? { body: JSON.stringify({ ...validateChat(input), stream: true }) } : {}),
+      // The usage comes as the last event when asked for (only then: not every compatible API knows it).
+      ...(chat ? { body: JSON.stringify({ ...chat, stream: true, ...(limited ? { stream_options: { include_usage: true } } : {}) }) } : {}),
       signal: request.signal,
     });
   } catch (error) {
@@ -287,7 +401,8 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 
   if (!upstream.body) throw new FunctionError("The AI API sent no answer", "invalid", 502);
-  return new Response(upstream.body, {
+  const asked = estimateTokens(JSON.stringify(chat?.messages ?? []) + JSON.stringify(chat?.tools ?? []));
+  return new Response(meterOpenAiStream(upstream.body, asked, (usage) => void chargeCredits(credit!, usage)), {
     status: upstream.status,
     headers: {
       ...corsHeaders,
@@ -302,6 +417,8 @@ deno.serve(async (request) => {
     return await handleRequest(request);
   } catch (error) {
     if (error instanceof FunctionError) return errorResponse(error);
+    if (error instanceof CreditsError) return jsonResponse({ error: error.message, kind: error.kind, nextRefillAt: error.nextRefillAt }, error.status);
+    if (error instanceof CreditsConfigError) return jsonResponse({ error: error.message, kind: error.kind }, error.status);
     return errorResponse(new FunctionError("The AI service failed unexpectedly", "unreachable", 500));
   }
 });

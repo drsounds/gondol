@@ -42,11 +42,26 @@ Guides: [Building apps](../guide/apps.md), [Features](../guide/features.md),
 
 Guide: [App settings](../guide/settings.md).
 
+## `api/`
+
+| Module | Main exports |
+| --- | --- |
+| `api/openapi` | `appApiSchema` (a manifest's `api`), `buildOpenApiDocument`, `apiScopes`, `AppApi`, `ApiSource` |
+| `api/gateway` | `createApiGateway`, `validate`, `matchOperation`, `statusForDbError`, `rpcArgName`, `ApiDocument`, `ApiOperation`, `ApiCaller`, `TokenGrant`, `TokenResult` (no imports: copied into edge functions) |
+| `api/functions` | `appFunctionsSchema`, `appMcpSchema` (a manifest's `functions` and `mcp`), `buildAppRegistry`, `inlineRefs` |
+| `api/router` | `createAppRouter`, `mayCall`, `qualifiedToolName`, `splitToolName`, `AppRegistry`, `RouterCaller`, `McpTool`, `McpToolResult` (imports only `./gateway.ts`: copied into edge functions) |
+| `api/client` | `callAppFunction`, `fetchAppCatalog`, `mcpRequest`, `listAppTools`, `callAppTool`, `configureAppRouter`, `AppRouterError` |
+| `api/cli` | The `gondol-api` command: writes `openapi.json`, `gateway.ts`, `apps.json`, `router.ts` (and with `--functions` the `app-router` function) for the host's server |
+
+Guides: [App APIs](../guide/api.md), [App functions and MCP](../guide/functions.md).
+
 ## `builtin/`
 
 | Module | Main exports |
 | --- | --- |
 | `builtin/ai` | `aiApp` (also the default export): the [ai app](../guide/ai.md) |
+| `builtin/oauth` | `oauthApp` (also the default export): the [oauth app](../guide/oauth.md) |
+| `builtin/oauth/models/oauth` | `useOAuthClients`, `useCreateOAuthClient`, `useUpdateOAuthClient`, `useDeleteOAuthClient`, `useRegenerateOAuthSecret`, `useOAuthGrants`, `useRevokeOAuthGrant`, `parseAuthorizeRequest`, `authorizeOAuth`, `redirectWith` |
 | `builtin/ai/models` | `useAiSettings`, `useAiConversations`, `useAiMessages`, `useAiChat`, `useAiModelChoices`, `useProviderModels`, `useSavedAiModels`, `registerAiProvider`, `getAiProvider`, `getAiProviders`, `ollamaProvider`, `AiProvider`, `AiProviderError`, the row types |
 | `builtin/streams` | `streamsApp` (also the default export): the [streams app](../guide/streams.md) |
 | `builtin/streams/models` | `useStreams`, `useStreamEntries`, `useSaveStream`, `useDeleteStream`, `useSaveStreamEntry`, `useDeleteStreamEntry`, `streamsHostHook`, `formatDuration`, the row types |
@@ -142,7 +157,7 @@ Guide: [Theming](../guide/theming.md).
 
 | Module | Main exports |
 | --- | --- |
-| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteAllowsApp`, `siteAllowsType`, `siteShowsType`, `siteShowsUri`, `useSiteShows`, `entityTypeFeature`, `featureForPath`, `siteShowsEntity`, `useSiteEntityFilter` |
+| `sites/sites` | `SiteProvider`, `useSite`, `SiteConfig`, `siteBrowserMetadata`, `siteAllowsApp`, `siteAllowsType`, `siteShowsType`, `siteShowsUri`, `useSiteShows`, `entityTypeFeature`, `featureForPath`, `siteShowsEntity`, `useSiteEntityFilter` |
 | `i18n/i18n` | `I18nProvider`, `useI18n`, `Translate`, `MessageCatalogue` |
 | `i18n/messages` | `GONDOL_MESSAGES`, `GondolMessageKey` |
 | `supabase/client` | `getSupabaseClient`, `setSupabaseClient`, `supabase` |

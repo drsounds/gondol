@@ -1,0 +1,55 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "service-finder",
+  "slug": "service-finder",
+  "name": { "en": "Service Finder", "sv": "Tjänstsökaren" },
+  "description": {
+    "en": "Find MCP servers in MCP registries (the official MCP registry, and any others you add) and install them: installed servers are the tools the AI chat and every agent can use.",
+    "sv": "Hitta MCP-servrar i MCP-register (det officiella MCP-registret och andra du lägger till) och installera dem: installerade servrar är verktygen AI-chatten och alla agenter kan använda."
+  },
+  "iconName": "compass",
+  "defaultFeatureId": "finder",
+  "dependencies": ["ai"],
+  "defaultActive": true,
+  "roles": ["admin", "operator"],
+  "staticPaths": ["/mcp-servers/new", "/mcp-registries/new"],
+  "uuidPaths": ["/mcp-servers", "/mcp-registries"],
+  "features": [
+    {
+      "id": "finder",
+      "name": { "en": "Service Finder", "sv": "Tjänstsökaren" },
+      "description": { "en": "Search MCP registries for servers and install them", "sv": "Sök efter servrar i MCP-register och installera dem" },
+      "path": "service-finder",
+      "iconName": "compass",
+      "aspects": ["view", "create", "configure"],
+      "actions": [
+        { "id": "serviceFinder.open", "title": "Find MCP servers", "category": "AI", "iconName": "compass", "navigate": "/service-finder", "keywords": ["mcp", "registry", "tools", "servers", "install"] }
+      ],
+      "browse": { "label": "serviceFinder.title", "iconName": "compass", "hue": 190, "order": 175 }
+    },
+    {
+      "id": "installed",
+      "name": { "en": "Installed servers", "sv": "Installerade servrar" },
+      "description": { "en": "The MCP servers the AI chat and your agents use", "sv": "MCP-servrarna AI-chatten och dina agenter använder" },
+      "path": "mcp-servers",
+      "iconName": "chip",
+      "aspects": ["view", "edit", "configure", "delete"],
+      "actions": [
+        { "id": "serviceFinder.installed", "title": "Installed MCP servers", "category": "AI", "iconName": "chip", "navigate": "/mcp-servers", "keywords": ["mcp", "tools", "servers"] },
+        { "id": "serviceFinder.addByAddress", "title": "Add MCP server by address", "category": "AI", "iconName": "plus", "navigate": "/mcp-servers/new", "keywords": ["mcp", "tools", "model context protocol"], "aspects": ["create"] }
+      ]
+    },
+    {
+      "id": "registries",
+      "name": { "en": "MCP registries", "sv": "MCP-register" },
+      "description": { "en": "Where the Service Finder looks for servers", "sv": "Var tjänstsökaren letar efter servrar" },
+      "path": "mcp-registries",
+      "iconName": "database",
+      "aspects": ["configure", "create", "edit", "delete"],
+      "actions": [
+        { "id": "serviceFinder.registries", "title": "MCP registries", "category": "AI", "iconName": "database", "navigate": "/mcp-registries", "keywords": ["mcp", "registry"] },
+        { "id": "serviceFinder.registries.new", "title": "Add MCP registry", "category": "AI", "iconName": "plus", "navigate": "/mcp-registries/new", "keywords": ["mcp", "registry"], "aspects": ["create"] }
+      ]
+    }
+  ]
+}

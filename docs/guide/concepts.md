@@ -77,7 +77,7 @@ An **entity** is any row a user can open, link to, search for or drag around. Ev
 - a **source**: the table it lives in and how to label a row,
 - **art**: a glyph and a hue for its generated cover tile.
 
-With those registered, gondol gives every entity "Copy URI" and "Copy URL", search results, a place
+With those registered, gondol gives every entity a share sheet ("Copy link", "Copy URI", sending), search results, a place
 in entity pickers, drag and drop, soft deletion and "Change address…". See
 [Entities](./entities.md) and [Entity UI](./entity-ui.md).
 

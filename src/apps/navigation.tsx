@@ -48,12 +48,16 @@ export function useAppNavigation(locale = "en"): DynamicMenuSection[] {
         };
       });
 
+      // An app whose pages all stay out of the menu (and that has no menu widgets) gets no section.
+      if (!items.length && !bundle.widgets?.menuWidgets?.length) continue;
+
       sections.push({
         id: bundle.id,
         appId: bundle.id,
         title: bundle.name,
         iconName: bundle.iconName as IconName,
         items,
+        widgets: bundle.widgets?.menuWidgets,
       });
     }
 
@@ -179,9 +183,11 @@ export function useActiveAppWidgets() {
     const sidebarNavWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const sidebarPanelWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const sidebarWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
+    const sidebarBottomWidgets: ComponentType<AppSidebarWidgetProps>[] = [];
     const bottomWidgets: ComponentType<AppBottomWidgetProps>[] = [];
     const overlayWidgets: ComponentType[] = [];
     const contentHeadWidgets: ComponentType[] = [];
+    const headerWidgets: ComponentType[] = [];
     const Providers: ComponentType<{ children: ReactNode }>[] = [];
 
     for (const bundle of activeBundles) {
@@ -201,6 +207,9 @@ export function useActiveAppWidgets() {
         if (bundle.widgets.sidebarWidgets) {
           sidebarWidgets.push(...bundle.widgets.sidebarWidgets);
         }
+        if (bundle.widgets.sidebarBottomWidgets) {
+          sidebarBottomWidgets.push(...bundle.widgets.sidebarBottomWidgets);
+        }
         if (bundle.widgets.bottomWidgets) {
           bottomWidgets.push(...bundle.widgets.bottomWidgets);
         }
@@ -209,6 +218,9 @@ export function useActiveAppWidgets() {
         }
         if (bundle.widgets.contentHeadWidgets) {
           contentHeadWidgets.push(...bundle.widgets.contentHeadWidgets);
+        }
+        if (bundle.widgets.headerWidgets) {
+          headerWidgets.push(...bundle.widgets.headerWidgets);
         }
         if (bundle.widgets.Providers) {
           Providers.push(...bundle.widgets.Providers);
@@ -221,9 +233,11 @@ export function useActiveAppWidgets() {
       sidebarNavWidgets,
       sidebarPanelWidgets,
       sidebarWidgets,
+      sidebarBottomWidgets,
       bottomWidgets,
       overlayWidgets,
       contentHeadWidgets,
+      headerWidgets,
       Providers,
     };
   }, [activeBundles]);
@@ -243,6 +257,12 @@ export function Widgets<P extends object>({ widgets, props }: { widgets: Compone
       ))}
     </>
   );
+}
+
+/** The active apps' `headerWidgets`, for the host to place in its header (left of the account menu). */
+export function HeaderWidgets() {
+  const { headerWidgets } = useActiveAppWidgets();
+  return <Widgets widgets={headerWidgets} props={{}} />;
 }
 
 /**

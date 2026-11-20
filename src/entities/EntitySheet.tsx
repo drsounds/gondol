@@ -13,7 +13,7 @@ interface EntitySheetProps {
   footer?: ReactNode;
   /** When set, the body and footer are wrapped in a <form> so the footer's submit button works. */
   onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
-  /** spacify: URI of the entity being edited; adds "Copy URI" to the header's actions menu. */
+  /** spacify: URI of the entity being edited; adds "Share" (and the app's entity actions) to the header's actions menu. */
   uri?: string;
   /** Extra entity actions for the header's "⋯" menu (save/delete stay in the footer). */
   actions?: MenuAction[];

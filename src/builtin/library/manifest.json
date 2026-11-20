@@ -1,0 +1,28 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "library",
+  "slug": "library",
+  "name": { "en": "Library", "sv": "Bibliotek" },
+  "description": {
+    "en": "Your library: the entities you save and pin, from any app, as one list and as \"Your Library\" in the sidebar.",
+    "sv": "Ditt bibliotek: objekten du sparar och fäster, från alla appar, som en lista och som \"Ditt bibliotek\" i sidofältet."
+  },
+  "iconName": "like-fill",
+  "defaultFeatureId": "library",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": ["consumer", "curator"],
+  "features": [
+    {
+      "id": "library",
+      "name": { "en": "Library", "sv": "Bibliotek" },
+      "description": { "en": "Saved items, pins, and custom collections", "sv": "Sparade objekt, fästa poster och samlingar" },
+      "path": "library",
+      "iconName": "like-fill",
+      "actions": [
+        { "id": "library.open", "title": "Go to Library", "category": "Library", "iconName": "like-fill", "navigate": "/library", "keywords": ["saved", "pins", "bookmarks", "bibliotek", "sparade"], "aspects": ["view"] }
+      ],
+      "browse": { "label": "nav.library", "iconName": "like-fill", "hue": 330, "order": 40 }
+    }
+  ]
+}

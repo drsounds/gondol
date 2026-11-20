@@ -3,6 +3,7 @@ import { Icon, type IconName } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import type { DynamicMenuSection } from "../apps/types";
 import { ChevronIcon } from "./icons";
+import { Widgets } from "../apps/navigation";
 import { NavItem } from "./NavItem";
 
 /**
@@ -71,17 +72,19 @@ export function AppRows({
   );
 }
 
-/** An app's pages. */
+/** An app's pages, then its `menuWidgets` (e.g. the AI chat's recent conversations). */
 export function AppPages({
   section,
   pathname,
   onNavigate,
   extra,
+  collapsed,
 }: {
   section: DynamicMenuSection;
   pathname: string;
   onNavigate: (path: string) => void;
   extra?: boolean;
+  collapsed?: boolean;
 }) {
   return (
     <>
@@ -95,6 +98,7 @@ export function AppPages({
           onClick={() => onNavigate(item.path)}
         />
       ))}
+      {section.widgets?.length ? <Widgets widgets={section.widgets} props={{ pathname, onNavigate, extra, collapsed }} /> : null}
     </>
   );
 }

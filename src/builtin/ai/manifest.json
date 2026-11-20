@@ -4,14 +4,14 @@
   "slug": "ai",
   "name": { "en": "AI", "sv": "AI" },
   "description": {
-    "en": "Chat with large language models: conversations kept per account, models from Ollama or OpenAI-compatible APIs, and the provider's address in the app's settings.",
-    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, modeller från Ollama eller OpenAI-kompatibla API:er och leverantörens adress i appens inställningar."
+    "en": "Chat with large language models: conversations kept per account, AI services of your own (OpenAI, Berget AI, a local Ollama, a LangChain Deep Agent, …) each on a provider, or the provider's address in the app's settings, and the tools other apps offer over MCP.",
+    "sv": "Chatta med stora språkmodeller: konversationer sparade per konto, egna AI-tjänster (OpenAI, Berget AI, en lokal Ollama, en LangChain Deep Agent, …) kopplade till en leverantör, eller leverantörens adress i appens inställningar, och verktygen andra appar erbjuder via MCP."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "chat",
   "dependencies": [],
   "defaultActive": true,
-  "uuidPaths": ["/ai"],
+  "uuidPaths": ["/ai", "/ai-models", "/ai-credits"],
   "features": [
     {
       "id": "chat",
@@ -21,19 +21,38 @@
       "iconName": "chat",
       "actions": [
         { "id": "ai.open", "title": "Open AI chat", "category": "AI", "iconName": "chat", "navigate": "/ai", "keywords": ["llm", "ollama", "assistant"], "aspects": ["view"] },
-        { "id": "ai.new", "title": "New AI conversation", "category": "AI", "iconName": "plus", "navigate": "/ai/new", "keywords": ["chat", "llm"], "aspects": ["create"] }
+        { "id": "ai.new", "title": "New AI conversation", "category": "AI", "iconName": "plus", "navigate": "/ai/new", "keywords": ["chat", "llm"], "aspects": ["create"] },
+        { "id": "ai.settings", "title": "AI settings", "category": "AI", "iconName": "settings", "navigate": "/ai/settings", "keywords": ["chat", "tools", "permissions"], "aspects": ["configure"] }
       ]
     },
     {
       "id": "models",
       "name": { "en": "AI models", "sv": "AI-modeller" },
-      "description": { "en": "Providers and the models they serve", "sv": "Leverantörer och modellerna de erbjuder" },
+      "description": { "en": "AI services, providers and the models they serve", "sv": "AI-tjänster, leverantörer och modellerna de erbjuder" },
       "path": "ai-models",
       "iconName": "chip",
       "roles": ["admin", "operator"],
       "aspects": ["configure"],
       "actions": [
-        { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm"] }
+        { "id": "ai.models", "title": "AI models and providers", "category": "AI", "iconName": "chip", "navigate": "/ai-models", "keywords": ["ollama", "llm", "services", "openai", "berget"] },
+        { "id": "ai.services.new", "title": "Add AI service", "category": "AI", "iconName": "plus", "navigate": "/ai-models/services/new", "keywords": ["openai", "berget", "ollama", "api key"], "aspects": ["create"] },
+        { "id": "ai.mcp.new", "title": "Add MCP server", "category": "AI", "iconName": "plus", "navigate": "/ai-models/mcp/new", "keywords": ["mcp", "tools", "model context protocol"], "aspects": ["create"] }
+      ]
+    },
+    {
+      "id": "credits",
+      "name": { "en": "AI credits", "sv": "AI-krediter" },
+      "description": {
+        "en": "The AI credits you have left and when more come; for site owners and workspace admins, the tiers that give them and what tokens cost",
+        "sv": "AI-krediterna du har kvar och när fler kommer; för webbplatsägare och arbetsyteadministratörer nivåerna som ger dem och vad token kostar"
+      },
+      "path": "ai-credits",
+      "iconName": "coin",
+      "aspects": ["view", "analyze", "configure"],
+      "actions": [
+        { "id": "ai.credits", "title": "AI credits", "category": "AI", "iconName": "coin", "navigate": "/ai-credits", "keywords": ["credits", "quota", "limit", "tokens", "usage"], "aspects": ["view"] },
+        { "id": "ai.credits.tiers.new", "title": "Add AI credit tier", "category": "AI", "iconName": "plus", "navigate": "/ai-credits/tiers/new", "keywords": ["credits", "quota", "limit", "tier"], "roles": ["admin"], "aspects": ["create", "configure"] },
+        { "id": "ai.credits.rates.new", "title": "Add AI credit rate", "category": "AI", "iconName": "plus", "navigate": "/ai-credits/rates/new", "keywords": ["credits", "price", "tokens", "rate"], "roles": ["admin"], "aspects": ["create", "configure"] }
       ]
     }
   ],
@@ -91,11 +110,56 @@
             "default": "enter"
           },
           {
+            "key": "composerPosition",
+            "type": "select",
+            "scope": "user",
+            "display": "radio",
+            "label": { "en": "Message box", "sv": "Meddelanderutan" },
+            "options": [
+              { "value": "bottom", "label": { "en": "At the bottom, the conversation above it", "sv": "Längst ner, konversationen ovanför" } },
+              { "value": "top", "label": { "en": "At the top, the latest answer right under it", "sv": "Högst upp, det senaste svaret direkt under" } }
+            ],
+            "default": "bottom"
+          },
+          {
             "key": "showMetrics",
             "type": "checkbox",
             "scope": "user",
             "label": { "en": "Show tokens and speed under answers", "sv": "Visa tokens och hastighet under svar" },
             "default": false
+          }
+        ]
+      },
+      {
+        "id": "apps",
+        "title": { "en": "Apps", "sv": "Appar" },
+        "description": {
+          "en": "Apps can offer the AI tools (MCP) through the app router, e.g. to start a stream or note an idea.",
+          "sv": "Appar kan erbjuda AI:n verktyg (MCP) via approutern, t.ex. för att starta ett flöde eller anteckna en idé."
+        },
+        "settings": [
+          {
+            "key": "appTools",
+            "type": "checkbox",
+            "label": { "en": "Let the AI use the apps' tools", "sv": "Låt AI:n använda apparnas verktyg" },
+            "default": true
+          },
+          {
+            "key": "toolApproval",
+            "type": "select",
+            "scope": "user",
+            "display": "radio",
+            "label": { "en": "Ask before a tool runs", "sv": "Fråga innan ett verktyg körs" },
+            "description": {
+              "en": "The chat asks in the answer. Tools you allow for a conversation or always are listed in the AI settings, to take back.",
+              "sv": "Chatten frågar i svaret. Verktyg du tillåter för en konversation eller alltid listas i AI-inställningarna, så att du kan ta tillbaka dem."
+            },
+            "options": [
+              { "value": "changes", "label": { "en": "When it changes something", "sv": "När det ändrar något" } },
+              { "value": "always", "label": { "en": "Always", "sv": "Alltid" } },
+              { "value": "never", "label": { "en": "Never", "sv": "Aldrig" } }
+            ],
+            "default": "changes"
           }
         ]
       },
@@ -109,7 +173,8 @@
             "label": { "en": "Providers in use", "sv": "Leverantörer som används" },
             "options": [
               { "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } },
-              { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } }
+              { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } },
+              { "value": "deepagents", "label": { "en": "LangChain Deep Agents", "sv": "LangChain Deep Agents" } }
             ],
             "default": ["ollama"]
           }
@@ -117,6 +182,44 @@
       }
     ],
     "submenus": [
+      {
+        "id": "deepagents",
+        "title": { "en": "LangChain Deep Agents", "sv": "LangChain Deep Agents" },
+        "description": { "en": "The agent's model and how far it may go", "sv": "Agentens modell och hur långt den får gå" },
+        "iconName": "chip",
+        "sections": [
+          {
+            "id": "agent",
+            "title": { "en": "Agent", "sv": "Agent" },
+            "description": {
+              "en": "A Deep Agent plans, keeps notes, hands work to sub-agents and uses the apps' tools until it has an answer. It runs on the server (the ai-deepagents function) on a model of an Ollama or an OpenAI-compatible API, with that provider's address and key.",
+              "sv": "En Deep Agent planerar, för anteckningar, lämnar över arbete till underagenter och använder apparnas verktyg tills den har ett svar. Den körs på servern (funktionen ai-deepagents) på en modell från en Ollama eller ett OpenAI-kompatibelt API, med den leverantörens adress och nyckel."
+            },
+            "settings": [
+              {
+                "key": "deepagents.backend",
+                "type": "select",
+                "display": "radio",
+                "label": { "en": "The agent's model runs on", "sv": "Agentens modell körs på" },
+                "options": [
+                  { "value": "ollama", "label": { "en": "Ollama", "sv": "Ollama" } },
+                  { "value": "openai", "label": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" } }
+                ],
+                "default": "ollama"
+              },
+              {
+                "key": "deepagents.maxSteps",
+                "type": "number",
+                "label": { "en": "Most steps per answer", "sv": "Flest steg per svar" },
+                "description": { "en": "Model calls and tool calls together. Empty: 100.", "sv": "Modellanrop och verktygsanrop tillsammans. Tomt: 100." },
+                "integer": true,
+                "min": 5,
+                "max": 1000
+              }
+            ]
+          }
+        ]
+      },
       {
         "id": "openai",
         "title": { "en": "OpenAI-compatible API", "sv": "OpenAI-kompatibelt API" },
@@ -183,6 +286,21 @@
                 "label": { "en": "API key (optional)", "sv": "API-nyckel (valfri)" },
                 "description": { "en": "Sent as a bearer token, for an Ollama behind a proxy that asks for one.", "sv": "Skickas som bearer-token, för en Ollama bakom en proxy som kräver en." },
                 "maxLength": 500
+              },
+              {
+                "key": "ollama.transport",
+                "type": "select",
+                "display": "radio",
+                "label": { "en": "Answers travel over", "sv": "Svar skickas via" },
+                "description": {
+                  "en": "A WebSocket keeps the connection alive while a model loads or writes a long answer, so it isn't cut off. It falls back to HTTP when the server can't take one.",
+                  "sv": "En WebSocket håller anslutningen vid liv medan en modell laddas eller skriver ett långt svar, så att den inte bryts. Den faller tillbaka på HTTP när servern inte tar emot en."
+                },
+                "options": [
+                  { "value": "websocket", "label": { "en": "WebSocket", "sv": "WebSocket" } },
+                  { "value": "http", "label": { "en": "HTTP (server-sent events)", "sv": "HTTP (server-sent events)" } }
+                ],
+                "default": "websocket"
               }
             ]
           },

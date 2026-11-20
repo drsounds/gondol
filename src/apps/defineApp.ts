@@ -22,6 +22,8 @@ import type {
   InternalAppBundle,
 } from "./types";
 import type { EntitySource } from "../entities/lookup";
+import type { Concept, ServiceDefinition } from "../services/concept";
+import { createSurfaceService } from "../playback/surfaceService";
 import type { EntityType, MessageKey } from "../register";
 
 /**
@@ -44,7 +46,7 @@ export interface AppDefinition {
   /** Every feature's page, by feature id, loaded lazily. */
   pages: Record<string, PageLoader>;
   /** Implementations of the manifest's actions that have no `navigate`, by action id. */
-  actions?: Record<string, (context: AppActionContext) => void | Promise<void>>;
+  actions?: Record<string, ((context: AppActionContext) => void | Promise<void>) | { perform: (context: AppActionContext) => void | Promise<void>; when?: () => boolean }>;
   /** Widgets (lazyWidget keeps their code out of the first load) and Providers. */
   widgets?: AppWidgets;
   /** Answers to hooks in code, next to those the manifest declares. */
@@ -52,6 +54,13 @@ export interface AppDefinition {
   /** Entity types whose row label needs code, next to (or replacing) the manifest's `source`. */
   entitySources?: Partial<Record<EntityType, EntitySource>>;
   hooks?: AppBundleHooks;
+  /**
+   * The code of the manifest's `services`, by service id: makes the service when the app comes on
+   * (services/concept.ts). A service with a `surface` and no code here runs entirely in its page.
+   */
+  services?: Record<string, ServiceDefinition["create"]>;
+  /** What the app does when it comes on and goes off, beyond its services (services/concept.ts). */
+  concept?: Concept;
 }
 
 /** `/ideas/{key}/edit` -> key => `/ideas/<key>/edit`. */
@@ -111,12 +120,16 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
   }
 
   const toAction = (action: ManifestAction): AppAction => {
+    const implementation = implementations[action.id];
     const perform = action.navigate
       ? ({ navigate }: AppActionContext) => navigate(action.navigate!)
-      : implementations[action.id];
+      : typeof implementation === "function"
+        ? implementation
+        : implementation?.perform;
     if (!perform) throw new Error(`${where}: action "${action.id}" has no \`navigate\` and no implementation in defineApp's actions`);
     const { navigate: _navigate, ...rest } = action;
-    return { ...rest, perform };
+    const when = typeof implementation === "object" ? implementation.when : undefined;
+    return { ...rest, perform, ...(when ? { when } : {}) };
   };
 
   const resolutions: Resolution[] = [];
@@ -159,7 +172,8 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
       );
     }
     for (const item of feature.create ?? []) {
-      const perform = item.action ? implementations[item.action] : undefined;
+      const implementation = item.action ? implementations[item.action] : undefined;
+      const perform = typeof implementation === "function" ? implementation : implementation?.perform;
       const navigateTo = item.action ? manifest.features.flatMap((f) => f.actions ?? []).find((a) => a.id === item.action)?.navigate : undefined;
       resolutions.push(
         answer(
@@ -200,10 +214,38 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     if (manifest.entities?.[type]) continue;
     resolutions.push(answer(entityTypesHook, { type: type as EntityType, source }));
   }
-  for (const service of manifest.services ?? []) resolutions.push(answer(privacyServicesHook, service));
+  for (const service of manifest.services ?? []) {
+    if ("countries" in service && "purpose" in service) {
+      resolutions.push(answer(privacyServicesHook, {
+        ...service,
+        name: getLocalizedText(service.name, "en"),
+        countries: service.countries,
+        purpose: service.purpose,
+      }));
+    }
+  }
   if (manifest.staticPaths || manifest.uuidPaths || manifest.menuAspects) {
     resolutions.push(answer(routingHook, { staticPaths: manifest.staticPaths, uuidPaths: manifest.uuidPaths, menuAspects: manifest.menuAspects }));
   }
+
+  for (const serviceId of Object.keys(definition.services ?? {})) {
+    if (!manifest.services?.some((service) => service.id === serviceId && "aspects" in service)) throw new Error(`${where}: code for service "${serviceId}", which its manifest doesn't declare`);
+  }
+  const services: ServiceDefinition[] = (manifest.services ?? []).flatMap((service) => {
+    if (!("aspects" in service)) return [];
+    const create = definition.services?.[service.id] ?? (service.surface ? createSurfaceService : undefined);
+    if (!create) throw new Error(`${where}: service "${service.id}" has no \`surface\` and no code in defineApp's services`);
+    return [{
+      id: service.id,
+      name: getLocalizedText(service.name, "en"),
+      aspects: [...service.aspects],
+      iconName: service.iconName,
+      hosts: service.hosts,
+      schemes: service.schemes,
+      surface: service.surface,
+      create,
+    }];
+  });
 
   return {
     id: manifest.id,
@@ -220,5 +262,7 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     defaultActive: manifest.defaultActive ?? true,
     hooks: definition.hooks,
     resolutions: [...resolutions, ...(definition.resolutions ?? [])],
+    ...(services.length ? { services } : {}),
+    ...(definition.concept ? { concept: definition.concept } : {}),
   };
 }

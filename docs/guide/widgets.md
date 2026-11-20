@@ -23,10 +23,13 @@ export const planningApp: InternalAppBundle = {
 | `overviewHeadWidgets` | Top of the home view, above every app's `overviewWidgets`. | `AppOverviewWidgetProps` |
 | `overviewWidgets` | The home view. | `AppOverviewWidgetProps` |
 | `sidebarNavWidgets` | Inside the navigation, after your own nav items (also in the phone menu drawer). | `AppSidebarWidgetProps` |
+| `menuWidgets` | Inside your app's own menu section, below its pages (sidebar, apps submenu or inset, phone menu drawer). | `AppMenuWidgetProps` |
 | `sidebarPanelWidgets` | Below the navigation, filling the sidebar column (desktop only). | `AppSidebarWidgetProps` |
+| `sidebarBottomWidgets` | At the bottom of the desktop sidebar, under Your Library (the player's service dock). | `AppSidebarWidgetProps` |
 | `sidebarWidgets` | Collected for shells that render them; `AppShell` doesn't. | `AppSidebarWidgetProps` |
 | `bottomWidgets` | After the content, for fixed bars along the bottom. | `AppBottomWidgetProps` |
 | `contentHeadWidgets` | Above the page content (notices, load errors). | none |
+| `headerWidgets` | Small indicators in the global header, left of the account menu. `AppShell` leaves the header's actions to the host, so it places them with `<HeaderWidgets/>` (`gondol/apps/navigation`). | none |
 | `overlayWidgets` | After the shell's own overlays, for sheets an app opens from anywhere. | none |
 | `Providers` | Around everything inside `ActiveAppsProvider`. | `{ children }` |
 

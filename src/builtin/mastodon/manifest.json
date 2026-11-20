@@ -1,0 +1,688 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "mastodon",
+  "slug": "mastodon",
+  "name": {
+    "en": "Mastodon",
+    "sv": "Mastodon"
+  },
+  "description": {
+    "en": "Run your own Mastodon servers on your domains, federating over ActivityPub, and use them, or other servers you sign in to, from a full client: timelines, posts, profiles, follows, lists and moderation.",
+    "sv": "Kör egna Mastodon-servrar på dina domäner, federerade över ActivityPub, och använd dem, eller andra servrar du loggar in på, i en fullständig klient: tidslinjer, inlägg, profiler, följningar, listor och moderering."
+  },
+  "iconName": "broadcast",
+  "defaultFeatureId": "mastodon",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": [
+    "consumer",
+    "creator",
+    "curator",
+    "admin"
+  ],
+  "features": [
+    {
+      "id": "mastodon",
+      "name": {
+        "en": "Mastodon",
+        "sv": "Mastodon"
+      },
+      "description": {
+        "en": "Timelines, posts, profiles and notifications",
+        "sv": "Tidslinjer, inlägg, profiler och notiser"
+      },
+      "path": "mastodon",
+      "iconName": "broadcast",
+      "entityTypes": [
+        "mastodon_account",
+        "mastodon_status",
+        "mastodon_tag",
+        "mastodon_list",
+        "mastodon_media",
+        "mastodon_poll",
+        "mastodon_follow",
+        "mastodon_favourite",
+        "mastodon_bookmark",
+        "mastodon_block",
+        "mastodon_mute",
+        "mastodon_notification"
+      ],
+      "actions": [
+        {
+          "id": "mastodon.open",
+          "title": "Open Mastodon",
+          "category": "Mastodon",
+          "iconName": "broadcast",
+          "navigate": "/mastodon",
+          "keywords": [
+            "fediverse",
+            "toot",
+            "timeline",
+            "activitypub"
+          ],
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "mastodon.compose",
+          "title": "New Mastodon post",
+          "category": "Mastodon",
+          "iconName": "edit",
+          "navigate": "/mastodon/new",
+          "keywords": [
+            "toot",
+            "post",
+            "status"
+          ],
+          "aspects": [
+            "create"
+          ]
+        },
+        {
+          "id": "mastodon.notifications",
+          "title": "Mastodon notifications",
+          "category": "Mastodon",
+          "iconName": "broadcast",
+          "navigate": "/mastodon/notifications",
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "mastodon.profile",
+          "title": "Set up a Mastodon profile",
+          "category": "Mastodon",
+          "iconName": "user",
+          "navigate": "/mastodon/accounts/new",
+          "keywords": [
+            "sign up",
+            "account"
+          ],
+          "aspects": [
+            "create"
+          ]
+        }
+      ],
+      "create": [
+        {
+          "key": "mastodon_status",
+          "label": "entity.mastodon_status",
+          "section": "nav.mastodon",
+          "iconName": "broadcast",
+          "path": "/mastodon/new"
+        },
+        {
+          "key": "mastodon_account",
+          "label": "entity.mastodon_account",
+          "section": "nav.mastodon",
+          "iconName": "user",
+          "path": "/mastodon/accounts/new"
+        },
+        {
+          "key": "mastodon_list",
+          "label": "entity.mastodon_list",
+          "section": "nav.mastodon",
+          "iconName": "playlist",
+          "path": "/mastodon/lists/new"
+        }
+      ],
+      "browse": {
+        "label": "nav.mastodon",
+        "iconName": "broadcast",
+        "hue": 250
+      }
+    },
+    {
+      "id": "mastodon-instances",
+      "name": {
+        "en": "Mastodon servers",
+        "sv": "Mastodon-servrar"
+      },
+      "description": {
+        "en": "Your servers, their people and the servers they block",
+        "sv": "Dina servrar, deras användare och servrarna de blockerar"
+      },
+      "path": "mastodon-instances",
+      "iconName": "globe",
+      "roles": [
+        "admin",
+        "operator"
+      ],
+      "entityTypes": [
+        "mastodon_instance",
+        "mastodon_domain_block"
+      ],
+      "actions": [
+        {
+          "id": "mastodon.instances",
+          "title": "Mastodon servers",
+          "category": "Mastodon",
+          "iconName": "globe",
+          "navigate": "/mastodon-instances",
+          "keywords": [
+            "instance",
+            "moderation",
+            "users"
+          ],
+          "aspects": [
+            "configure"
+          ]
+        },
+        {
+          "id": "mastodon.instances.new",
+          "title": "New Mastodon server",
+          "category": "Mastodon",
+          "iconName": "plus",
+          "navigate": "/mastodon-instances/new",
+          "aspects": [
+            "create",
+            "configure"
+          ]
+        }
+      ],
+      "create": [
+        {
+          "key": "mastodon_instance",
+          "label": "entity.mastodon_instance",
+          "section": "nav.mastodon",
+          "iconName": "globe",
+          "path": "/mastodon-instances/new"
+        }
+      ]
+    }
+  ],
+  "entities": {
+    "mastodon_instance": {
+      "slug": "mastodon-server",
+      "view": "/mastodon-instances/{key}",
+      "edit": "/mastodon-instances/{key}/edit",
+      "art": {
+        "iconName": "globe",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_instances",
+        "columns": "id, title, domain",
+        "label": "title"
+      }
+    },
+    "mastodon_account": {
+      "slug": "mastodon-account",
+      "view": "/mastodon/accounts/{key}",
+      "edit": "/mastodon/accounts/{key}/edit",
+      "art": {
+        "iconName": "user",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_accounts",
+        "columns": "id, display_name, username",
+        "label": [
+          "display_name",
+          "username"
+        ],
+        "first": true
+      }
+    },
+    "mastodon_status": {
+      "slug": "mastodon-status",
+      "view": "/mastodon/statuses/{key}",
+      "edit": "/mastodon/statuses/{key}/edit",
+      "plural": "mastodon-statuses",
+      "art": {
+        "iconName": "broadcast",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_statuses",
+        "columns": "id, spoiler_text, text, content_html",
+        "label": [
+          "spoiler_text",
+          "text",
+          "content_html"
+        ],
+        "first": true
+      }
+    },
+    "mastodon_tag": {
+      "slug": "mastodon-tag",
+      "art": {
+        "iconName": "tag",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_tags",
+        "columns": "id, name",
+        "label": "name",
+        "prefix": {
+          "name": "#"
+        }
+      }
+    },
+    "mastodon_list": {
+      "slug": "mastodon-list",
+      "view": "/mastodon/lists/{key}",
+      "edit": "/mastodon/lists/{key}/edit",
+      "art": {
+        "iconName": "playlist",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_lists",
+        "columns": "id, title",
+        "label": "title"
+      }
+    },
+    "mastodon_media": {
+      "slug": "mastodon-media",
+      "plural": "mastodon-media",
+      "art": {
+        "iconName": "image",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_media_attachments",
+        "columns": "id, description, type",
+        "label": [
+          "description",
+          "type"
+        ],
+        "first": true
+      }
+    },
+    "mastodon_poll": {
+      "slug": "mastodon-poll",
+      "art": {
+        "iconName": "chart",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_polls",
+        "columns": "id, identifier",
+        "label": "identifier"
+      }
+    },
+    "mastodon_follow": {
+      "slug": "mastodon-follow",
+      "art": {
+        "iconName": "users",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_follows",
+        "columns": "id, state",
+        "label": "state"
+      }
+    },
+    "mastodon_favourite": {
+      "slug": "mastodon-favourite",
+      "art": {
+        "iconName": "star",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_favourites",
+        "columns": "id, identifier",
+        "label": "identifier"
+      }
+    },
+    "mastodon_bookmark": {
+      "slug": "mastodon-bookmark",
+      "art": {
+        "iconName": "flag",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_bookmarks",
+        "columns": "id, identifier",
+        "label": "identifier"
+      }
+    },
+    "mastodon_block": {
+      "slug": "mastodon-block",
+      "art": {
+        "iconName": "shield",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_blocks",
+        "columns": "id, identifier",
+        "label": "identifier"
+      }
+    },
+    "mastodon_mute": {
+      "slug": "mastodon-mute",
+      "art": {
+        "iconName": "minus",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_mutes",
+        "columns": "id, identifier",
+        "label": "identifier"
+      }
+    },
+    "mastodon_notification": {
+      "slug": "mastodon-notification",
+      "art": {
+        "iconName": "broadcast",
+        "hue": 250
+      },
+      "source": {
+        "table": "mastodon_notifications",
+        "columns": "id, type",
+        "label": "type"
+      }
+    },
+    "mastodon_domain_block": {
+      "slug": "mastodon-domain-block",
+      "edit": "/mastodon-instances/domain-blocks/{key}/edit",
+      "art": {
+        "iconName": "shield",
+        "hue": 0
+      },
+      "source": {
+        "table": "mastodon_domain_blocks",
+        "columns": "id, domain",
+        "label": "domain"
+      }
+    }
+  },
+  "staticPaths": [
+    "/mastodon/statuses",
+    "/mastodon/accounts",
+    "/mastodon/tags",
+    "/mastodon/lists",
+    "/mastodon/search",
+    "/mastodon/remote",
+    "/mastodon/profiles",
+    "/mastodon/follow-requests",
+    "/mastodon-instances/domain-blocks"
+  ],
+  "uuidPaths": [
+    "/mastodon/remote"
+  ],
+  "api": {
+    "scopes": {
+      "mastodon:read": {
+        "en": "Read your Mastodon timelines, notifications and profiles",
+        "sv": "Läsa dina Mastodon-tidslinjer, notiser och profiler"
+      },
+      "mastodon:write": {
+        "en": "Post, favourite and boost on Mastodon as you",
+        "sv": "Posta, favoritmarkera och boosta på Mastodon som du"
+      },
+      "mastodon:follow": {
+        "en": "Follow and unfollow on Mastodon as you",
+        "sv": "Följa och sluta följa på Mastodon som du"
+      }
+    },
+    "paths": {}
+  },
+  "functions": {
+    "my_accounts": {
+      "title": "List my Mastodon profiles",
+      "description": "The user's own profiles on the Mastodon servers here: id, acct, display name, status (pending, active, silenced, suspended), role and the server.",
+      "rpc": "api_mastodon_accounts",
+      "scopes": [
+        "mastodon:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "readOnly": true
+    },
+    "timeline": {
+      "title": "Read a timeline",
+      "description": "Statuses from a timeline, newest first: home (who the profile follows), local (its server), federated (everything known here), tag (arg: a hashtag), list (arg: a list id), account (arg: an account id), favourites or bookmarks. Each status has its id, text or HTML, author, counts and a spacify: URI.",
+      "rpc": "api_mastodon_timeline",
+      "scopes": [
+        "mastodon:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "home",
+              "local",
+              "federated",
+              "tag",
+              "list",
+              "account",
+              "favourites",
+              "bookmarks",
+              "direct"
+            ]
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          },
+          "arg": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "The hashtag, list id or account id the kind needs."
+          },
+          "before": {
+            "type": "string",
+            "description": "Only statuses before this time (ISO 8601), for the next page."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 40
+          }
+        }
+      },
+      "readOnly": true
+    },
+    "post": {
+      "title": "Post a status",
+      "description": "Publish a status as one of the user's profiles. @user@domain mentions, #hashtags and links in the text are found automatically. visibility: public, unlisted, private (followers only) or direct (only those mentioned). A poll is {options: [2-4 titles], multiple, expires_in seconds}.",
+      "rpc": "api_mastodon_post",
+      "scopes": [
+        "mastodon:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100000
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "unlisted",
+              "private",
+              "direct"
+            ]
+          },
+          "spoiler_text": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "A content warning shown before the text."
+          },
+          "sensitive": {
+            "type": "boolean"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 10
+          },
+          "in_reply_to": {
+            "type": "string",
+            "description": "The id or URL key of the status this replies to."
+          },
+          "poll": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    },
+    "follow": {
+      "title": "Follow or unfollow",
+      "description": "Follow (or with unfollow, stop following) an account by id, slug or user@domain. Accounts on other servers are followed over ActivityPub; locked ones accept the request first.",
+      "rpc": "api_mastodon_follow",
+      "scopes": [
+        "mastodon:follow"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          },
+          "unfollow": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "target"
+        ]
+      }
+    },
+    "favourite": {
+      "title": "Favourite a status",
+      "description": "Favourite (or with undo, unfavourite) a status by id or URL key.",
+      "rpc": "api_mastodon_favourite",
+      "scopes": [
+        "mastodon:write"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          },
+          "undo": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      }
+    },
+    "search": {
+      "title": "Search Mastodon",
+      "description": "Accounts, hashtags and statuses known on the servers here that match the words.",
+      "rpc": "api_mastodon_search",
+      "scopes": [
+        "mastodon:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "readOnly": true
+    },
+    "notifications": {
+      "title": "Read notifications",
+      "description": "A profile's latest notifications: mentions, follows, favourites, boosts, poll results and sign-ups waiting for approval (for moderators).",
+      "rpc": "api_mastodon_notifications",
+      "scopes": [
+        "mastodon:read"
+      ],
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "account": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Which of the user's own profiles to act as: its id, slug, username or username@domain (their first when left out)."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 80
+          }
+        }
+      },
+      "readOnly": true
+    }
+  },
+  "mcp": {
+    "instructions": "The Mastodon app runs the user's own Mastodon servers (federating with the rest of the fediverse over ActivityPub) and is their Mastodon client. The user may have several profiles: call my_accounts first, and pass account when they name one. Read with timeline, notifications and search; post with post (keep within the server's character limit, 500 by default, and ask before posting publicly on their behalf), favourite and follow. Every account, status, list and the rest is also an entity (spacify type mastodon_account, mastodon_status, …) that the generic entity tools can read.",
+    "tools": [
+      {
+        "name": "my_accounts",
+        "function": "my_accounts"
+      },
+      {
+        "name": "timeline",
+        "function": "timeline"
+      },
+      {
+        "name": "post",
+        "function": "post"
+      },
+      {
+        "name": "follow",
+        "function": "follow"
+      },
+      {
+        "name": "favourite",
+        "function": "favourite"
+      },
+      {
+        "name": "search",
+        "function": "search"
+      },
+      {
+        "name": "notifications",
+        "function": "notifications"
+      }
+    ]
+  }
+}

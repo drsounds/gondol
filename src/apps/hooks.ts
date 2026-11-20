@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import type { InternalAppBundle, UnifiedApp } from "./types";
-import { getInternalApp, getInternalApps } from "./registry";
+import { getInternalApp, getInternalApps, subscribeApps } from "./registry";
 import { siteAllowsApp, useSite } from "../sites/sites";
 import { namespaced } from "../shell/storage";
 
@@ -79,7 +79,8 @@ export function useAppActivation(appId: string, defaultActive = true) {
  * Hook to retrieve an internal app bundle by ID along with its activation controls.
  */
 export function useAppBundle(appId: string) {
-  const bundle = useMemo(() => getInternalApp(appId), [appId]);
+  const all = useSyncExternalStore(subscribeApps, getInternalApps, getInternalApps);
+  const bundle = useMemo(() => getInternalApp(appId), [appId, all]);
   const activation = useAppActivation(appId, bundle?.defaultActive ?? true);
   const { site } = useSite();
   const siteDisabled = !siteAllowsApp(site, appId, appDependencies);
@@ -98,7 +99,8 @@ export function useAppBundle(appId: string) {
  * Hook to retrieve all registered internal app bundles and their live activation states.
  */
 export function useRegisteredBundles() {
-  const bundles = useMemo(() => getInternalApps(), []);
+  // Bundles made at run time (registerDynamicApps) come and go.
+  const bundles = useSyncExternalStore(subscribeApps, getInternalApps, getInternalApps);
   const [version, setVersion] = useState(0);
 
   useEffect(() => {

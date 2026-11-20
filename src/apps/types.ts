@@ -5,6 +5,7 @@ import type { Register } from "../register";
 import type { Capability } from "../sites/capabilities";
 import type { AppManifest, AppManifestFeature } from "./manifest";
 import type { Resolution } from "./contributions";
+import type { Concept, ServiceDefinition } from "../services/concept";
 export type { Capability };
 
 /** A type the app registers under `key` on gondol's `Register`, else `fallback`. */
@@ -75,6 +76,18 @@ export interface AppAction extends Capability {
   keywords?: string[];
   perform: (context: AppActionContext) => void | Promise<void>;
   disabled?: boolean;
+  /**
+   * Listed in the palette and the shortcuts help, but its shortcut is handled by the view itself
+   * (a playlist's arrows and Mod+C), so the global listener leaves the key alone.
+   */
+  local?: boolean;
+  /** Leave the shortcut to text fields while one has focus (Mod+Z keeps the field's own undo). */
+  skipInFields?: boolean;
+  /**
+   * Asked when the shortcut is pressed: false lets the key through as if the action weren't there
+   * (Space scrolls the page while nothing is in the player's queue).
+   */
+  when?: () => boolean;
 }
 
 /** An app's page. Its `roles`/`aspects`, else those declared in the manifest, say which sites offer it. */
@@ -101,6 +114,16 @@ export interface AppSidebarWidgetProps {
   [key: string]: unknown;
 }
 
+/** Props of `menuWidgets`: what the menu section they sit in navigates with. */
+export interface AppMenuWidgetProps {
+  pathname: string;
+  onNavigate: (path: string) => void;
+  /** Desktop sidebar only (NavItem's `extra`): left out of the phone tab bar. */
+  extra?: boolean;
+  /** The desktop sidebar is collapsed to its icons. */
+  collapsed?: boolean;
+}
+
 export interface AppBottomWidgetProps {
   className?: string;
   /** False: show only while something plays or is queued (the player setting "auto"). */
@@ -114,12 +137,24 @@ export interface AppWidgets {
   overviewWidgets?: ComponentType<AppOverviewWidgetProps>[];
   sidebarNavWidgets?: ComponentType<AppSidebarWidgetProps>[];
   sidebarPanelWidgets?: ComponentType<AppSidebarWidgetProps>[];
+  /** Inside the app's own menu section, below its pages (sidebar, apps submenu and menu drawer). */
+  menuWidgets?: ComponentType<AppMenuWidgetProps>[];
   sidebarWidgets?: ComponentType<AppSidebarWidgetProps>[];
   bottomWidgets?: ComponentType<AppBottomWidgetProps>[];
   /** Sheets and dialogs the app owns, rendered over everything (the shell's `overlays`). */
   overlayWidgets?: ComponentType[];
   /** Above the view's content on every page but external apps (e.g. a load error the app reports). */
   contentHeadWidgets?: ComponentType[];
+  /**
+   * Small indicators in the global header, left of the account menu (e.g. the ai app's credits
+   * pie). The host places them with `<HeaderWidgets/>` (gondol/apps/navigation).
+   */
+  headerWidgets?: ComponentType[];
+  /**
+   * At the bottom of the desktop's left column, under the menu and Your Library (the player app's
+   * service dock, like the album art in early Spotify). Not on phones.
+   */
+  sidebarBottomWidgets?: ComponentType<AppSidebarWidgetProps>[];
   /** Wrap the whole shell; never lazy, since the shell waits for them. */
   Providers?: ComponentType<{ children: React.ReactNode }>[];
 }
@@ -152,6 +187,36 @@ export interface InternalAppBundle {
   hooks?: AppBundleHooks;
   /** The app's answers to the shell's hooks (./contributions.ts); defineApp adds the manifest's. */
   resolutions?: Resolution[];
+  /** The services it contributes while it is on (manifest `services`, code from defineApp's `services`). */
+  services?: ServiceDefinition[];
+  /** Its activation logic (services/concept.ts): what it registers while on, undone when off. */
+  concept?: Concept;
+  /**
+   * For bundles made at run time (registerDynamicApps): the app they are part of, whose site
+   * settings they follow (a site with the studio app has the apps users built with it).
+   */
+  partOf?: string;
+  /** For apps loaded at run time from an apps runtime (./remote/loader.ts): where they came from. */
+  remote?: RemoteAppInfo;
+}
+
+/** Where a remote app (./remote/loader.ts) was loaded from, and what its backend is. */
+export interface RemoteAppInfo {
+  /** The source as the user added it (the runtime's address or its index URL). */
+  source: string;
+  /** The index it is listed in. */
+  indexUrl: string;
+  /** Its client entry module. */
+  clientUrl: string;
+  /** Its stylesheets, added to the page while it's registered. */
+  styles: string[];
+  version?: string;
+  /** Served by `gondol-apps dev` (Vite): backend functions are called on the runtime directly. */
+  dev: boolean;
+  /** Its backend functions' names; served through the app router once an admin approves them (dev: directly). */
+  functions: string[];
+  /** Where the runtime serves those functions (`<functionsUrl>/<name>`). */
+  functionsUrl?: string;
 }
 
 export interface DynamicMenuItem {
@@ -171,6 +236,8 @@ export interface DynamicMenuSection {
   title: string;
   iconName?: IconName;
   items: DynamicMenuItem[];
+  /** The app's `menuWidgets`, rendered below its items. */
+  widgets?: ComponentType<AppMenuWidgetProps>[];
 }
 
 export interface DynamicRouteMatch {

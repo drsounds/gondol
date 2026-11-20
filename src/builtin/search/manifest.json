@@ -1,0 +1,29 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "search",
+  "slug": "search",
+  "name": { "en": "Search", "sv": "Sök" },
+  "description": {
+    "en": "Spotify-style search over everything you can see, your own entities and other people's public ones, with a \"Browse all\" grid of the apps' main lists.",
+    "sv": "Sök i Spotify-stil i allt du kan se, dina egna objekt och andras publika, med ett rutnät \"Bläddra bland allt\" med apparnas huvudlistor."
+  },
+  "iconName": "search",
+  "defaultFeatureId": "search",
+  "dependencies": [],
+  "defaultActive": true,
+  "roles": ["admin", "analytics", "creator", "curator", "operator", "consumer"],
+  "aspects": ["view"],
+  "features": [
+    {
+      "id": "search",
+      "name": { "en": "Search", "sv": "Sök" },
+      "description": { "en": "Find any entity, or browse the apps' lists", "sv": "Hitta valfritt objekt, eller bläddra bland apparnas listor" },
+      "path": "search",
+      "hiddenFromNav": true,
+      "iconName": "search",
+      "actions": [
+        { "id": "search.open", "title": "Search", "category": "Search", "iconName": "search", "navigate": "/search", "keywords": ["find", "lookup", "sök", "hitta"], "aspects": ["view"] }
+      ]
+    }
+  ]
+}

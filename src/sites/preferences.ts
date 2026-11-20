@@ -16,6 +16,7 @@ export const SITE_PREFERENCES = [
   "layoutStyle",
   "darkTabBar",
   "darkFrame",
+  "fadingTabBar",
   "savedIcon",
   "sheetStyle",
   "tableLines",
@@ -28,7 +29,7 @@ export type SitePreference = (typeof SITE_PREFERENCES)[number];
 
 const LEGACY_LOCKED: readonly SitePreference[] = ["desktopLayout", "layoutStyle"];
 
-const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["sidebarLibrary", "darkTabBar", "darkFrame", "tableLines", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
+const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["sidebarLibrary", "darkTabBar", "darkFrame", "fadingTabBar", "tableLines", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
 
 /** The value a site sets for a preference, or undefined when it leaves it to the visitor. */
 export function sitePreferenceValue<K extends SitePreference>(layout: SiteLayout | null | undefined, key: K): SiteLayout[K] | undefined {

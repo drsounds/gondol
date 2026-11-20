@@ -25,7 +25,7 @@
         { "id": "streams.new", "title": "New stream", "category": "Streams", "iconName": "plus", "navigate": "/streams/new", "keywords": ["activity", "log"], "aspects": ["create"] }
       ],
       "create": [{ "key": "stream", "label": "entity.stream", "section": "nav.streams", "iconName": "broadcast", "path": "/streams/new" }],
-      "browse": { "label": "nav.streams", "iconName": "repeat", "hue": 18 }
+      "browse": { "label": "nav.streams", "iconName": "repeat", "hue": 18, "order": 160 }
     }
   ],
   "entities": {
@@ -35,5 +35,328 @@
       "art": { "iconName": "broadcast", "hue": 18 },
       "source": { "table": "streams", "columns": "id, action", "label": "action" }
     }
+  },
+  "api": {
+    "scopes": {
+      "streams:read": {
+        "en": "See the streams it has reported",
+        "sv": "Se flödena den har rapporterat"
+      },
+      "streams:write": {
+        "en": "Start streams for you and report how they went (what, why, where, when they end)",
+        "sv": "Starta flöden åt dig och rapportera hur de gick (vad, varför, var, när de slutar)"
+      }
+    },
+    "schemas": {
+      "Stream": {
+        "type": "object",
+        "required": [
+          "id",
+          "uri",
+          "subject_uri",
+          "started_at",
+          "quantity"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          },
+          "subject_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "predicate_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "object_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "motivation_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context_uri": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ended_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "position_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "quantity": {
+            "type": "number"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "StreamStart": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "subject_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "Who acts: the signed-in user (spacify:user:<id>), the default."
+          },
+          "predicate_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "What the subject does, as a URI (listens, reads, plays, …); stored as the stream's action."
+          },
+          "object_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "What it is done to: a recording, a book, a link, …"
+          },
+          "motivation_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "Why: a spacify: URI of an idea, a quest, a goal, …"
+          },
+          "context_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "Where or as part of what: a playlist, a release, a channel, …"
+          },
+          "action": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "What the subject does, in words; used when there's no predicate_uri."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it started; now when left out."
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it ended, if it already has."
+          },
+          "position_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Where in the object it got to."
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0,
+            "description": "How many of the object; 1 when left out."
+          }
+        }
+      },
+      "StreamUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ended": {
+            "type": "boolean",
+            "description": "true ends the stream now (unless ended_at is given)."
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it ended, if it already has."
+          },
+          "position_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Where in the object it got to."
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 0,
+            "description": "How many of the object; 1 when left out."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 10000
+          },
+          "predicate_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "What the subject does, as a URI (listens, reads, plays, …); stored as the stream's action."
+          },
+          "object_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "What it is done to: a recording, a book, a link, …"
+          },
+          "motivation_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "Why: a spacify: URI of an idea, a quest, a goal, …"
+          },
+          "context_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2000,
+            "description": "Where or as part of what: a playlist, a release, a channel, …"
+          }
+        }
+      }
+    },
+    "paths": {
+      "/streams": {
+        "post": {
+          "operationId": "startStream",
+          "summary": "Start a stream",
+          "description": "Starts a stream for the user the token acts for: its subject (the user), predicate, object, motivation and context as URIs. Answers the stream with its id, for PATCH /streams/{id}.",
+          "rpc": "api_start_stream",
+          "scopes": [
+            "streams:write"
+          ],
+          "requestBody": {
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StreamStart"
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "The stream",
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            }
+          }
+        }
+      },
+      "/streams/{id}": {
+        "get": {
+          "operationId": "getStream",
+          "summary": "A stream",
+          "rpc": "api_get_stream",
+          "scopes": [
+            "streams:read"
+          ],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "The stream",
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            }
+          }
+        },
+        "patch": {
+          "operationId": "updateStream",
+          "summary": "Report how a stream went",
+          "description": "Reports the end (ended_at, or ended: true for now) and anything else that changed; fields left out stay as they are. The duration follows from the start and the end.",
+          "rpc": "api_update_stream",
+          "scopes": [
+            "streams:write"
+          ],
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/StreamUpdate"
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "The stream",
+              "schema": {
+                "$ref": "#/components/schemas/Stream"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "instructions": "Streams record what the user does over time: a subject (the user) does an action (the predicate, a URI or words) to an object (any spacify: URI), for a motivation and in a context, from a start to an end. Start a stream when the user begins something (listening, reading, working on a task), update it with ended_at when they stop, and read one back by its id.",
+    "tools": [
+      { "name": "start_stream", "operation": "startStream", "description": "Start a stream: the user begins doing something (an action or predicate_uri) with an object, optionally for a motivation and in a context. Returns the stream with its id." },
+      { "name": "update_stream", "operation": "updateStream", "description": "Update a stream by its id: end it (ended=true or ended_at), move its position, change its quantity or what it is about." },
+      { "name": "get_stream", "operation": "getStream", "description": "Read a stream by its id." }
+    ]
   }
 }

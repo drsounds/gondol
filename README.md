@@ -39,9 +39,18 @@ The goal for Gondol is to take the Eclipse paradigm to the web: Define a core 'O
 - ✅ **Search and the global filter**: one Postgres full-text search behind the search page, `@` mentions and pickers; a filter and date period that apply to every view
 - ✅ **Theming engine**: light and dark, any accent, palettes, the Aero and TUI (DOS and mainframe text mode) engines, neon glow, high contrast, synced to the user's account
 - ✅ **App settings**: apps declare settings in their manifest (sections, submenus, choices, checkboxes, text, strings, numbers), stored per user, workspace or site and edited in one panel
+- ✅ **The search app**: a Spotify-style search page with a browse grid that every app can add tiles to
+- ✅ **The library and playlists apps**: Your Library (saved and pinned entities, in the sidebar too) and ordered playlists of any entity or link
+- ✅ **The agents app**: AI agents with schedules, working hours, threads and an intercom, working through the apps' MCP tools
 - ✅ **The ai app**: LLM support and an AI chat on Ollama, with conversations, messages, models and providers
 - ✅ **The streams app**: what the user does as streams (subject, predicate, object, context, motivation, start and end, quantity) with yin/yang entries
 - ✅ **The analytics app**: stream analytics filtered by period, time of day, entity type and conditions on subject, predicate, object, context, motivation and task
+- ✅ **Generative UI**: A2UI (v0.8 messages, the standard catalogue plus your own components), Open-JSON-UI trees and MCP-UI / MCP Apps resources (sandboxed HTML views with a `window.mcpUi` helper), rendered in the AI chat from answers and tool results
+- ✅ **The studio app**: lightweight apps built from generated UI pages, with entity types, relations and records of their own, in the main menu; built by the user or by agents through MCP tools
+- ✅ **The player and music services**: a music player (bar, Now playing, queue, "Play with…") that plays `musik:` URIs and links through music service apps, Bungalow-style services, aspects and concepts in the apps framework, service accounts with sign-in and sign-out, and YouTube as the first music service, embedded at the bottom of the menu like early Spotify
+- ✅ **The mastodon app**: a Mastodon server (federating over ActivityPub, with a subset of the client API) and client in one: servers on your own domains, profiles, timelines, posts, follows, lists, notifications, moderation, and other servers signed in to; every Mastodon entity is an entity type of its own
+- ✅ **App APIs and OAuth**: apps declare HTTP APIs in their manifests (OpenAPI), served by one gateway; the oauth app gives HTML5 and other apps credentials (secrets shown once, stored hashed) and a consent page
+- ✅ **Remote apps**: load apps from a gondol apps runtime at run time (ES modules sharing the host's React and gondol through a System.js-style registry), with backend functions served only once an admin approves them, and a dev mode on Vite (`gondol-apps serve`/`dev`/`build`)
 - ✅ **Sites**: serve the app on many domains, each with its own apps, users, roles and aspects, theme, layout and visitor defaults or locks
 - ✅ **Bungalow design system** and its icon font
 - ✅ **English and Swedish** strings, merged with the app's own catalogue
@@ -183,7 +192,9 @@ and `useNavCollapsed`.
 | `entities/` | Entity URIs and public addresses, slugs, sources and labels, `EntitySheet`, `FormActions`, `ActionMenu`, `EntityPicker`, drag and drop, lifecycle |
 | `apps/` | The apps framework: the manifest schema, `defineApp`, hooks and resolutions, `registerApps`, activation, navigation, actions palette, keyboard shortcuts |
 | `settings/` | App settings: the manifest schema, values per user, workspace and site, `AppSettingsPanel` |
-| `builtin/` | Apps gondol ships: `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries) and `analytics` (stream analytics) |
+| `api/` | Apps' HTTP APIs: the manifest's `api` (OpenAPI), the document builder and the gateway that serves it with OAuth 2 |
+| `builtin/` | Apps gondol ships: `search` (the search page), `library` (Your Library), `playlists`, `agents` (AI agents), `service-finder` (MCP servers from MCP registries, installed for the AI chat and agents), `ai` (LLM providers, models, conversations and an AI chat on Ollama), `streams` (streams and their entries), `analytics` (stream analytics), `oauth` (credentials for apps, the consent page, connected apps), `studio` (apps built from generated UI), `mastodon` (a Mastodon server and client), `player` (the music player and music service accounts) and `yt-music-service` (YouTube as a music service) |
+| `genui/` | Generative UI: the A2UI renderer (`A2uiView`), Open-JSON-UI conversion, MCP-UI resources (`McpUiResource`), `GenerativeUi` |
 | `vite/` | `gondolApps`, the vite plugin that discovers apps and builds all of them or a subset (`GONDOL_APPS`) |
 | `shell/` | `AppShell`, chrome search, navigation items and drawer, empty states, spinners, walkthrough, developer mode, desktop shell bridge |
 | `theme/` | The theming engine (Aero and TUI engines, accent colour, user theme sync, appearance settings) |
@@ -198,7 +209,7 @@ and `useNavCollapsed`.
 
 Gondol's queries expect these in the app's Supabase project (typed in `src/supabase/types.ts`):
 
-- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`; with the streams app, `streams` and `stream_entries`).
+- Tables: `app_settings`, `public_entities` and `user_themes` (and, with the ai app, `ai_conversations`, `ai_messages` and `ai_models`; with the streams app, `streams` and `stream_entries`; with the studio app, `lite_apps`, `lite_app_pages`, `lite_entity_types`, `lite_entity_relations` and `lite_records`).
 - Functions: `entity_lifecycle_states()`, `entity_slugs()`, `global_filter_excluded()`,
   `search_entities()`, `set_entity_soft_deleted_at()` and `site_for_domain()`.
 

@@ -1,0 +1,785 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "agents",
+  "slug": "agents",
+  "name": {
+    "en": "AI agents",
+    "sv": "AI-agenter"
+  },
+  "description": {
+    "en": "Hire AI agents that work for you: each with a name, avatar and @username, a model to run on, the apps' tools (MCP) it may use, working hours and schedules. Message them directly as yourself, an alter ego or another agent, and, where the host has channels, let them post there. Threads to any depth, several conversations per agent and an intercom with chat bubbles. Connect repositories to a conversation and agents code in a sandbox (an OpenHands agent server) with their own model, push with your GitHub connection, and build gondol apps you try live and publish into the apps registry.",
+    "sv": "Anställ AI-agenter som arbetar åt dig: var och en med namn, avatar och @användarnamn, en modell att köra på, apparnas verktyg (MCP) den får använda, arbetstider och scheman. Skriv direkt till dem som dig själv, ett alter ego eller en annan agent, och, där värdappen har kanaler, låt dem skriva där. Trådar i obegränsat antal nivåer, flera konversationer per agent och en intercom med pratbubblor. Koppla kodförråd till en konversation så kodar agenterna i en sandlåda (en OpenHands-agentserver) med sin egen modell, pushar med din GitHub-koppling och bygger gondol-appar som du provar live och publicerar i appregistret."
+  },
+  "iconName": "sparkle",
+  "defaultFeatureId": "agents",
+  "dependencies": [
+    "ai"
+  ],
+  "roles": [
+    "operator",
+    "creator"
+  ],
+  "settings": {
+    "scope": [
+      "user",
+      "site"
+    ],
+    "sections": [
+      {
+        "id": "intercom",
+        "title": {
+          "en": "Intercom",
+          "sv": "Intercom"
+        },
+        "settings": [
+          {
+            "key": "intercom",
+            "type": "checkbox",
+            "label": {
+              "en": "Show the agents' intercom at the bottom right",
+              "sv": "Visa agenternas intercom längst ned till höger"
+            },
+            "description": {
+              "en": "A button in the accent colour that lists your agents, with a popup chat for each.",
+              "sv": "En knapp i accentfärgen som listar dina agenter, med en popup-chatt för var och en."
+            },
+            "default": true
+          },
+          {
+            "key": "chatHeads",
+            "type": "checkbox",
+            "label": {
+              "en": "Keep conversations as chat bubbles when you leave them",
+              "sv": "Behåll konversationer som pratbubblor när du lämnar dem"
+            },
+            "description": {
+              "en": "Drag a bubble anywhere, or onto the ✕ at the bottom to throw it away.",
+              "sv": "Dra en bubbla vart du vill, eller till ✕ längst ned för att slänga den."
+            },
+            "default": true
+          }
+        ]
+      }
+    ]
+  },
+  "features": [
+    {
+      "id": "agents",
+      "name": {
+        "en": "Agents",
+        "sv": "Agenter"
+      },
+      "description": {
+        "en": "AI agents with schedules, working hours and direct messages",
+        "sv": "AI-agenter med scheman, arbetstider och direktmeddelanden"
+      },
+      "path": "agents",
+      "iconName": "sparkle",
+      "entityTypes": [
+        "agent"
+      ],
+      "actions": [
+        {
+          "id": "agents.agents.view",
+          "title": "Go to Agents",
+          "description": "See your AI agents",
+          "category": "AI",
+          "iconName": "sparkle",
+          "navigate": "/agents",
+          "keywords": [
+            "agents",
+            "agent",
+            "ai",
+            "bot",
+            "assistant",
+            "agenter"
+          ],
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "agents.agents.new",
+          "title": "Hire an Agent",
+          "description": "Create an AI agent",
+          "category": "AI",
+          "iconName": "plus",
+          "navigate": "/agents/new",
+          "keywords": [
+            "agent",
+            "new",
+            "hire",
+            "create",
+            "anställ",
+            "ny"
+          ],
+          "aspects": [
+            "create"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code",
+      "name": {
+        "en": "Code",
+        "sv": "Kod"
+      },
+      "description": {
+        "en": "Repositories, sandboxes and coding workspaces for your agents, and the apps they build",
+        "sv": "Kodförråd, sandlådor och kodarbetsytor för dina agenter, och apparna de bygger"
+      },
+      "path": "code",
+      "iconName": "chip",
+      "entityTypes": [
+        "agent_workspace",
+        "code_repository",
+        "code_sandbox"
+      ],
+      "actions": [
+        {
+          "id": "agents.code.view",
+          "title": "Go to Code",
+          "description": "Your agents' coding workspaces, repositories and apps",
+          "category": "AI",
+          "iconName": "chip",
+          "navigate": "/code",
+          "keywords": [
+            "code",
+            "coding",
+            "repository",
+            "repo",
+            "github",
+            "openhands",
+            "sandbox",
+            "vibe coding",
+            "kod"
+          ],
+          "aspects": [
+            "view"
+          ]
+        },
+        {
+          "id": "agents.code.newWorkspace",
+          "title": "New coding workspace",
+          "description": "Connect repositories to an agent conversation",
+          "category": "AI",
+          "iconName": "plus",
+          "navigate": "/code/workspaces/new",
+          "keywords": [
+            "workspace",
+            "code",
+            "new",
+            "arbetsyta"
+          ],
+          "aspects": [
+            "create"
+          ]
+        },
+        {
+          "id": "agents.code.newRepository",
+          "title": "Connect a repository",
+          "description": "Add a GitHub repository for agents to work on",
+          "category": "AI",
+          "iconName": "plus",
+          "navigate": "/code/repositories/new",
+          "keywords": [
+            "repository",
+            "repo",
+            "github",
+            "connect",
+            "kodförråd"
+          ],
+          "aspects": [
+            "create"
+          ]
+        }
+      ]
+    }
+  ],
+  "defaultActive": true,
+  "entities": {
+    "agent": {
+      "slug": "agent",
+      "view": "/agents/{key}",
+      "edit": "/agents/{key}/edit",
+      "art": {
+        "iconName": "sparkle",
+        "hue": 265
+      }
+    },
+    "agent_workspace": {
+      "slug": "agent-workspace",
+      "view": "/code/workspaces/{key}",
+      "edit": "/code/workspaces/{key}/edit",
+      "art": {
+        "iconName": "chip",
+        "hue": 200
+      }
+    },
+    "code_repository": {
+      "slug": "code-repository",
+      "edit": "/code/repositories/{key}/edit",
+      "art": {
+        "iconName": "folder-open",
+        "hue": 30
+      }
+    },
+    "code_sandbox": {
+      "slug": "code-sandbox",
+      "edit": "/code/sandboxes/{key}/edit",
+      "art": {
+        "iconName": "browser",
+        "hue": 140
+      }
+    }
+  },
+  "functions": {
+    "code_list_repositories": {
+      "title": "List repositories",
+      "description": "List the user's code repositories (connected for agents' coding).",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {}
+      },
+      "readOnly": true
+    },
+    "code_workspace_info": {
+      "title": "Workspace info",
+      "description": "A coding workspace: its sandbox folder, repositories (cloned or not) and live sandbox.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      },
+      "readOnly": true
+    },
+    "code_setup_workspace": {
+      "title": "Set up workspace",
+      "description": "Set up a coding workspace in its sandbox: its folder, git identity and GitHub credentials, and clone its repositories that aren't cloned yet.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      }
+    },
+    "code_add_repository": {
+      "title": "Add repository",
+      "description": "Connect a repository (one of the user's, a GitHub owner/name or a GitHub URL) to a workspace and clone it.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "repository": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "branch": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "workspace",
+          "repository"
+        ]
+      }
+    },
+    "code_run_command": {
+      "title": "Run command",
+      "description": "Run a shell command in a workspace's sandbox (bash, with git, Node and npm), in a folder of the workspace. Answers its exit code and output, or, when it runs longer than the wait, a command_id to read the rest with code_command_output.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "cwd": {
+            "type": "string",
+            "description": "A folder of the workspace, relative to its root (default: the root)",
+            "maxLength": 1000
+          },
+          "wait_seconds": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 110
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "minimum": 5,
+            "maximum": 3600
+          }
+        },
+        "required": [
+          "workspace",
+          "command"
+        ]
+      }
+    },
+    "code_command_output": {
+      "title": "Command output",
+      "description": "The output of a command that was still running, waiting a little for it to finish.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "command_id": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "wait_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 110
+          }
+        },
+        "required": [
+          "workspace",
+          "command_id"
+        ]
+      },
+      "readOnly": true
+    },
+    "code_read_file": {
+      "title": "Read file",
+      "description": "Read a text file of a workspace, with line numbers; optionally only some lines.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "from_line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "to_line": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "workspace",
+          "path"
+        ]
+      },
+      "readOnly": true
+    },
+    "code_write_file": {
+      "title": "Write file",
+      "description": "Write a whole file in a workspace (made with its folders, or overwritten).",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 2000000
+          }
+        },
+        "required": [
+          "workspace",
+          "path",
+          "content"
+        ]
+      }
+    },
+    "code_edit_file": {
+      "title": "Edit file",
+      "description": "Replace text in a file of a workspace: old_text must be in it exactly once (or replace_all).",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "old_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200000
+          },
+          "new_text": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "replace_all": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "workspace",
+          "path",
+          "old_text",
+          "new_text"
+        ]
+      }
+    },
+    "code_list_files": {
+      "title": "List files",
+      "description": "List the files under a folder of a workspace (without node_modules, .git and dist).",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      },
+      "readOnly": true
+    },
+    "code_git_status": {
+      "title": "Git status",
+      "description": "A repository's git status and its uncommitted diff.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "repository": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      },
+      "readOnly": true
+    },
+    "code_commit_and_push": {
+      "title": "Commit and push",
+      "description": "Commit everything changed in a repository of a workspace and push it, to its branch or a new one.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "repository": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "branch": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "workspace",
+          "message"
+        ]
+      }
+    },
+    "code_create_repository": {
+      "title": "Create repository",
+      "description": "Create a new GitHub repository with the user's GitHub connection (private by default), add it to their repositories and, given a workspace, clone it there.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 350
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "owner": {
+            "type": "string",
+            "description": "An organization to create it in (default: the user's account)",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "code_scaffold_app": {
+      "title": "Scaffold gondol app",
+      "description": "Write a new gondol app package (manifest, package.json, a page) in a workspace, ready to try in the live sandbox and publish to the apps registry.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "id": {
+            "type": "string",
+            "description": "The app's id: lower-case letters, digits and -",
+            "maxLength": 60
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "path": {
+            "type": "string",
+            "description": "Where, relative to the workspace (default apps/<id>; inside a repository's folder to keep it there)",
+            "maxLength": 1000
+          },
+          "overwrite": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "workspace",
+          "id",
+          "name"
+        ]
+      }
+    },
+    "code_start_sandbox": {
+      "title": "Start live sandbox",
+      "description": "Run a gondol app package of a workspace in the live sandbox (gondol-apps dev, with live reload), so the user can try it in their own app.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "description": "The app package's folder, relative to the workspace",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      }
+    },
+    "code_stop_sandbox": {
+      "title": "Stop live sandbox",
+      "description": "Stop a workspace's live sandbox.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      }
+    },
+    "code_prepare_release": {
+      "title": "Prepare release",
+      "description": "Build a gondol app package of a workspace and store the build as a release, ready for the user to publish into the apps registry (they press Publish).",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "build": {
+            "type": "boolean",
+            "description": "false: use the dist/ that's there"
+          }
+        },
+        "required": [
+          "workspace"
+        ]
+      }
+    }
+  },
+  "mcp": {
+    "instructions": "AI agents' coding: a workspace connects an agent conversation to a sandbox (an OpenHands agent server) with the user's repositories cloned in it. Read, edit and run code there, commit and push with the user's GitHub connection, create new repositories, and build gondol apps: scaffold one, try it in the live sandbox and prepare a release the user publishes into the apps registry. Every tool but code_list_repositories and code_create_repository needs the workspace's id.",
+    "tools": [
+      {
+        "name": "code_list_repositories",
+        "function": "code_list_repositories"
+      },
+      {
+        "name": "code_workspace_info",
+        "function": "code_workspace_info"
+      },
+      {
+        "name": "code_setup_workspace",
+        "function": "code_setup_workspace"
+      },
+      {
+        "name": "code_add_repository",
+        "function": "code_add_repository"
+      },
+      {
+        "name": "code_run_command",
+        "function": "code_run_command"
+      },
+      {
+        "name": "code_command_output",
+        "function": "code_command_output"
+      },
+      {
+        "name": "code_read_file",
+        "function": "code_read_file"
+      },
+      {
+        "name": "code_write_file",
+        "function": "code_write_file"
+      },
+      {
+        "name": "code_edit_file",
+        "function": "code_edit_file"
+      },
+      {
+        "name": "code_list_files",
+        "function": "code_list_files"
+      },
+      {
+        "name": "code_git_status",
+        "function": "code_git_status"
+      },
+      {
+        "name": "code_commit_and_push",
+        "function": "code_commit_and_push"
+      },
+      {
+        "name": "code_create_repository",
+        "function": "code_create_repository"
+      },
+      {
+        "name": "code_scaffold_app",
+        "function": "code_scaffold_app"
+      },
+      {
+        "name": "code_start_sandbox",
+        "function": "code_start_sandbox"
+      },
+      {
+        "name": "code_stop_sandbox",
+        "function": "code_stop_sandbox"
+      },
+      {
+        "name": "code_prepare_release",
+        "function": "code_prepare_release"
+      }
+    ]
+  }
+}
