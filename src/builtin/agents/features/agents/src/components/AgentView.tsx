@@ -385,7 +385,12 @@ export function AgentView({
                         </span>
                       </div>
                       {run.error ? <p className="bungalow-help bungalow-help--error">{run.error}</p> : null}
-                      {run.output ? <p className="agent-run__output">{run.output}</p> : null}
+                      {/* What a running run is doing right now (its streamed answer so far). */}
+                      {run.status === "running" && run.progress ? <p className="agent-run__output agent-run__output--live">{run.progress}</p> : null}
+                      {!run.progress && run.output ? <p className="agent-run__output">{run.output}</p> : null}
+                      {run.progress_tools?.length ? (
+                        <p className="muted agent-run__tools">{t("agents.workingOn", { tools: run.progress_tools.map((tool) => tool.title ?? tool.name).join(", ") })}</p>
+                      ) : null}
                     </li>
                   );
                 })}

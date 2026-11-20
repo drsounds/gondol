@@ -21,7 +21,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={loading || undefined}
       {...props}
     >
-      {loading && <Spinner inline variant="simple" size={16} label="Working…" />}&nbsp;{children}
+      {/*loading && <Spinner inline variant="simple" size={16} label="Working…" />*/}&nbsp;{children}
     </button>
   );
 });

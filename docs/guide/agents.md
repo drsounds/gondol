@@ -23,6 +23,24 @@ A model that doesn't answer in time fails the run with a message saying so; for 
 both. Runs that still say "running" after ten minutes (a cut-off worker, a closed tab) are failed by
 `fail_stale_agent_runs()`, which `queue_due_agent_runs()` and `claim_agent_runs()` call.
 
+**Answers stream.** Both runners write what they have so far into the run's `progress` (`progress`
+the answer text being generated, `progress_tools` the tools called so far, `progress_at` the
+heartbeat) while the model streams — the browser runner token by token through its provider's
+`onToken`, the server one by reading the same APIs with `stream: true` — so an open chat
+(`/agents/<key>` or `/code`'s conversations) shows the answer being written, as markdown, while the
+agent works; "used tools" and the work log show the tool calls as they happen. When the run
+finishes, the answer is saved as the agent's message and `progress` is cleared. Readers poll
+(`agent-conversation-runs` every 2 s while something is running), so this works without a socket in
+every tab that has the conversation open.
+
+**Long work continues.** A coding run — a conversation with a workspace (`agent_workspaces`) —
+that runs out of the server worker's time doesn't fail: what it has so far (its streamed answer,
+the tools it called) stays on the run, and it hands the task over to a follow-up run
+(`followup_agent_run()`): queued a few minutes later (`p_minutes`, default 10; working hours
+allowing) with instructions to continue from what's already done, in the same conversation. A long
+coding session therefore spans as many workers as it needs, each one's answer visible as it
+streams; runs the worker is killed in are, as before, failed by `fail_stale_agent_runs()`.
+
 ## What an agent is
 
 An `agents` row has a name, an `@username`, an avatar, a job title, a bio, standing instructions,
@@ -117,9 +135,11 @@ same token (service role) to clone, push and create repositories.
 (`agent_workspace_repositories`) cloned inside and `.gondol/` holding a git config whose credential
 helper reads the token, so every command runs with `GIT_CONFIG_GLOBAL` and no token on a command
 line. A run in a conversation with a workspace is told about it (`codeWorkspacePrompt()`) and gets
-`CODING_TOOL_ROUNDS` (40) tool rounds instead of 8; the server runner still has to finish inside
-`AGENT_WORKER_WALL_MS`, so long coding sessions are best run with the app open (the browser runner).
-A command still running after `CODE_WAIT_MS` (40 s) comes back with its `command_id`.
+`CODING_TOOL_ROUNDS` (40) tool rounds instead of 8. Coding runs answer in parts: everything before
+a tool call streams into the run's `progress` and shows in the chat live, and when the server
+worker's time runs out the run hands the remaining rounds over to a follow-up run that continues in
+the same conversation (see "Switching it on"). A command still running after `CODE_WAIT_MS`
+(40 s) comes back with its `command_id`.
 
 | Tool | |
 | --- | --- |

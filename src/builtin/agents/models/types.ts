@@ -204,6 +204,9 @@ export type AgentsDatabase = {
           instructions: string | null;
           metrics: Json | null;
           output: string | null;
+          progress: string | null;
+          progress_at: string | null;
+          progress_tools: Json | null;
           queued_at: string;
           run_after: string;
           runner: string | null;
@@ -227,6 +230,9 @@ export type AgentsDatabase = {
           instructions?: string | null;
           metrics?: Json | null;
           output?: string | null;
+          progress?: string | null;
+          progress_at?: string | null;
+          progress_tools?: Json | null;
           queued_at?: string;
           run_after?: string;
           runner?: string | null;
@@ -250,6 +256,9 @@ export type AgentsDatabase = {
           instructions?: string | null;
           metrics?: Json | null;
           output?: string | null;
+          progress?: string | null;
+          progress_at?: string | null;
+          progress_tools?: Json | null;
           queued_at?: string;
           run_after?: string;
           runner?: string | null;
@@ -342,6 +351,14 @@ export type AgentsDatabase = {
           p_ignore_hours?: boolean;
           p_message_parent_id?: string | null;
           p_replace_message_id?: string | null;
+        };
+        Returns: AgentsDatabase["public"]["Tables"]["agent_runs"]["Row"];
+      };
+      followup_agent_run: {
+        Args: {
+          p_run_id: string;
+          p_instructions: string;
+          p_minutes?: number;
         };
         Returns: AgentsDatabase["public"]["Tables"]["agent_runs"]["Row"];
       };

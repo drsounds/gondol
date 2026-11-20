@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../../../../../design-system/bungalow-79d923";
 import { ActionMenu, type MenuAction } from "../../../../../../entities/ActionMenu";
 import { conversationTitle } from "../../../../../ai/models/conversations";
+import { Markdown } from "../../../../../ai/features/chat/src/components/Markdown";
 import { replyCounts, repliesByParent, threadAncestors } from "../../../../../ai/models/threads";
 import { copyText, showToast } from "../../../../../../shell/clipboard";
 import { supabase } from "../../../../models/db";
@@ -24,7 +25,7 @@ import {
 } from "../../../../models/agents";
 import { AgentAvatar } from "./AgentAvatar";
 
-type PendingRun = Pick<AgentRun, "id" | "status" | "run_after" | "speaker_agent_id" | "agent_id" | "message_parent_id" | "replace_message_id">;
+type PendingRun = Pick<AgentRun, "id" | "status" | "run_after" | "speaker_agent_id" | "agent_id" | "message_parent_id" | "replace_message_id" | "progress" | "progress_at" | "progress_tools">;
 
 /**
  * A conversation with an agent, messenger style: its own line of messages, and a thread under any
@@ -64,11 +65,13 @@ export function AgentChat({
   const messages = useAgentMessages(conversation.id);
   const pending = useQuery({
     queryKey: agentPendingRunsKey(conversation.id),
-    refetchInterval: 4_000,
+    // Polls fast while a run streams its answer into `progress` (1.5 s would be smoother alone,
+    // but this one query also carries the queued runs).
+    refetchInterval: (query) => (query.state.data?.some((r) => r.status === "running") ? 2_000 : 5_000),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agent_runs")
-        .select("id, status, run_after, speaker_agent_id, agent_id, message_parent_id, replace_message_id")
+        .select("id, status, run_after, speaker_agent_id, agent_id, message_parent_id, replace_message_id, progress, progress_at, progress_tools")
         .eq("conversation_id", conversation.id)
         .in("status", ["queued", "running"])
         .order("run_after");
@@ -152,7 +155,10 @@ export function AgentChat({
     const left = m.author_kind === "agent" && m.author_agent_id === agent.id;
     const author = m.author_kind === "agent" ? agents.find((a) => a.id === m.author_agent_id) : undefined;
     const replies = counts.get(m.id) ?? 0;
-    const rewriting = waiting.some((r) => r.replace_message_id === m.id);
+    // This answer is being written again: what has streamed for it so far, if anything.
+    const rewriting = waiting.find((r) => r.replace_message_id === m.id) ?? null;
+    const streamed = rewriting && m.author_kind === "agent" ? (rewriting.progress ?? "") : "";
+    const streamedTools = rewriting?.progress_tools ?? null;
     const repliesLink =
       replies && m.id !== threadId ? (
         <button type="button" className="agent-bubble__replies" onClick={() => onThread(m.id)}>
@@ -178,12 +184,27 @@ export function AgentChat({
             <span className="muted">{when(m.created_at)}</span>
             {m.edited_at ? <span className="muted">{t(m.author_kind === "agent" ? "agents.chat.regenerated" : "agents.chat.edited")}</span> : null}
           </div>
-          {m.content ? <div className="agent-bubble__text">{m.content}</div> : null}
+          {/* The agent's answers are markdown (they're written as it, with tool results quoted); people
+              write plain text. While its answer is being written again, the streamed text replaces it. */}
+          {m.author_kind === "agent" ? (
+            streamed ? (
+              <div className="agent-bubble__text agent-bubble__markdown agent-bubble--streaming" aria-live="polite">
+                <Markdown source={streamed} />
+                {streamedTools?.length ? <div className="agent-bubble__tools muted">{t("agents.workingOn", { tools: streamedTools.map((tool) => tool.title ?? tool.name).join(", ") })}</div> : null}
+              </div>
+            ) : m.content ? (
+              <div className="agent-bubble__text agent-bubble__markdown">
+                <Markdown source={m.content} />
+              </div>
+            ) : null
+          ) : m.content ? (
+            <div className="agent-bubble__text">{m.content}</div>
+          ) : null}
           {m.error ? <p className="bungalow-help bungalow-help--error">{m.error}</p> : null}
           {m.metrics?.tools?.length ? (
-            <div className="agent-bubble__tools muted">{t("agents.usedTools", { tools: m.metrics.tools.map((tool) => tool.title ?? tool.name).join(", ") })}</div>
+            <div className="agent-bubble__tools muted">{t("agents.usedTools", { tools: m.metrics.tools.map((tool) => `${tool.title ?? tool.name}${tool.ok ? "" : " ✕"}`).join(", ") })}</div>
           ) : null}
-          {rewriting ? <div className="agent-bubble__tools muted">{t("agents.chat.rewriting", { name: author?.name ?? agent.name })}</div> : null}
+          {rewriting && !streamed && !streamedTools?.length ? <div className="agent-bubble__tools muted">{t("agents.chat.rewriting", { name: author?.name ?? agent.name })}</div> : null}
           {repliesLink}
         </div>
         <ActionMenu name={t("agents.chat.messageFrom", { name: nameOf(m) })} actions={actionsFor(m)} />
@@ -191,13 +212,20 @@ export function AgentChat({
     );
   };
 
+  /** What a new run is doing right now, streamed from its progress: the answer so far, or a tool's name. */
+  const streamingRun = waiting.find((r) => r.status === "running" && !r.replace_message_id && (r.progress || r.progress_tools?.length));
+  const streamedBubble = streamingRun ? <StreamingBubble key={streamingRun.id} agent={agents.find((a) => a.id === (streamingRun.speaker_agent_id ?? streamingRun.agent_id)) ?? agent} run={streamingRun} /> : null;
+  /** How much of a rewritten answer has streamed in (its bubble renders it in the message's place). */
+  const streamedLength = waiting.reduce((sum, r) => sum + (r.progress?.length ?? 0), 0);
+
   /** Who is writing, or when they answer, in a thread (null: the conversation's line). */
   const status = (parentId: string | null) => {
     const here = waiting.filter((r) => (r.message_parent_id ?? null) === parentId && !r.replace_message_id);
     const busy = here.find((r) => r.status === "running");
     const later = here.find((r) => r.status === "queued" && new Date(r.run_after).getTime() > Date.now() + 60_000);
     const nameFor = (r: PendingRun) => agents.find((a) => a.id === (r.speaker_agent_id ?? r.agent_id))?.name ?? agent.name;
-    if (busy) return <p className="muted agent-chat__typing">{t("agents.typing", { name: nameFor(busy) })}</p>;
+    // When the run's answer is streaming in, the streamed bubble takes its place ("writing…" would hide it).
+    if (busy && !(busy.progress || busy.progress_tools?.length)) return <p className="muted agent-chat__typing">{t("agents.typing", { name: nameFor(busy) })}</p>;
     if (later) return <p className="muted agent-chat__typing">{t("agents.answersLater", { name: nameFor(later), when: when(later.run_after) })}</p>;
     return null;
   };
@@ -205,7 +233,8 @@ export function AgentChat({
   const lineList = useRef<HTMLDivElement>(null);
   useEffect(() => {
     lineList.current?.scrollTo({ top: lineList.current.scrollHeight });
-  }, [line.length, waiting.length]);
+    // Follows the streamed text as it grows (the polled progress changes without new messages).
+  }, [line.length, waiting.length, streamedLength]);
 
   const empty = !messages.isLoading && !line.length ? (
     <p className="muted agent-chat__empty">{pair ? t("agents.agentsEmpty") : t("agents.chatEmpty", { name: agent.name })}</p>
@@ -237,6 +266,7 @@ export function AgentChat({
         {messages.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
         {empty}
         {line.map(bubble)}
+        {streamedBubble && !threadId ? streamedBubble : null}
         {status(null)}
       </div>
       {composer(null)}
@@ -463,3 +493,30 @@ function PairComposer({
     </div>
   );
 }
+
+/**
+ * A run's answer as it streams in (its `progress`, polled): the text so far, rendered as markdown
+ * like a finished answer, with the tools called so far underneath. When the run rewrites an answer
+ * (`replace_message_id`), the streaming text replaces that bubble's rendering; otherwise it sits at
+ * the end of the line. It disappears once the run finishes and the real message has been saved.
+ */
+function StreamingBubble({ agent, run }: { agent: Agent; run: Pick<AgentRun, "progress" | "progress_tools"> }) {
+  const { t } = useI18n();
+  const tools = run.progress_tools ?? [];
+  return (
+    <div className="agent-bubble agent-bubble--agent agent-bubble--streaming" aria-live="polite">
+      <AgentAvatar name={agent.name} size="sm" />
+      <div className="agent-bubble__body">
+        {run.progress ? (
+          <div className="agent-bubble__text agent-bubble__markdown">
+            <Markdown source={run.progress} />
+          </div>
+        ) : (
+          <span className="agent-chat__typing muted">{t("agents.typing", { name: agent.name })}</span>
+        )}
+        {tools.length ? <div className="agent-bubble__tools muted">{t("agents.workingOn", { tools: tools.map((tool) => tool.title ?? tool.name).join(", ") })}</div> : null}
+      </div>
+    </div>
+  );
+}
+

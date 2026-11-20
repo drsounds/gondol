@@ -15,9 +15,16 @@
 // Each tick claims due runs (claim_agent_runs('server'): the agents on `openai` or `ollama`; Deep
 // Agents wait for a browser) and, for each, acts as the agent's owner with a five-minute JWT signed
 // with the stack's secret: it reads the conversation, the channel thread or the task, asks the model
-// (non-streaming, the service's or the owner's settings' address and key), lets it call the app
-// router's MCP tools the agent's `tool_access` allows (as the owner, so RLS applies), and posts the
-// answer as the agent: in its direct thread, in the channel, or in the owner's direct thread with it.
+// (streamed, the service's or the owner's settings' address and key), lets it call the app router's
+// MCP tools the agent's `tool_access` allows (as the owner, so RLS applies), and posts the answer as
+// the agent: in its direct thread, in the channel, or in the owner's direct thread with it.
+//
+// While the model answers, what has streamed so far is written into the run's `progress` (every
+// 2 s, also the heartbeat that says the runner is alive), so every open chat shows the answer as
+// it's generated. A coding run (a conversation with a workspace) that runs out of the worker's time
+// hands its streamed answer and its tool list over to a follow-up run (followup_agent_run()),
+// which continues the same task a few minutes later — long sessions survive many workers instead of
+// failing with "the model didn't answer in time".
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, JWT_SECRET (or SUPABASE_JWT_SECRET). Optional:
 // AGENT_WORKER_WALL_MS (raise it with the router's workerTimeoutMs for slow models),
@@ -46,6 +53,14 @@ const OPENAI_BASE_URL = "https://api.openai.com/v1";
 const MAX_TOOL_ROUNDS = 8;
 const MAX_TOOL_RESULT = 20_000;
 const CONTEXT_MESSAGES = 30;
+/** How often a run's progress is written while it streams (its `progress`, and a heartbeat). */
+const PROGRESS_INTERVAL_MS = 2_000;
+/** How long a run may go with no progress at all before it counts as lost (a proxy cut the request). */
+const PROGRESS_STALE_MS = 90_000;
+/** Where a coding run hands over instead of failing on the runner's time (followup_agent_run()). */
+const FOLLOWUP_MINUTES = 10;
+/** How long a follow-up may queue behind its wall clock and still be claimed. */
+const MIN_RUN_MS = 15_000;
 /** How long a tick may work in all: keep it under the worker's wall clock limit (workerTimeoutMs). */
 const WORKER_WALL_MS = Math.max(15_000, Number(env("AGENT_WORKER_WALL_MS")) || 50_000);
 /** A run isn't started with less time than this left. */
@@ -250,7 +265,7 @@ function timedOut(error: unknown): boolean {
   return error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError");
 }
 
-async function post(url: string, apiKey: string | null, body: unknown, deadline: number): Promise<Record<string, unknown>> {
+async function post(url: string, apiKey: string | null, body: unknown, deadline: number): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, {
@@ -263,18 +278,91 @@ async function post(url: string, apiKey: string | null, body: unknown, deadline:
   } catch (error) {
     if (timedOut(error)) {
       throw new Error(
-        `The model didn't answer within the server runner's ${Math.round(WORKER_WALL_MS / 1000)} s. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the functions' workerTimeoutMs.`,
+        `The model didn't answer within the server runner's ${Math.round(WORKER_WALL_MS / 1000)} s. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the router's workerTimeoutMs.`,
       );
     }
     throw error;
   }
-  const answer = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!response.ok || !answer) {
+  if (!response.ok) {
+    const answer = (await response.json().catch(() => null)) as Record<string, unknown> | null;
     const error = answer?.error;
     const message = typeof error === "string" ? error : error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : null;
     throw new Error(message ?? `The AI API answered ${response.status}`);
   }
+  return response;
+}
+
+/** Reads a POST answer's JSON body (non-streaming). */
+async function postJson(url: string, apiKey: string | null, body: unknown, deadline: number): Promise<Record<string, unknown>> {
+  const response = await post(url, apiKey, body, deadline);
+  const answer = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!answer) throw new Error("The AI API sent no answer");
   return answer;
+}
+
+/**
+ * Reads a streamed chat answer (server-sent events), handing each raw chunk object to `onChunk` —
+ * the caller parses its provider's shape and keeps the run's `progress` up to date with what has
+ * arrived. Resolves with the usage counts of the last chunk that carried them.
+ */
+async function postStream(
+  url: string,
+  apiKey: string | null,
+  body: unknown,
+  deadline: number,
+  onChunk: (chunk: Record<string, unknown>) => void,
+): Promise<{ usage: Record<string, number> | null }> {
+  const response = await post(url, apiKey, body, deadline);
+  if (!response.body) throw new Error("The AI API sent no answer body");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let usage: Record<string, number> | null = null;
+  const event = (raw: string) => {
+    const data = raw
+      .replace(/\r/g, "")
+      .split("\n")
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trimStart())
+      .join("\n");
+    if (!data || data === "[DONE]") return;
+    let chunk: unknown;
+    try {
+      chunk = JSON.parse(data);
+    } catch {
+      return;
+    }
+    if (!chunk || typeof chunk !== "object") return;
+    const record = chunk as Record<string, unknown>;
+    if (record.error) {
+      const error = record.error;
+      throw new Error(
+        typeof error === "string" ? error : error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : "The AI API failed",
+      );
+    }
+    const of = record as { usage?: unknown };
+    if (of.usage && typeof of.usage === "object" && !Array.isArray(of.usage)) usage = of.usage as Record<string, number>;
+    onChunk(record);
+  };
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() ?? "";
+      events.forEach(event);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) event(buffer);
+  } finally {
+    try {
+      await reader.cancel();
+    } catch {
+      // The stream may already be closed.
+    }
+  }
+  return { usage };
 }
 
 async function chat(
@@ -284,60 +372,109 @@ async function chat(
   tools: McpTool[],
   temperature: number | null,
   deadline: number,
+  /** What has streamed so far, for the run's `progress`. */
+  onToken: (piece: string) => void,
 ): Promise<{ content: string; toolCalls: ToolCall[]; metrics: Record<string, number> }> {
   const functions = tools.map((tool) => ({ type: "function", function: { name: tool.name, description: tool.description ?? "", parameters: tool.inputSchema ?? { type: "object", properties: {} } } }));
   const base = endpoint.baseUrl.toString().replace(/\/+$/, "");
   if (endpoint.provider === "openai") {
-    const answer = await post(`${base}/chat/completions`, endpoint.apiKey, {
+    // Streamed: the answer's tokens go to the run's progress as they arrive; tool calls come in
+    // pieces by index, the arguments in parts, so they're only parsed once the stream is done.
+    const calls: { id: string; name: string; arguments: string }[] = [];
+    let content = "";
+    let usage: { prompt_tokens?: number; completion_tokens?: number } = {};
+    const { usage: finalUsage } = await postStream(
+      `${base}/chat/completions`,
+      endpoint.apiKey,
+      {
+        model,
+        stream: true,
+        stream_options: { include_usage: true },
+        messages: messages.map((m) =>
+          m.role === "tool"
+            ? { role: "tool", tool_call_id: m.toolCallId, content: m.content }
+            : "toolCalls" in m
+              ? { role: "assistant", content: m.content || null, tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.arguments) } })) }
+              : m,
+        ),
+        ...(functions.length ? { tools: functions } : {}),
+        ...(temperature !== null ? { temperature } : {}),
+      },
+      deadline,
+      (chunk) => {
+        const choice = (chunk.choices as { delta?: { content?: string; tool_calls?: { index?: number; id?: string; function?: { name?: string; arguments?: string } }[] } }[] | undefined)?.[0];
+        const delta = choice?.delta;
+        if (typeof delta?.content === "string" && delta.content) {
+          content += delta.content;
+          onToken(delta.content);
+        }
+        for (const piece of delta?.tool_calls ?? []) {
+          const index = typeof piece.index === "number" ? piece.index : calls.length;
+          const call = (calls[index] ??= { id: "", name: "", arguments: "" });
+          if (piece.id) call.id = piece.id;
+          if (piece.function?.name) call.name += piece.function.name;
+          if (piece.function?.arguments) call.arguments += piece.function.arguments;
+        }
+        const of = chunk as { usage?: { prompt_tokens?: number; completion_tokens?: number } };
+        if (of.usage && typeof of.usage === "object") usage = of.usage;
+      },
+    );
+    if (finalUsage) usage = finalUsage as { prompt_tokens?: number; completion_tokens?: number };
+    return {
+      content,
+      // Tool calls replace a text answer: the text so far is kept for the context, the tools run next.
+      toolCalls: calls
+        .filter((call) => call && call.name)
+        .map((call, index) => {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(call.arguments || "{}");
+          } catch {
+            // The model sent arguments that aren't JSON; the tool will say what's missing.
+          }
+          return { id: call.id || `call_${index}`, name: call.name, arguments: args };
+        }),
+      metrics: { ...(usage.prompt_tokens ? { promptTokens: usage.prompt_tokens } : {}), ...(usage.completion_tokens ? { completionTokens: usage.completion_tokens } : {}) },
+    };
+  }
+  // Ollama streams the message so far in each chunk; its final chunk (`done: true`) carries the counts.
+  let content = "";
+  let toolCalls: ToolCall[] = [];
+  let metrics: Record<string, number> = {};
+  await postStream(
+    `${base}/api/chat`,
+    endpoint.apiKey,
+    {
       model,
+      stream: true,
       messages: messages.map((m) =>
         m.role === "tool"
-          ? { role: "tool", tool_call_id: m.toolCallId, content: m.content }
+          ? { role: "tool", content: m.content, tool_name: m.toolName }
           : "toolCalls" in m
-            ? { role: "assistant", content: m.content || null, tool_calls: m.toolCalls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: JSON.stringify(c.arguments) } })) }
+            ? { role: "assistant", content: m.content, tool_calls: m.toolCalls.map((c) => ({ function: { name: c.name, arguments: c.arguments } })) }
             : m,
       ),
       ...(functions.length ? { tools: functions } : {}),
-      ...(temperature !== null ? { temperature } : {}),
-    }, deadline);
-    const choice = (answer.choices as { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[] | undefined)?.[0]?.message;
-    const usage = answer.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
-    return {
-      content: choice?.content ?? "",
-      toolCalls: (choice?.tool_calls ?? []).map((c) => {
-        let args: Record<string, unknown> = {};
-        try {
-          args = JSON.parse(c.function.arguments || "{}");
-        } catch {
-          // The model sent arguments that aren't JSON; the tool will say what's missing.
-        }
-        return { id: c.id, name: c.function.name, arguments: args };
-      }),
-      metrics: { ...(usage?.prompt_tokens ? { promptTokens: usage.prompt_tokens } : {}), ...(usage?.completion_tokens ? { completionTokens: usage.completion_tokens } : {}) },
-    };
-  }
-  const answer = await post(`${base}/api/chat`, endpoint.apiKey, {
-    model,
-    stream: false,
-    messages: messages.map((m) =>
-      m.role === "tool"
-        ? { role: "tool", content: m.content, tool_name: m.toolName }
-        : "toolCalls" in m
-          ? { role: "assistant", content: m.content, tool_calls: m.toolCalls.map((c) => ({ function: { name: c.name, arguments: c.arguments } })) }
-          : m,
-    ),
-    ...(functions.length ? { tools: functions } : {}),
-    ...(temperature !== null ? { options: { temperature } } : {}),
-  }, deadline);
-  const message = answer.message as { content?: string; tool_calls?: { function: { name: string; arguments?: Record<string, unknown> } }[] } | undefined;
-  return {
-    content: message?.content ?? "",
-    toolCalls: (message?.tool_calls ?? []).map((c, i) => ({ id: `call_${i}`, name: c.function.name, arguments: c.function.arguments ?? {} })),
-    metrics: {
-      ...(typeof answer.prompt_eval_count === "number" ? { promptTokens: answer.prompt_eval_count } : {}),
-      ...(typeof answer.eval_count === "number" ? { completionTokens: answer.eval_count } : {}),
+      ...(temperature !== null ? { options: { temperature } } : {}),
     },
-  };
+    deadline,
+    (chunk) => {
+      const message = chunk.message as { content?: string; tool_calls?: { function: { name: string; arguments?: Record<string, unknown> } }[] } | undefined;
+      const piece = message?.content ?? "";
+      if (piece) {
+        content += piece;
+        onToken(piece);
+      }
+      if (message?.tool_calls?.length) {
+        toolCalls = message.tool_calls.map((c, i) => ({ id: `call_${toolCalls.length + i}`, name: c.function.name, arguments: c.function.arguments ?? {} }));
+      }
+      const counts: Record<string, number> = {};
+      if (typeof chunk.prompt_eval_count === "number") counts.promptTokens = chunk.prompt_eval_count;
+      if (typeof chunk.eval_count === "number") counts.completionTokens = chunk.eval_count;
+      if (Object.keys(counts).length) metrics = counts;
+    },
+  );
+  return { content, toolCalls, metrics };
 }
 
 // ── A run ───────────────────────────────────────────────────────────────────────────────────
@@ -430,6 +567,56 @@ async function finish(runId: string, values: { status: string; output?: string |
   await admin!.from("agent_runs").update({ ...values, finished_at: new Date().toISOString() }).eq("id", runId);
 }
 
+/**
+ * Keeps a run's `progress` (what it's doing and has answered so far) up to date while its answer
+ * streams, at most every PROGRESS_INTERVAL_MS — also the heartbeat that says the runner is alive.
+ * `clear()` drops it once the answer itself is saved.
+ */
+class RunProgress {
+  private admin: SupabaseClient;
+  private runId: string;
+  private last = 0;
+  private text = "";
+  private tools: { name: string; title?: string; ok?: boolean }[] = [];
+  private writing: Promise<unknown> = Promise.resolve();
+  private stopped = false;
+  constructor(adminClient: SupabaseClient, runId: string) {
+    this.admin = adminClient;
+    this.runId = runId;
+  }
+  answer(text: string): void {
+    if (this.stopped || text === this.text) return;
+    this.text = text;
+    this.flush();
+  }
+  tool(name: string, title?: string, ok?: boolean): void {
+    if (this.stopped || this.tools[this.tools.length - 1]?.name === name) return;
+    this.tools.push({ name, ...(title ? { title } : {}), ...(ok === undefined ? {} : { ok }) });
+    this.last = 0;
+    this.flush();
+  }
+  private flush(): void {
+    if (this.stopped || Date.now() - this.last < PROGRESS_INTERVAL_MS) return;
+    this.last = Date.now();
+    const text = this.text;
+    const tools = [...this.tools];
+    this.writing = this.writing.then(() =>
+      this.admin
+        .from("agent_runs")
+        .update({ progress: text, progress_tools: tools as unknown as Json, progress_at: new Date().toISOString() })
+        .eq("id", this.runId),
+    );
+  }
+  async clear(): Promise<void> {
+    this.stopped = true;
+    await this.writing.catch(() => undefined);
+    await this.admin.from("agent_runs").update({ progress: null, progress_tools: null, progress_at: null }).eq("id", this.runId);
+  }
+}
+
+/** A run that ran out of its runner's time but made progress, chained into a follow-up this long. */
+const followupError = "ran out of time";
+
 async function execute(run: Run, deadline: number): Promise<void> {
   const speaker = await loadAgent(run.speaker_agent_id ?? run.agent_id);
   if (!speaker || speaker.status !== "active") {
@@ -441,6 +628,8 @@ async function execute(run: Run, deadline: number): Promise<void> {
   let failure: string | null = null;
   let metrics: Record<string, number> = {};
   const started = Date.now();
+  const progress = new RunProgress(admin!, run.id);
+  let timed = false;
   try {
     const token = await tokenFor(run.user_id);
     const user = userClient(token);
@@ -462,26 +651,78 @@ async function execute(run: Run, deadline: number): Promise<void> {
     const credit = creditContext(null, {}, { userId: run.user_id, provider: endpoint.provider, model, app: "agents", workspaceId: null });
     for (let round = 0; ; round++) {
       await assertCredits(user, credit);
-      const result = await chat(endpoint, model, messages, round < maxRounds ? tools.tools : [], speaker.temperature, deadline);
+      let piecewise = "";
+      const start = content;
+      const result = await chat(
+        endpoint,
+        model,
+        messages,
+        round < maxRounds ? tools.tools : [],
+        speaker.temperature,
+        deadline,
+        (piece) => {
+          piecewise += piece;
+          progress.answer(start ? `${start}\n\n${piecewise}` : piecewise);
+        },
+      );
       await chargeCredits(credit, {
         inputTokens: result.metrics.promptTokens ?? estimateTokens(JSON.stringify(messages)),
         outputTokens: result.metrics.completionTokens ?? estimateTokens(result.content + JSON.stringify(result.toolCalls)),
       });
-      if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
+      if (result.content) {
+        content = start ? `${start}\n\n${result.content}` : result.content;
+        progress.answer(content);
+      }
       metrics = result.metrics;
       if (!result.toolCalls.length || round >= maxRounds) break;
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
       for (const call of result.toolCalls) {
         const tool = tools.tools.find((t) => t.name === call.name);
+        progress.tool(call.name, tool?.title);
         const answer = tool ? await callTool(await tokenFor(run.user_id), call, `${URI_SCHEME}:agent:${speaker.id}`, deadline) : { text: `There is no tool named ${call.name}, or the agent may not use it.`, ok: false };
         used.push({ name: call.name, ...(tool?.title ? { title: tool.title } : {}), ok: answer.ok });
+        progress.tool(call.name, tool?.title, answer.ok);
         messages.push({ role: "tool", content: answer.text.length > MAX_TOOL_RESULT ? `${answer.text.slice(0, MAX_TOOL_RESULT)}…` : answer.text, toolCallId: call.id, toolName: call.name });
+      }
+      // Coding takes rounds beyond one worker: hand the rest over to a follow-up run instead of
+      // throwing the work away when the wall clock runs out.
+      if (deadline - Date.now() < 15_000 && workspace) {
+        timed = true;
+        break;
       }
     }
     content = content.trim();
     if (!content) throw new Error("The model gave no answer");
   } catch (error) {
-    failure = error instanceof Error ? error.message : String(error);
+    if (!timed) {
+      const message = error instanceof Error ? error.message : String(error);
+      // A run cut off by its own remaining time (not the model failing) with work to show hands over too.
+      if (/didn't answer within the server runner's/.test(message) && (content.trim() || used.length)) timed = true;
+      else failure = message;
+    }
+  }
+  if (timed) {
+    // The streamed answer and the tools used so far stay on this run; the follow-up reads them and
+    // goes on. It starts in a few minutes (working hours allowing), so this worker is free again.
+    const partial = content.trim();
+    const instructions = [
+      `Your previous run for this task was interrupted by its time limit; continue the work from where it stopped.`,
+      partial ? `What you had said or found so far:\n\n${partial}` : "",
+      used.length ? `Tools you had already called: ${used.map((tool) => tool.name).join(", ")}.` : "",
+      "Pick up the task and carry it through; say what was already done and what you did now.",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const { error } = await admin!.rpc("followup_agent_run", { p_run_id: run.id, p_instructions: instructions, p_minutes: FOLLOWUP_MINUTES });
+    const handoverError = error ? error.message : null;
+    await finish(run.id, {
+      status: handoverError ? "failed" : "done",
+      output: partial || null,
+      error: handoverError ?? failure,
+      metrics: { ...metrics, durationMs: Date.now() - started, ...(used.length ? { tools: used } : {}) } as Json,
+    });
+    await progress.clear();
+    return;
   }
   const allMetrics = { ...metrics, durationMs: Date.now() - started, ...(used.length ? { tools: used } : {}) } as Json;
 
@@ -527,6 +768,8 @@ async function execute(run: Run, deadline: number): Promise<void> {
     failure = failure ?? (error instanceof Error ? error.message : String(error));
   }
   await finish(run.id, { status: failure ? "failed" : "done", output: content || null, error: failure, metrics: allMetrics });
+  // The answer itself is saved; the streamed copy goes.
+  await progress.clear();
 }
 
 /** Runs this worker is working on, failed on its way down if it's cut off before they're done. */
@@ -537,7 +780,7 @@ declare const EdgeRuntime: { waitUntil?: (promise: Promise<unknown>) => void } |
 addEventListener("beforeunload", (event) => {
   if (!inFlight.size || !admin) return;
   const reason = (event as Event & { detail?: { reason?: string } }).detail?.reason;
-  const error = `The server stopped the run before the model was done${reason ? ` (${reason})` : ""}. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the functions' workerTimeoutMs.`;
+  const error = `The server stopped the run before the model was done${reason ? ` (${reason})` : ""}. Use a faster model, or raise AGENT_WORKER_WALL_MS together with the router's workerTimeoutMs.`;
   void admin
     .from("agent_runs")
     .update({ status: "failed", error, finished_at: new Date().toISOString() })

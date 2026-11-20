@@ -92,6 +92,8 @@
 .agent-run { border-top: 1px solid var(--bungalow-color-border); padding-top: var(--bungalow-space-2); }
 .agent-run__head { align-items: center; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
 .agent-run__output { margin: var(--bungalow-space-1) 0 0; max-height: 8rem; overflow: hidden; white-space: pre-wrap; }
+.agent-run__output--live { border-left: 2px solid var(--bungalow-color-primary-soft, var(--bungalow-color-border)); padding-left: var(--bungalow-space-2); opacity: 0.85; }
+.agent-run__tools { font-size: 0.75rem; margin: var(--bungalow-space-1) 0 0; }
 
 /* A direct thread with an agent, messenger style: the agent on the left, the other side on the right. */
 .agent-chat { display: flex; flex-direction: column; gap: var(--bungalow-space-3); min-height: 70vh; }
@@ -119,6 +121,22 @@
 .agent-bubble__meta { display: flex; font-size: 0.75rem; font-weight: 600; gap: var(--bungalow-space-2); }
 .agent-bubble__text { overflow-wrap: anywhere; white-space: pre-wrap; }
 .agent-bubble__tools { font-size: 0.75rem; }
+/* An agent's answers are markdown (the ai app's): drop the bubble's pre-wrap so the parser owns
+ * the breaks, and let long answers breathe past the usual bubble ceiling. */
+.agent-bubble__markdown {
+  white-space: normal;
+}
+.agent-bubble__markdown .ai-markdown {
+  --ai-line: color-mix(in srgb, currentColor 16%, transparent);
+  white-space: normal;
+}
+.agent-bubble--streaming .agent-bubble__tools {
+  color: var(--bungalow-color-muted);
+}
+/* Tags (@mentions, #channels, spacify: URIs) stream in half-written; don't flash them broken. */
+.agent-bubble__markdown .ai-markdown a {
+  overflow-wrap: anywhere;
+}
 @media (max-width: 40rem) {
   .agent-hours__row { grid-template-columns: 1fr; }
   .agent-chat__messages { max-height: none; }

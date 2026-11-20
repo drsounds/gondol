@@ -41,6 +41,10 @@ const MAX_TOOL_ROUNDS = 8;
 const MAX_TOOL_RESULT = 20_000;
 /** How many earlier messages go along. */
 const CONTEXT_MESSAGES = 30;
+/** How often a runner's progress at most is written (token updates coalesce; a tool call always writes). */
+const PROGRESS_INTERVAL_MS = 2_000;
+/** Where a coding run hands over instead of failing on the runner's time (followup_agent_run()). */
+const FOLLOWUP_MINUTES = 10;
 
 export interface AgentRunContext {
   settings: AiSettings;
@@ -116,12 +120,70 @@ async function finishRun(runId: string, values: { status: "done" | "failed" | "s
   if (error) console.warn("agents: couldn't log the run", error);
 }
 
+/** The tools a run has called so far, as its progress (and later its answer's metrics) keep them. */
+interface RunToolUse {
+  name: string;
+  title?: string;
+}
+
+/**
+ * Writes what a run is doing and has answered so far into agent_runs (its `progress`), so every
+ * open chat shows the answer as it streams in. Token updates coalesce (at most one write per
+ * PROGRESS_INTERVAL_MS); a tool call writes at once, so its name shows while it runs. `clear()`
+ * drops the progress once the answer itself is saved (the message is the answer then).
+ */
+class RunProgress {
+  private runId: string;
+  private last = 0;
+  private text = "";
+  private tools: RunToolUse[] = [];
+  private writing: Promise<void> = Promise.resolve();
+  private stopped = false;
+  constructor(runId: string) {
+    this.runId = runId;
+  }
+  /** The streamed answer so far (across tool rounds). */
+  answer(text: string): void {
+    if (this.stopped || text === this.text) return;
+    this.text = text;
+    this.flush();
+  }
+  /** A tool call (or a status note, as its name) shown while it runs. */
+  tool(name: string, title?: string): void {
+    if (this.stopped) return;
+    if (this.tools[this.tools.length - 1]?.name === name) return;
+    this.tools.push({ name, ...(title ? { title } : {}) });
+    this.last = 0;
+    this.flush();
+  }
+  private flush(): void {
+    if (this.stopped) return;
+    if (Date.now() - this.last < PROGRESS_INTERVAL_MS) return;
+    this.last = Date.now();
+    const text = this.text;
+    const tools = [...this.tools];
+    this.writing = this.writing.then(async () => {
+      const { error } = await supabase
+        .from("agent_runs")
+        .update({ progress: text, progress_tools: tools as unknown as Json, progress_at: new Date().toISOString() })
+        .eq("id", this.runId);
+      if (error) console.warn("agents: couldn't write the run's progress", error);
+    });
+  }
+  async clear(): Promise<void> {
+    this.stopped = true;
+    await this.writing.catch(() => undefined);
+    await supabase.from("agent_runs").update({ progress: null, progress_tools: null, progress_at: null }).eq("id", this.runId);
+  }
+}
+
 /**
  * Does one claimed run in the browser: builds the agent's prompt for where it answers (a direct
  * thread, a channel thread, or a task), asks its model, letting it call the apps' MCP tools its
  * `tool_access` allows (no one is asked: the agent works on its own), and posts the answer as the
  * agent: in the thread, in the channel, or (for a task without a channel) in the owner's direct
- * thread with it. The run is logged done or failed either way.
+ * thread with it. The answer streams into the run's `progress` as it's generated — every open chat
+ * renders it token by token — and the run is logged done or failed either way.
  */
 export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Promise<void> {
   const used: NonNullable<AiMetrics["tools"]> = [];
@@ -133,6 +195,7 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
     await finishRun(run.id, { status: "skipped", error: speaker ? `The agent is ${speaker.status}` : "The agent is gone" });
     return;
   }
+  const progress = new RunProgress(run.id);
   try {
     const provider = getAiProvider(speaker.provider);
     if (!provider) throw new Error(`No AI provider "${speaker.provider}"`);
@@ -165,6 +228,7 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
       if (!tool) {
         text = `There is no tool named ${call.name}, or the agent may not use it.`;
       } else {
+        progress.tool(call.name, tool.title ?? tool.name);
         try {
           // Writes the tool makes are logged as the agent's, not its owner's.
           const answer = await callAppTool(call.name, call.arguments, ctx.signal, toEntityUri("agent", speaker.id));
@@ -178,7 +242,10 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
       return text.length > MAX_TOOL_RESULT ? `${text.slice(0, MAX_TOOL_RESULT)}…` : text;
     };
 
+    let streamed = "";
     for (let round = 0; ; round++) {
+      const start = streamed;
+      let piecewise = "";
       const result = await provider.chat(ctx.settings, {
         model,
         messages,
@@ -186,14 +253,33 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
         signal: ctx.signal,
         service,
         ...(tools.tools.length && round < maxRounds ? { tools: aiToolsFor(tools.tools) } : {}),
-        ...(provider.runsTools ? { runTool } : {}),
-        onToken: () => undefined,
+        ...(provider.runsTools
+          ? {
+              runTool: async (call: AiToolCall) => {
+                progress.tool(call.name, tools.tools.find((t) => t.name === call.name)?.title ?? call.name);
+                return runTool(call);
+              },
+              onStatus: (status: string) => {
+                progress.answer(start ? `${start}\n\n${piecewise}` : piecewise);
+                progress.tool(status, status);
+              },
+            }
+          : {}),
+        onToken: (piece) => {
+          piecewise += piece;
+          progress.answer(start ? `${start}\n\n${piecewise}` : piecewise);
+        },
         app: "agents",
       });
-      if (result.content) content = content ? `${content}\n\n${result.content}` : result.content;
+      if (result.content) {
+        streamed = start ? `${start}\n\n${result.content}` : result.content;
+        progress.answer(streamed);
+      }
+      content = streamed;
       metrics = result.metrics ?? null;
       if (!result.toolCalls?.length || round >= maxRounds) break;
       messages.push({ role: "assistant", content: result.content, toolCalls: result.toolCalls });
+      // The tool results go back to the model; its next answer keeps streaming after this round's text.
       for (const call of result.toolCalls) {
         messages.push({ role: "tool", content: await runTool(call), toolCallId: call.id, toolName: call.name });
       }
@@ -211,6 +297,8 @@ export async function executeAgentRun(run: AgentRun, ctx: AgentRunContext): Prom
     failure = failure ?? (caught instanceof Error ? caught.message : String(caught));
   }
   await finishRun(run.id, { status: failure ? "failed" : "done", output: content || null, error: failure, metrics: allMetrics });
+  // The answer itself is saved now; the streaming copy goes.
+  await progress.clear();
 }
 
 /** Posts what the agent answered where the run says, as the agent. */

@@ -257,7 +257,6 @@ export interface AgentMessage {
 
 export const AGENT_CONVERSATION_COLUMNS = "id, agent_id, with_kind, with_ego_id, with_agent_id, title, is_main, run_id, topic, last_message_at, created_at";
 const MESSAGE_COLUMNS = "id, conversation_id, author_kind, author_ego_id, author_agent_id, content, metrics, error, run_id, parent_id, edited_at, soft_deleted_at, created_at";
-
 export const agentConversationsKey = (agentId: string | null) => ["agent-conversations", agentId ?? ""] as const;
 
 /** An agent's threads: its own and those where another agent talks with it. */
@@ -407,6 +406,12 @@ export interface AgentRun {
   run_after: string;
   runner: "browser" | "server" | null;
   output: string | null;
+  /** What the runner is doing or has answered so far, while it works (cleared when it's done). */
+  progress: string | null;
+  /** When the progress was last written (a stale one means the runner may be gone). */
+  progress_at: string | null;
+  /** The tools called so far, as the answer's metrics will keep them. */
+  progress_tools: { name: string; title?: string; ok: boolean; denied?: boolean }[] | null;
   error: string | null;
   metrics: Json | null;
   queued_at: string;
@@ -431,8 +436,7 @@ export function useAgentRuns(agentId: string | null) {
   });
 }
 
-/**
- * The conversation to read a run in and go on from (open_agent_run_conversation()): the one it
+/** The conversation to read a run in and go on from (open_agent_run_conversation()): the one it
  * answered in, else one of its own that starts with its instructions and the agent's answer.
  */
 export async function openAgentRunConversation(runId: string): Promise<string> {
@@ -507,6 +511,45 @@ export async function claimAgentRuns(runId?: string): Promise<AgentRun[]> {
   const { data, error } = await supabase.rpc("claim_agent_runs", { p_runner: "browser", p_limit: 3, p_run_id: runId ?? null });
   if (error) throw error;
   return (data ?? []) as unknown as AgentRun[];
+}
+
+/** A run continuing where another stopped: its follow-up (followup_agent_run()). */
+export async function followupAgentRun(runId: string, instructions: string, minutes = 10): Promise<AgentRun> {
+  const { data, error } = await supabase.rpc("followup_agent_run", { p_run_id: runId, p_instructions: instructions, p_minutes: minutes });
+  if (error) throw error;
+  return data as unknown as AgentRun;
+}
+
+/** How a run's progress is polled while it works (useAgentRunLive). */
+const agentRunLiveKey = (runId: string | null) => ["agent-run-live", runId ?? ""] as const;
+
+/**
+ * One run as it works (agent_runs, polled): what it's doing and has answered so far (`progress`,
+ * written by its runner while the answer streams in), the tools it has called so far, and whether
+ * it's still going. Polled every 1.5 s while the run is queued or running, so a streaming answer
+ * keeps up; when the run is finished the last read stays (and callers read the message itself).
+ */
+export function useAgentRunLive(runId: string | null): {
+  run: Pick<AgentRun, "id" | "status" | "progress" | "progress_at" | "progress_tools" | "replace_message_id" | "message_parent_id"> | null;
+  streaming: boolean;
+} {
+  const live = useQuery({
+    queryKey: agentRunLiveKey(runId),
+    enabled: !!runId,
+    refetchInterval: 1_500,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("agent_runs")
+        .select("id, status, progress, progress_at, progress_tools, replace_message_id, message_parent_id")
+        .eq("id", runId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as Pick<AgentRun, "id" | "status" | "progress" | "progress_at" | "progress_tools" | "replace_message_id" | "message_parent_id"> | null;
+    },
+  });
+  const run = live.data ?? null;
+  const streaming = run?.status === "running" || run?.status === "queued";
+  return { run, streaming };
 }
 
 /** The agents mentioned in a channel message body: `<scheme>:agent:<id>` URIs or `/channels/people/agent/<id>` links. */
