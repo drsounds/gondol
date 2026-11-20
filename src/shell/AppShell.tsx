@@ -284,13 +284,13 @@ export function AppShell({
               </button>
           )}
         </div>
-        <div style={{ flex: 1 }} />
         {isDesktopApp() && historyButtons}
+        <div style={{ flex: 1 }} />
         {searchForm}
         <div style={{ flex: 1 }} />
         <div className="top-bar__actions">{topBarActions}</div>
         <div className="chrome-bar__actions">{chromeActions}</div>
-        {!isMac() && isDesktopApp() && <div style={{ width: "200pt"}}></div>}
+        {!isMac() && isDesktopApp() && <div style={{ width: "100pt"}}></div>}
       </header>
 
       {banners}
