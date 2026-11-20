@@ -137,6 +137,18 @@ A command still running after `CODE_WAIT_MS` (40 s) comes back with its `command
 dev runtime as a dev source in that browser only, so the app shows in the menu and reloads as the
 agent saves (`useAgentAppSources()`, below).
 
+**Kicking development off** (`ensureAgentWorkspace()` in `gondol/builtin/agents/models`, the
+`/code` start page and the conversation bar over any agent chat): describe the idea to an agent and
+it all happens at once — a fresh conversation opens (every idea its own), its workspace is created
+in a sandbox (the user's first enabled one, else the server's where its operator allows it), the
+repositories the prompt mentions (`owner/name`; saved rows when they are, else
+`code_add_repository` finds them on GitHub) are connected, a prompt that names none gets a new
+private GitHub repository of the idea's own (`code_create_repository()`, named
+`guessProjectName(idea)`), the whole thing is prepared by `code_setup_workspace()` and the agent's
+first run is queued with the idea as its instructions. `mentionedRepos()` picks the repository
+mentions out of a prompt; `findWorkspaceByMention()` finds the workspace a prompt's repositories
+already live in.
+
 **Releases and the apps registry**: `code_prepare_release` stores a build in the public storage
 bucket `gondol-apps` (`<user>/<app>/<release>/`, `CODE_APPS_BUCKET`) as a `code_app_releases` row,
 `ready`. The user presses **Publish** (`publish_code_app_release()`): live for them at once; "Publish
@@ -154,7 +166,8 @@ a gondol apps runtime with an admin's approval).
 
 | Path | |
 | --- | --- |
-| `/code` | Workspaces; `/code/workspaces/<key>` one (repositories, live sandbox, releases with Publish). |
+| `/code` | The start page (CodeStart): one big window to prompt an idea, kickstarting development, with the agent picked beside it. |
+| `/code/workspaces` | Workspaces; `/code/workspaces/<key>` one (repositories, live sandbox, releases with Publish). |
 | `/code/repositories`, `/code/sandboxes`, `/code/apps` | Repositories, sandboxes, and the registry (admins approve public apps there). |
 | `…/new`, `…/<key>/edit` | The sheets. "Connect repositories" over a conversation makes its workspace. |
 

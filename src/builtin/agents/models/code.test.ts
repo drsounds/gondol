@@ -13,7 +13,7 @@ import {
   shellQuote,
   workspacePath,
 } from "../../../../supabase/functions/_shared/codeWorkspace.ts";
-import { mentionedRepos } from "../../../../src/builtin/agents/models/ensure";
+import { guessProjectName, mentionedRepos } from "../../../../src/builtin/agents/models/ensure";
 
 describe("agent coding helpers", () => {
   test("paths stay inside the workspace", () => {
@@ -91,5 +91,15 @@ describe("agent coding helpers", () => {
     expect(mentionedRepos("check drsounds.github.io and react/react-redux/redux")).toEqual([]);
     expect(mentionedRepos("drsounds/spacify.git, drsounds/spacify.")).toEqual(["drsounds/spacify"]);
     expect(mentionedRepos("")).toEqual([]);
+  });
+
+  test("a project name guessed from an idea", () => {
+    expect(guessProjectName("Build a habit tracker")).toBe("habit-tracker");
+    expect(guessProjectName("Build a habit tracker with weekly streaks")).toBe("habit-tracker-weekly-streaks");
+    expect(guessProjectName("Make me an app that tracks my sleep")).toBe("tracks-sleep");
+    expect(guessProjectName("I want a website like Spotify")).toBe("spotify");
+    expect(guessProjectName("Create spacify-style landing page")).toBe("spacify-style-landing-page");
+    expect(guessProjectName("")).toBe("new-project");
+    expect(guessProjectName("a an the of")).toBe("new-project");
   });
 });
