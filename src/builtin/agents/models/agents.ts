@@ -520,38 +520,6 @@ export async function followupAgentRun(runId: string, instructions: string): Pro
   return data as unknown as AgentRun;
 }
 
-/** How a run's progress is polled while it works (useAgentRunLive). */
-const agentRunLiveKey = (runId: string | null) => ["agent-run-live", runId ?? ""] as const;
-
-/**
- * One run as it works (agent_runs, polled): what it's doing and has answered so far (`progress`,
- * written by its runner while the answer streams in), the tools it has called so far, and whether
- * it's still going. Polled every 1.5 s while the run is queued or running, so a streaming answer
- * keeps up; when the run is finished the last read stays (and callers read the message itself).
- */
-export function useAgentRunLive(runId: string | null): {
-  run: Pick<AgentRun, "id" | "status" | "progress" | "progress_at" | "progress_tools" | "replace_message_id" | "message_parent_id"> | null;
-  streaming: boolean;
-} {
-  const live = useQuery({
-    queryKey: agentRunLiveKey(runId),
-    enabled: !!runId,
-    refetchInterval: 1_500,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agent_runs")
-        .select("id, status, progress, progress_at, progress_tools, replace_message_id, message_parent_id")
-        .eq("id", runId!)
-        .maybeSingle();
-      if (error) throw error;
-      return (data ?? null) as Pick<AgentRun, "id" | "status" | "progress" | "progress_at" | "progress_tools" | "replace_message_id" | "message_parent_id"> | null;
-    },
-  });
-  const run = live.data ?? null;
-  const streaming = run?.status === "running" || run?.status === "queued";
-  return { run, streaming };
-}
-
 /** The agents mentioned in a channel message body: `<scheme>:agent:<id>` URIs or `/channels/people/agent/<id>` links. */
 export function mentionedAgentIds(body: string): string[] {
   const ids = new Set<string>();
