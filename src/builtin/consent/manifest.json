@@ -1,0 +1,39 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "consent",
+  "slug": "privacy",
+  "name": { "en": "Privacy", "sv": "Integritet" },
+  "description": {
+    "en": "Cookie consent on the first visit (EU GDPR and ePrivacy), cookie settings to change it later, and the privacy policy in Swedish and English.",
+    "sv": "Samtycke till cookies vid första besöket (EU:s GDPR och ePrivacy), cookie-inställningar för att ändra det senare och integritetspolicyn på svenska och engelska."
+  },
+  "iconName": "shield",
+  "defaultFeatureId": "privacy",
+  "dependencies": [],
+  "defaultActive": true,
+  "features": [
+    {
+      "id": "privacy",
+      "name": { "en": "Privacy policy", "sv": "Integritetspolicy" },
+      "description": { "en": "How your personal data is stored and processed", "sv": "Hur dina personuppgifter lagras och behandlas" },
+      "path": "privacy",
+      "aliases": ["integritet", "gdpr"],
+      "iconName": "document",
+      "aspects": ["view"],
+      "actions": [
+        { "id": "consent.policy", "title": "Privacy policy", "category": "Privacy", "iconName": "document", "navigate": "/privacy", "keywords": ["gdpr", "integritet", "personuppgifter", "data"] }
+      ]
+    },
+    {
+      "id": "cookies",
+      "name": { "en": "Cookie settings", "sv": "Cookie-inställningar" },
+      "description": { "en": "Change or withdraw your cookie consent", "sv": "Ändra eller ta tillbaka ditt samtycke till cookies" },
+      "path": "cookies",
+      "iconName": "shield",
+      "aspects": ["configure"],
+      "actions": [
+        { "id": "consent.settings", "title": "Cookie settings", "category": "Privacy", "iconName": "shield", "navigate": "/cookies", "keywords": ["consent", "samtycke", "gdpr", "tracking", "telemetry"] }
+      ]
+    }
+  ]
+}

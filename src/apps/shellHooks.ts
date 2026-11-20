@@ -1,5 +1,5 @@
 import { defineHook } from "./contributions";
-import type { AppActionContext, IconName } from "./types";
+import type { AppActionContext, AppLocaleString, IconName } from "./types";
 import type { EntityRoute } from "../entities/uri";
 import type { EntitySource } from "../entities/lookup";
 import type { EntityArtStyle } from "../entities/EntityArt";
@@ -80,6 +80,45 @@ export interface RoutingContribution {
   menuAspects?: Record<string, readonly SiteAspect[]>;
 }
 export const routingHook = defineHook<RoutingContribution>("gondol.routing");
+
+/** Something a service keeps in the user's browser. */
+export interface PrivacyServiceStorage {
+  name: string;
+  kind: "cookie" | "localStorage" | "sessionStorage" | "indexedDB";
+  purpose: AppLocaleString;
+  /** How long it is kept ("2 years", "until you sign out"). */
+  duration: AppLocaleString;
+}
+
+/**
+ * A third-party service an app uses that stores or processes personal data (a manifest's
+ * `services`): the cookie notice lists it under its consent category and the privacy policy among
+ * the providers, with where it processes data and which domains it talks to.
+ */
+export interface PrivacyService {
+  id: string;
+  name: string;
+  /** The legal entity behind it, when it differs from `name` ("Google Ireland Ltd"). */
+  provider?: string;
+  /** Its consent category: "necessary" (default, no consent needed), "analytics", or a host's own. */
+  category: string;
+  /** Where data is stored or processed: ISO 3166-1 alpha-2 codes, or "EU"/"EEA". */
+  countries: string[];
+  /** Domains the app contacts for it (for the policy, and for a host's CSP). */
+  domains?: string[];
+  purpose: AppLocaleString;
+  /** Which personal data it gets. */
+  data?: AppLocaleString;
+  /** Defaults to consent for optional categories and contract for necessary ones. */
+  legalBasis?: "consent" | "contract" | "legitimateInterest" | "legalObligation";
+  /** How transfers outside the EU/EEA are safeguarded. */
+  transfer?: AppLocaleString;
+  /** Its own privacy policy. */
+  policyUrl?: string;
+  /** Cookies and storage it sets in the browser. */
+  storage?: PrivacyServiceStorage[];
+}
+export const privacyServicesHook = defineHook<PrivacyService>("gondol.privacyServices");
 
 /** Sorts answers by their `order` (stable; unordered ones last, in app order). */
 export function byOrder<T extends { order?: number }>(items: T[]): T[] {

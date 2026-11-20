@@ -5,6 +5,7 @@ import {
   createItemsHook,
   entityTypesHook,
   navItemsHook,
+  privacyServicesHook,
   routingHook,
   searchBrowseHook,
   type EntityTypeContribution,
@@ -213,17 +214,28 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
     if (manifest.entities?.[type]) continue;
     resolutions.push(answer(entityTypesHook, { type: type as EntityType, source }));
   }
+  for (const service of manifest.services ?? []) {
+    if ("countries" in service && "purpose" in service) {
+      resolutions.push(answer(privacyServicesHook, {
+        ...service,
+        name: getLocalizedText(service.name, "en"),
+        countries: service.countries,
+        purpose: service.purpose,
+      }));
+    }
+  }
   if (manifest.staticPaths || manifest.uuidPaths || manifest.menuAspects) {
     resolutions.push(answer(routingHook, { staticPaths: manifest.staticPaths, uuidPaths: manifest.uuidPaths, menuAspects: manifest.menuAspects }));
   }
 
   for (const serviceId of Object.keys(definition.services ?? {})) {
-    if (!manifest.services?.some((service) => service.id === serviceId)) throw new Error(`${where}: code for service "${serviceId}", which its manifest doesn't declare`);
+    if (!manifest.services?.some((service) => service.id === serviceId && "aspects" in service)) throw new Error(`${where}: code for service "${serviceId}", which its manifest doesn't declare`);
   }
-  const services: ServiceDefinition[] = (manifest.services ?? []).map((service) => {
+  const services: ServiceDefinition[] = (manifest.services ?? []).flatMap((service) => {
+    if (!("aspects" in service)) return [];
     const create = definition.services?.[service.id] ?? (service.surface ? createSurfaceService : undefined);
     if (!create) throw new Error(`${where}: service "${service.id}" has no \`surface\` and no code in defineApp's services`);
-    return {
+    return [{
       id: service.id,
       name: getLocalizedText(service.name, "en"),
       aspects: [...service.aspects],
@@ -232,7 +244,7 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
       schemes: service.schemes,
       surface: service.surface,
       create,
-    };
+    }];
   });
 
   return {

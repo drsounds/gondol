@@ -142,6 +142,8 @@ describe("validate and naming", () => {
     expect(validate({ type: "string", format: "uri" }, "spacify:user:1")).toEqual([]);
     expect(validate({ type: "string", format: "uri" }, "not a uri")).toHaveLength(1);
     expect(validate({ type: ["string", "null"], format: "date-time" }, null)).toEqual([]);
+    expect(validate({ type: "string", format: "email" }, "user@example.com")).toEqual([]);
+    expect(validate({ type: "string", format: "email" }, "user@@example.com")).toHaveLength(1);
   });
   test("rpcArgName", () => {
     expect(rpcArgName("startedAt")).toBe("p_started_at");

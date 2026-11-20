@@ -164,26 +164,60 @@ export const manifestEntitySchema = z
 /** Capability aspects a service can implement (services/service.ts, playback/types.ts). */
 export const SERVICE_ASPECTS = ["media", "music", "catalogue", "auth"] as const;
 
-/**
- * A service the app contributes while it is on (services/service.ts): a back-end such as a music
- * streamer, picked by what it can do (`aspects`). Its code comes from defineApp's `services`, unless
- * it runs entirely in a `surface` page (an iframe speaking gondol's service protocol).
- */
-export const manifestServiceSchema = z
-  .object({
-    id,
-    name: z.union([z.string().min(1), localized]),
-    description: localized.optional(),
-    aspects: z
-      .array(z.enum(SERVICE_ASPECTS))
-      .min(1)
-      .meta({ description: "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out)." }),
-    iconName: iconName.optional(),
-    hosts: z.array(z.string().min(1)).optional().meta({ description: "Web hosts whose links it plays as they are, e.g. `youtube.com`." }),
-    schemes: z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:/, "a URI prefix such as `youtube:`")).optional().meta({ description: "URI prefixes it plays as they are." }),
-    surface: z.string().url().optional().meta({ description: "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md)." }),
-  })
-  .strict();
+const serviceIdentity = {
+  id,
+  name: z.union([z.string().min(1), localized]),
+};
+
+const privacyServiceFields = {
+  provider: z.string().optional().meta({ description: "The legal entity behind it, when it differs from `name`." }),
+  category: z.string().min(1).default("necessary").meta({ description: "Its consent category: `necessary` (no consent needed), `analytics`, or one the host configures." }),
+  countries: z
+    .array(z.string().regex(/^([A-Z]{2}|EU|EEA)$/, "an ISO 3166-1 alpha-2 code, EU or EEA"))
+    .min(1)
+    .meta({ description: "Where it stores or processes data: ISO 3166-1 alpha-2 codes (SE, US), or EU/EEA." }),
+  domains: z
+    .array(z.string().regex(/^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/, "a host name, optionally *.example.com"))
+    .optional()
+    .meta({ description: "Domains the app contacts for it." }),
+  purpose: localized,
+  data: localized.optional().meta({ description: "Which personal data it gets." }),
+  legalBasis: z.enum(["consent", "contract", "legitimateInterest", "legalObligation"]).optional(),
+  transfer: localized.optional().meta({ description: "How transfers outside the EU/EEA are safeguarded." }),
+  policyUrl: z.string().url().optional(),
+  storage: z
+    .array(
+      z
+        .object({
+          name: z.string().min(1),
+          kind: z.enum(["cookie", "localStorage", "sessionStorage", "indexedDB"]),
+          purpose: localized,
+          duration: localized,
+        })
+        .strict(),
+    )
+    .optional()
+    .meta({ description: "Cookies and storage it sets in the browser." }),
+};
+
+const runtimeServiceFields = {
+  description: localized.optional(),
+  aspects: z
+    .array(z.enum(SERVICE_ASPECTS))
+    .min(1)
+    .meta({ description: "What it can do: `media` (play, pause, seek), `music` (resolve musik: URIs), `catalogue` (search), `auth` (sign in and out)." }),
+  iconName: iconName.optional(),
+  hosts: z.array(z.string().min(1)).optional().meta({ description: "Web hosts whose links it plays as they are, e.g. `youtube.com`." }),
+  schemes: z.array(z.string().regex(/^[a-z][a-z0-9+.-]*:/, "a URI prefix such as `youtube:`")).optional().meta({ description: "URI prefixes it plays as they are." }),
+  surface: z.string().url().optional().meta({ description: "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md)." }),
+};
+
+/** A service used for privacy reporting, runtime capabilities, or both. */
+export const manifestServiceSchema = z.union([
+  z.object({ ...serviceIdentity, ...privacyServiceFields }).strict(),
+  z.object({ ...serviceIdentity, ...runtimeServiceFields }).strict(),
+  z.object({ ...serviceIdentity, ...privacyServiceFields, ...runtimeServiceFields }).strict(),
+]);
 
 export const appManifestSchema = z
   .object({
@@ -212,10 +246,13 @@ export const appManifestSchema = z
       .optional()
       .meta({ description: "The aspect of the app's ActionMenu items by key, for keys gondol doesn't know." }),
     settings: appSettingsSchema.optional(),
+    services: z
+      .array(manifestServiceSchema)
+      .optional()
+      .meta({ description: "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy." }),
     api: appApiSchema.optional(),
     functions: appFunctionsSchema.optional(),
     mcp: appMcpSchema.optional(),
-    services: z.array(manifestServiceSchema).optional(),
   })
   .strict()
   .superRefine((manifest, ctx) => {

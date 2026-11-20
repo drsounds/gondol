@@ -64,6 +64,7 @@ export default {
           { text: "The agents app", link: "/guide/agents" },
           { text: "The streams app", link: "/guide/streams" },
           { text: "The analytics app", link: "/guide/analytics" },
+          { text: "The consent app", link: "/guide/consent" },
           { text: "The oauth app", link: "/guide/oauth" },
           { text: "The Service Finder app", link: "/guide/service-finder" },
         ],

@@ -83,6 +83,7 @@ completion and checks in your editor:
 | `entities` | The entity types the app owns: public `slug`, `view`/`edit` path templates with `{key}`, `plural`, `sheet`, tile `art`, and the `source` table and label columns. |
 | `staticPaths`, `uuidPaths`, `menuAspects` | Routing facts: static sub-routes that are never a key, path prefixes whose uuids stay uuids, aspects of the app's own menu keys. |
 | `settings` | The app's settings: sections, settings of six types and submenus, each stored per user, workspace or site. See [App settings](./settings.md). |
+| `services` | Third-party services the app uses that store or process personal data: `id`, `name`, `provider`, consent `category`, `countries`, `domains`, `purpose`, `data`, `legalBasis`, `transfer`, `policyUrl` and the cookies or `storage` they set. The [consent app](./consent.md) lists them in the cookie notice and the privacy policy. |
 
 Every answer a manifest declares under a feature goes with that feature: when a site doesn't offer
 it (its roles and aspects) or the app is switched off, its nav item, create items and browse tile go
@@ -193,7 +194,7 @@ Gondol ships apps of its own under `src/builtin/`, which a host builds in by id:
 by hand (`import { aiApp } from "gondol/builtin/ai"`). They are the [search app](./search.md),
 the [library app](./library.md), the [playlists app](./playlists.md) (which needs library), the
 [ai app](./ai.md), the [agents app](./agents.md) (which needs ai), the [streams app](./streams.md),
-the [analytics app](./analytics.md) (which needs streams), the [Service Finder](./service-finder.md) (which needs ai), the [mastodon app](./mastodon.md) and the [oauth app](./oauth.md).
+the [analytics app](./analytics.md) (which needs streams), the [consent app](./consent.md) (cookie consent and the privacy policy), the [Service Finder](./service-finder.md) (which needs ai), the [mastodon app](./mastodon.md) and the [oauth app](./oauth.md).
 
 `registerApps()` (which `configureGondol()` calls) replaces bundles with the same id, so registering
 again during hot reload is harmless. `getInternalApps()`, `getInternalApp(id)`, `isInternalApp(id)`

@@ -160,7 +160,12 @@ const FORMATS: Record<string, (value: string) => boolean> = {
   uuid: (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
   // An absolute URI: a scheme, then anything without spaces (spacify:stream:…, https://…).
   uri: (v) => /^[a-z][a-z0-9+.-]*:[^\s]+$/i.test(v),
-  email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+  email: (v) => {
+    const at = v.indexOf("@");
+    if (at < 1 || at !== v.lastIndexOf("@") || /\s/.test(v)) return false;
+    const dot = v.indexOf(".", at + 1);
+    return dot > at + 1 && dot < v.length - 1;
+  },
 };
 
 function typeOf(value: unknown): string {
