@@ -56,6 +56,7 @@ import {
   tail,
   workspacePath,
 } from "../_shared/codeWorkspace.ts";
+import type { CommandResult, SandboxBackend } from "../_shared/codeSandbox.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
 const SUPABASE_URL = env("SUPABASE_URL")!;
@@ -129,15 +130,7 @@ async function assertAllowed(url: URL): Promise<void> {
 
 // ── The sandbox (an OpenHands agent server) ─────────────────────────────────────────────────
 
-interface CommandResult {
-  command_id: string;
-  exit_code: number | null;
-  running: boolean;
-  stdout: string;
-  stderr: string;
-}
-
-class Sandbox {
+class OpenHandsSandbox implements SandboxBackend {
   constructor(
     readonly url: string,
     readonly key: string | null,
@@ -301,7 +294,7 @@ async function workspaceRepositories(db: SupabaseClient, workspace: Workspace): 
 }
 
 /** The sandbox a workspace works in: its own, else the server's when OPENHANDS_SHARED_SANDBOX allows it. */
-async function sandboxFor(db: SupabaseClient, workspace: Workspace): Promise<Sandbox> {
+async function sandboxFor(db: SupabaseClient, workspace: Workspace): Promise<SandboxBackend> {
   if (workspace.sandbox_id) {
     const { data: row } = await db.from("code_sandboxes").select("id, url, preview_url, preview_ports, enabled").eq("id", workspace.sandbox_id).maybeSingle();
     if (!row) fail(404, "The workspace's sandbox is gone");
@@ -309,7 +302,7 @@ async function sandboxFor(db: SupabaseClient, workspace: Workspace): Promise<San
     const url = new URL(row!.url as string);
     await assertAllowed(url);
     const { data: key } = await admin!.from("code_sandbox_keys").select("api_key").eq("sandbox_id", row!.id).eq("user_id", workspace.user_id).maybeSingle();
-    return new Sandbox(url.toString().replace(/\/+$/, ""), str(key?.api_key), str(row!.preview_url), portRange(str(row!.preview_ports)), row!.id as string);
+    return new OpenHandsSandbox(url.toString().replace(/\/+$/, ""), str(key?.api_key), str(row!.preview_url), portRange(str(row!.preview_ports)), row!.id as string);
   }
   const shared = env("OPENHANDS_AGENT_SERVER_URL");
   const policy = env("OPENHANDS_SHARED_SANDBOX") ?? "off";
@@ -318,7 +311,7 @@ async function sandboxFor(db: SupabaseClient, workspace: Workspace): Promise<San
     const { data: isAdmin } = await db.rpc("is_platform_admin");
     if (isAdmin !== true) fail(403, "The server's sandbox is for admins: add a sandbox of your own under Code › Sandboxes");
   }
-  return new Sandbox(shared!.replace(/\/+$/, ""), env("OPENHANDS_SESSION_API_KEY") ?? null, env("OPENHANDS_PREVIEW_URL") ?? null, portRange(env("OPENHANDS_PREVIEW_PORTS")), null);
+  return new OpenHandsSandbox(shared!.replace(/\/+$/, ""), env("OPENHANDS_SESSION_API_KEY") ?? null, env("OPENHANDS_PREVIEW_URL") ?? null, portRange(env("OPENHANDS_PREVIEW_PORTS")), null);
 }
 
 function rootOf(workspace: Workspace, base: string | null): string {
