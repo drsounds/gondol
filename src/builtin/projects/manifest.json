@@ -1,0 +1,34 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "projects",
+  "slug": "projects",
+  "name": { "en": "Projects", "sv": "Projekt" },
+  "description": {
+    "en": "Keep agents, conversations, workspaces, connected accounts, and automations together in projects.",
+    "sv": "Samla agenter, konversationer, arbetsytor, anslutna konton och automatiseringar i projekt."
+  },
+  "iconName": "folder",
+  "defaultFeatureId": "projects",
+  "dependencies": ["agents", "accounts"],
+  "defaultActive": true,
+  "features": [
+    {
+      "id": "projects",
+      "name": { "en": "Projects", "sv": "Projekt" },
+      "description": { "en": "Projects and their connected resources", "sv": "Projekt och deras anslutna resurser" },
+      "path": "projects",
+      "iconName": "folder",
+      "entityTypes": ["project"],
+      "actions": [
+        {
+          "id": "projects.open",
+          "title": "Projects",
+          "category": "Work",
+          "iconName": "folder",
+          "navigate": "/projects",
+          "keywords": ["projects", "kanban", "automation"]
+        }
+      ]
+    }
+  ]
+}

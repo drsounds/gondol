@@ -10,7 +10,7 @@ import type { PromptWorkspace } from "../../../../supabase/functions/_shared/cod
 
 /**
  * Agentic coding in the agents app (`/code`): the user's code repositories, the sandboxes they run in
- * (OpenHands agent servers), the workspaces that connect an agent conversation to repositories in a
+ * (OpenHands or Copilot SDK runners), the workspaces that connect an agent conversation to repositories in a
  * sandbox, and the releases of gondol apps built there, which the user publishes into the apps
  * registry. The coding itself is the agents app's MCP tools (`agents__code_*`, answered by the
  * `agent-code` edge function), so an agent codes on its own model with its own runner. The host's
@@ -41,13 +41,14 @@ export interface CodeRepository {
   updated_at: string;
 }
 
-/** An OpenHands agent server the user's workspaces run in (`code_sandboxes`); its key is write-only. */
+/** A workspace execution provider (`code_sandboxes`); its access key is write-only. */
 export interface CodeSandbox {
   id: string;
   user_id: string;
   slug: string;
   identifier?: string;
   name: string;
+  provider: "openhands" | "copilot";
   url: string;
   /** Where its preview ports are reached, with `{port}`: `https://{port}.sandbox.example.com`. */
   preview_url: string | null;
@@ -151,6 +152,8 @@ export type CodeDatabase = {
       agent_workspaces: Table<AgentWorkspace>;
       agent_workspace_repositories: Table<AgentWorkspaceRepository>;
       code_app_releases: Table<CodeAppRelease>;
+      projects: Table<{ id: string; name: string; slug: string; user_id: string }>;
+      project_resources: Table<{ id: string; user_id: string; project_id: string; resource_type: string; resource_id: string; created_at: string }>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -277,6 +280,16 @@ export async function conversationWorkspacePrompt(conversationId: string): Promi
   const { data: links } = await db.from("agent_workspace_repositories").select("*").eq("workspace_id", ws.id);
   const ids = (links ?? []).map((l) => l.repository_id as string);
   const { data: repos } = ids.length ? await db.from("code_repositories").select("*").in("id", ids) : { data: [] };
+  const resourceIds = [
+    { type: "workspace", id: ws.id },
+    ...(ws.conversation_id ? [{ type: "conversation", id: ws.conversation_id }] : []),
+    ...(ws.agent_id ? [{ type: "agent", id: ws.agent_id }] : []),
+  ];
+  const linkedProjects = await Promise.all(resourceIds.map(({ type, id }) =>
+    db.from("project_resources").select("project_id").eq("resource_type", type).eq("resource_id", id).then(({ data, error }) => error ? [] : data ?? []),
+  ));
+  const projectIds = [...new Set(linkedProjects.flat().map((link) => link.project_id))];
+  const { data: projects } = projectIds.length ? await db.from("projects").select("id, name, slug").in("id", projectIds) : { data: [] };
   const root = ws.root_path ?? "(set up on first use)";
   return {
     id: ws.id,
@@ -288,6 +301,7 @@ export async function conversationWorkspacePrompt(conversationId: string): Promi
       const repo = (repos ?? []).find((r) => r.id === link.repository_id) as CodeRepository | undefined;
       return repo ? [{ name: repo.name, full_name: repo.full_name, path: `${root}/${link.path ?? repo.name}`, branch: link.branch, cloned: !!link.cloned_at }] : [];
     }),
+    projects: projects ?? [],
   };
 }
 
@@ -319,6 +333,7 @@ export function useSaveRepository() {
 
 export interface SandboxInput {
   name: string;
+  provider: CodeSandbox["provider"];
   url: string;
   preview_url: string | null;
   preview_ports: string | null;

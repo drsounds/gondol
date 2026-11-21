@@ -1,0 +1,17 @@
+{
+  "name": "copilot-runner",
+  "version": "1.0.0",
+  "description": "Authenticated GitHub Copilot SDK runner for Gondol coding workspaces",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "LGPL-3.0-only",
+  "dependencies": {
+    "@microsoft/copilot-sdk": "2.0.1"
+  }
+}
