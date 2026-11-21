@@ -78,9 +78,11 @@ describe("agent coding helpers", () => {
       root_path: "/workspace/gondol/ws-1",
       status: "ready",
       sandbox_url: null,
+      projects: [{ id: "p1", name: "Website", slug: "website" }],
       repositories: [{ name: "site", full_name: "me/site", path: "/workspace/gondol/ws-1/site", branch: null, cloned: true }],
     });
     expect(text).toContain("ws-1");
+    expect(text).toContain("project: Website (p1)");
     expect(text).toContain("me/site at /workspace/gondol/ws-1/site");
   });
 
@@ -91,6 +93,7 @@ describe("agent coding helpers", () => {
     expect(app.functions.code_read_file.readOnly).toBe(true);
     expect(app.tools.map((t) => t.name)).toContain("code_prepare_release");
     expect(app.tools.map((t) => t.name)).toContain("code_copilot_prompt");
+    expect(app.tools.map((t) => t.name)).toContain("code_copilot_output");
   });
 
   test("a prompt's repository mentions", () => {

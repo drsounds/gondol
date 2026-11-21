@@ -134,9 +134,12 @@ alter table public.code_sandboxes
   check (provider in ('openhands', 'copilot'));
 ```
 
-Build `services/copilot-runner/Dockerfile` and run the image with a persistent workspace volume,
-`COPILOT_RUNNER_TOKEN` set to the same value saved as the sandbox's write-only key, and
-`COPILOT_ALLOW_ALL=true` only when the container is isolated and restricted to that volume. The
+Build `services/copilot-runner/Dockerfile` and run the image with a persistent workspace volume and
+`COPILOT_RUNNER_TOKEN` set to the same value saved as the sandbox's write-only key. Copilot tool
+execution is disabled by default; only set `COPILOT_ALLOW_ALL=true` after isolating the runner from
+other workloads, restricting its writable mounts to its workspace, and applying your network
+egress controls. Run a separate runner and volume for each user/trust boundary; never share a
+runner's key or workspace volume between users. The
 service supports `COPILOT_RUNTIME_MODE=inprocess` (default), `spawned`, and `tcp`; `tcp` also needs
 `COPILOT_RUNTIME_URL` and its runtime token. Keep the runner behind HTTPS and do not expose its
 port publicly without a trusted proxy. The service does not log prompts or OAuth tokens.
@@ -166,6 +169,7 @@ the same conversation (see "Switching it on"). A command still running after `CO
 | `code_list_repositories`, `code_workspace_info` | What there is (read-only). |
 | `code_setup_workspace`, `code_add_repository` | Make the folder, write the git config, clone. |
 | `code_run_command`, `code_command_output` | A shell command in the sandbox, and the rest of a long one. |
+| `code_copilot_prompt`, `code_copilot_output` | Delegate a repository coding prompt to GitHub Copilot SDK and check its asynchronous result (Copilot runner only). |
 | `code_list_files`, `code_read_file`, `code_write_file`, `code_edit_file` | Files (an edit replaces one exact match). |
 | `code_git_status`, `code_commit_and_push` | Status and diff; commit everything and push, to a branch or a new one. |
 | `code_create_repository` | A new GitHub repository (private by default), connected and cloned. |

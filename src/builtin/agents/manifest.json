@@ -374,6 +374,21 @@
         "required": ["workspace", "prompt"]
       }
     },
+    "code_copilot_output": {
+      "title": "Copilot prompt output",
+      "description": "Read the answer from a Copilot SDK coding job, waiting briefly if it is still running.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": { "type": "string" },
+          "job_id": { "type": "string", "maxLength": 100 },
+          "wait_seconds": { "type": "number", "minimum": 0, "maximum": 110 }
+        },
+        "required": ["workspace", "job_id"]
+      }
+    },
     "code_command_output": {
       "title": "Command output",
       "description": "The output of a command that was still running, waiting a little for it to finish.",
@@ -760,6 +775,10 @@
       {
         "name": "code_copilot_prompt",
         "function": "code_copilot_prompt"
+      },
+      {
+        "name": "code_copilot_output",
+        "function": "code_copilot_output"
       },
       {
         "name": "code_command_output",

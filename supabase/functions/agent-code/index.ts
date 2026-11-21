@@ -57,6 +57,7 @@ import {
   workspacePath,
 } from "../_shared/codeWorkspace.ts";
 import { codeSandboxProvider, type CommandResult, type SandboxBackend } from "../_shared/codeSandbox.ts";
+import { accountEncryptionKey, decryptAccountToken } from "../_shared/accountTokenCrypto.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
 const SUPABASE_URL = env("SUPABASE_URL")!;
@@ -293,16 +294,23 @@ class CopilotRunnerSandbox implements SandboxBackend {
     if (!response.ok) fail(502, `The Copilot runner didn't save ${path} (${response.status}): ${tail(await response.text(), 500)}`);
   }
 
-  async agentPrompt(input: { prompt: string; cwd: string; githubToken: string; model?: string }): Promise<{ session_id: string; content: string }> {
+  async agentPrompt(input: { prompt: string; cwd: string; githubToken: string; model?: string }): Promise<{ job_id: string; running: boolean }> {
     const response = await this.call("/v1/agent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
     if (!response.ok) fail(response.status === 503 ? 503 : 502, `Copilot couldn't complete the prompt (${response.status}): ${tail(await response.text(), 1000)}`);
-    const result = await response.json() as { session_id?: string; content?: string };
-    if (!result.session_id || typeof result.content !== "string") fail(502, "The Copilot runner returned no answer");
-    return { session_id: result.session_id, content: result.content };
+    const result = await response.json() as { job_id?: string; running?: boolean };
+    if (!result.job_id || result.running !== true) fail(502, "The Copilot runner returned no job");
+    return { job_id: result.job_id, running: true };
+  }
+
+  async agentOutput(jobId: string, waitMs = 0): Promise<{ job_id: string; running: boolean; session_id?: string; content?: string; error?: string }> {
+    const response = await this.call(`/v1/agent/jobs/${encodeURIComponent(jobId)}?${new URLSearchParams({ waitMs: String(waitMs) })}`);
+    if (response.status === 404) fail(404, `The Copilot runner knows no job ${jobId}`);
+    if (!response.ok) fail(502, `The Copilot runner didn't give Copilot's answer (${response.status})`);
+    return await response.json();
   }
 }
 
@@ -516,21 +524,56 @@ async function runCommand(db: SupabaseClient, input: Input) {
   return { cwd, ...result, ...(result.running ? { note: "Still running: read the rest with code_command_output and this command_id." } : {}) };
 }
 
+async function connectedGithubToken(userId: string): Promise<string | null> {
+  const { data: account, error } = await admin!
+    .from("account_connections")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("provider", "github")
+    .maybeSingle();
+  if (error) fail(500, error.message);
+  if (!account) return null;
+  const { data: session, error: sessionError } = await admin!
+    .from("account_sessions")
+    .select("access_token_ciphertext")
+    .eq("account_id", account.id)
+    .maybeSingle();
+  if (sessionError) fail(500, sessionError.message);
+  if (!session?.access_token_ciphertext) return null;
+  const key = env("ACCOUNT_TOKEN_ENCRYPTION_KEY");
+  if (!key) fail(500, "ACCOUNT_TOKEN_ENCRYPTION_KEY isn't configured");
+  try {
+    return await decryptAccountToken(session.access_token_ciphertext as string, accountEncryptionKey(key!));
+  } catch {
+    fail(500, "The connected GitHub session can't be decrypted");
+  }
+}
+
 async function copilotPrompt(db: SupabaseClient, input: Input) {
   const workspace = await loadWorkspace(db, input.workspace);
   const prompt = str(input.prompt) ?? fail(422, "Give Copilot a coding prompt");
   if (prompt!.length > 20_000) fail(413, "A coding prompt may be at most 20,000 characters");
   const { sandbox, root } = await ready(db, workspace);
   if (!sandbox.agentPrompt) fail(409, "Choose a Copilot SDK runner for this workspace's sandbox first");
-  const repos = await workspaceRepositories(db, workspace);
-  const github = await githubToken(workspace.user_id, repos.find((r) => r.code_repositories.github_server_id)?.code_repositories.github_server_id ?? null);
-  if (!github) fail(409, "Connect GitHub before asking Copilot to work on this repository");
+  const githubTokenValue = await connectedGithubToken(workspace.user_id);
+  if (!githubTokenValue) fail(409, "Connect a GitHub account in Accounts before asking Copilot to work on this repository");
   const result = await sandbox.agentPrompt({
     prompt: prompt!,
     cwd: root,
-    githubToken: github.token,
+    githubToken: githubTokenValue,
     ...(str(input.model) ? { model: str(input.model)! } : {}),
   });
+  return { ...result, workspace: workspace.id, note: "Copilot is working in the repository. Call code_copilot_output with this job_id to read its answer." };
+}
+
+async function copilotOutput(db: SupabaseClient, input: Input) {
+  const workspace = await loadWorkspace(db, input.workspace);
+  const { sandbox } = await ready(db, workspace);
+  if (!sandbox.agentOutput) fail(409, "Choose a Copilot SDK runner for this workspace's sandbox first");
+  const jobId = str(input.job_id) ?? fail(422, "Name the Copilot job id");
+  const waitSeconds = Math.min(110, Math.max(0, Math.round(Number(input.wait_seconds) || 0)));
+  const result = await sandbox.agentOutput(jobId!, waitSeconds * 1000);
+  if (result.error) fail(422, result.error);
   return { ...result, workspace: workspace.id };
 }
 
@@ -894,6 +937,7 @@ const TOOLS: Record<string, (db: SupabaseClient, input: Input) => Promise<unknow
   code_add_repository: addRepository,
   code_run_command: runCommand,
   code_copilot_prompt: copilotPrompt,
+  code_copilot_output: copilotOutput,
   code_command_output: commandOutput,
   code_read_file: readFile,
   code_write_file: writeFile,

@@ -856,7 +856,7 @@ function SandboxSheet({ sandbox, onClose }: { sandbox?: CodeSandbox; onClose: ()
   const validPorts = !ports.trim() || /^\d{2,5}(\s*-\s*\d{2,5})?$/.test(ports.trim());
   const docker = provider === "openhands"
     ? `docker run -d --name openhands-sandbox -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -e OH_SESSION_API_KEYS_0=<key> ghcr.io/openhands/agent-server:latest-python`
-    : `docker run -d --name copilot-runner -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -v gondol-workspaces:/workspace -e COPILOT_RUNNER_TOKEN=<key> -e COPILOT_ALLOW_ALL=true ghcr.io/drsounds/gondol-copilot-runner:latest`;
+    : `docker run -d --name copilot-runner --read-only --cap-drop=ALL --security-opt=no-new-privileges --tmpfs /tmp:rw,nosuid,size=256m -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -v gondol-workspaces:/workspace -e COPILOT_RUNNER_TOKEN=<key> ghcr.io/drsounds/gondol-copilot-runner:latest`;
   return (
     <EntitySheet
       title={sandbox ? sandbox.name : t("code.sandboxes.add")}

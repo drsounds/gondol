@@ -25,6 +25,7 @@ export interface PromptWorkspace {
   root_path: string;
   status: string;
   repositories: PromptWorkspaceRepository[];
+  projects?: { id: string; name: string; slug: string }[];
   /** The live sandbox's address when the gondol app dev runtime is running. */
   sandbox_url?: string | null;
 }
@@ -34,6 +35,7 @@ export function codeWorkspacePrompt(ws: PromptWorkspace): string {
   const lines = [
     `This conversation is connected to a coding workspace${ws.title ? ` ("${ws.title}")` : ""}: a sandbox with a shell, git and Node, at ${ws.root_path}. Its id is ${ws.id}: pass it as \`workspace\` to the agents app's code tools (agents__code_*).`,
   ];
+  if (ws.projects?.length) lines.push(`This workspace is connected to project${ws.projects.length === 1 ? "" : "s"}: ${ws.projects.map((project) => `${project.name} (${project.id})`).join(", ")}.`);
   if (ws.repositories.length) {
     lines.push("Repositories in it:");
     for (const repo of ws.repositories) {

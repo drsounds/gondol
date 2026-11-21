@@ -19,6 +19,7 @@ const maxBodyBytes = 1_000_000;
 const maxOutputBytes = 256_000;
 const maxFileBytes = 25 * 1024 * 1024;
 const commands = new Map();
+const copilotJobs = new Map();
 
 if (!serviceToken) throw new Error("COPILOT_RUNNER_TOKEN is required");
 delete process.env.COPILOT_RUNNER_TOKEN;
@@ -155,7 +156,6 @@ async function runCopilot(input) {
   try {
     client = new CopilotClient({
       mode: "coding-agent",
-      github: { token: input.githubToken },
       runtime,
     });
     await client.start();
@@ -163,6 +163,9 @@ async function runCopilot(input) {
       model: typeof input.model === "string" ? input.model : undefined,
       workingDirectory,
       filesystem: { trustWorkingDirectory: "session" },
+      github: {
+        tokenProvider: async () => ({ kind: "token", accessToken: input.githubToken, expiresIn: 8 * 60 * 60 }),
+      },
       permissions: { mode: "allow-all" },
     });
     try {
@@ -178,6 +181,46 @@ async function runCopilot(input) {
       await rm(runtimeDirectory, { recursive: true, force: true });
     }
   }
+}
+
+function startCopilotJob(input) {
+  if (process.env.COPILOT_ALLOW_ALL !== "true") throw Object.assign(new Error("The operator has not enabled Copilot tool execution"), { status: 503 });
+  if (copilotJobs.size >= 1000) {
+    const finished = [...copilotJobs.values()].find((job) => !job.running);
+    if (!finished) throw Object.assign(new Error("The Copilot runner is busy"), { status: 503 });
+    copilotJobs.delete(finished.id);
+  }
+  const job = { id: randomUUID(), running: true, sessionId: undefined, content: undefined, error: undefined };
+  copilotJobs.set(job.id, job);
+  void runCopilot(input).then(
+    (result) => {
+      job.sessionId = result.session_id;
+      job.content = result.content;
+      job.running = false;
+      setTimeout(() => copilotJobs.delete(job.id), 60 * 60_000).unref();
+    },
+    (error) => {
+      job.error = error?.message ?? "Copilot failed to complete the prompt";
+      job.running = false;
+      setTimeout(() => copilotJobs.delete(job.id), 60 * 60_000).unref();
+    },
+  );
+  return job;
+}
+
+async function waitForJob(job, waitMs) {
+  const deadline = Date.now() + waitMs;
+  while (job.running && Date.now() < deadline) await new Promise((resolveWait) => setTimeout(resolveWait, Math.min(250, deadline - Date.now())));
+}
+
+function jobResult(job) {
+  return {
+    job_id: job.id,
+    running: job.running,
+    ...(job.sessionId ? { session_id: job.sessionId } : {}),
+    ...(job.content !== undefined ? { content: job.content } : {}),
+    ...(job.error ? { error: job.error } : {}),
+  };
 }
 
 async function handle(request, response) {
@@ -233,7 +276,14 @@ async function handle(request, response) {
       return response.end();
     }
     if (request.method === "POST" && url.pathname === "/v1/agent") {
-      return json(response, 200, await runCopilot(await body(request)));
+      return json(response, 202, jobResult(startCopilotJob(await body(request))));
+    }
+    const jobMatch = /^\/v1\/agent\/jobs\/([0-9a-f-]+)$/.exec(url.pathname);
+    if (request.method === "GET" && jobMatch) {
+      const job = copilotJobs.get(jobMatch[1]);
+      if (!job) return json(response, 404, { error: "Job not found" });
+      await waitForJob(job, Math.max(0, Math.min(110_000, Number(url.searchParams.get("waitMs")) || 0)));
+      return json(response, 200, jobResult(job));
     }
     return json(response, 404, { error: "Not found" });
   } catch (error) {

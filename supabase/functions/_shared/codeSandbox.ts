@@ -23,5 +23,6 @@ export interface SandboxBackend {
   must(command: string, cwd?: string, waitMs?: number): Promise<string>;
   download(path: string): Promise<Uint8Array | null>;
   upload(path: string, content: Uint8Array | string): Promise<void>;
-  agentPrompt?(input: { prompt: string; cwd: string; githubToken: string; model?: string }): Promise<{ session_id: string; content: string }>;
+  agentPrompt?(input: { prompt: string; cwd: string; githubToken: string; model?: string }): Promise<{ job_id: string; running: boolean }>;
+  agentOutput?(jobId: string, waitMs?: number): Promise<{ job_id: string; running: boolean; session_id?: string; content?: string; error?: string }>;
 }

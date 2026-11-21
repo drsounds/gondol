@@ -152,6 +152,8 @@ export type CodeDatabase = {
       agent_workspaces: Table<AgentWorkspace>;
       agent_workspace_repositories: Table<AgentWorkspaceRepository>;
       code_app_releases: Table<CodeAppRelease>;
+      projects: Table<{ id: string; name: string; slug: string; user_id: string }>;
+      project_resources: Table<{ id: string; user_id: string; project_id: string; resource_type: string; resource_id: string; created_at: string }>;
     };
     Views: { [_ in never]: never };
     Functions: {
@@ -278,6 +280,16 @@ export async function conversationWorkspacePrompt(conversationId: string): Promi
   const { data: links } = await db.from("agent_workspace_repositories").select("*").eq("workspace_id", ws.id);
   const ids = (links ?? []).map((l) => l.repository_id as string);
   const { data: repos } = ids.length ? await db.from("code_repositories").select("*").in("id", ids) : { data: [] };
+  const resourceIds = [
+    { type: "workspace", id: ws.id },
+    ...(ws.conversation_id ? [{ type: "conversation", id: ws.conversation_id }] : []),
+    ...(ws.agent_id ? [{ type: "agent", id: ws.agent_id }] : []),
+  ];
+  const linkedProjects = await Promise.all(resourceIds.map(({ type, id }) =>
+    db.from("project_resources").select("project_id").eq("resource_type", type).eq("resource_id", id).then(({ data, error }) => error ? [] : data ?? []),
+  ));
+  const projectIds = [...new Set(linkedProjects.flat().map((link) => link.project_id))];
+  const { data: projects } = projectIds.length ? await db.from("projects").select("id, name, slug").in("id", projectIds) : { data: [] };
   const root = ws.root_path ?? "(set up on first use)";
   return {
     id: ws.id,
@@ -289,6 +301,7 @@ export async function conversationWorkspacePrompt(conversationId: string): Promi
       const repo = (repos ?? []).find((r) => r.id === link.repository_id) as CodeRepository | undefined;
       return repo ? [{ name: repo.name, full_name: repo.full_name, path: `${root}/${link.path ?? repo.name}`, branch: link.branch, cloned: !!link.cloned_at }] : [];
     }),
+    projects: projects ?? [],
   };
 }
 
