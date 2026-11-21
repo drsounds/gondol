@@ -6,14 +6,14 @@
 //
 // No model is called here and nothing is routed to one: the agent keeps running on its own model in
 // the agents app's runners, and these are tools like any app's. The work happens in a **sandbox**: an
-// OpenHands agent server (github.com/OpenHands/software-agent-sdk, the `ghcr.io/openhands/agent-server`
-// docker image) used for its bash and file endpoints only, never its own LLM conversations:
+// selected execution provider: OpenHands (bash and file endpoints) or the Copilot runner (shell,
+// files, and an optional GitHub Copilot SDK coding prompt):
 //
 //   POST /api/bash/start_bash_command    { command, cwd, timeout }  → { id }
 //   GET  /api/bash/bash_events/search    kind__eq=BashOutput, command_id__eq, order__gt → { items, next_page_id }
 //   GET  /api/file/download?path=        the file's bytes
 //   POST /api/file/upload?path=          multipart `file`
-//   (X-Session-API-Key: the server's session key)
+//   (OpenHands: X-Session-API-Key; Copilot runner: Authorization bearer token)
 //
 // Each workspace (agent_workspaces, one per agent conversation at most) is a folder in the sandbox,
 // `<workspace_root>/gondol/<workspace id>`, holding its repositories (agent_workspace_repositories ›
@@ -30,7 +30,7 @@
 // the apps registry is the user's own step (publish_code_app_release(), the Publish button).
 //
 // Sandboxes: a user's own (code_sandboxes, key in code_sandbox_keys, read here with the service role),
-// or the server's (OPENHANDS_AGENT_SERVER_URL + OPENHANDS_SESSION_API_KEY) for whom
+//   or the server's OpenHands sandbox (OPENHANDS_AGENT_SERVER_URL + OPENHANDS_SESSION_API_KEY) for whom
 // OPENHANDS_SHARED_SANDBOX allows it: `everyone`, `admins` (is_platform_admin()) or `off` (the
 // default). Workspaces in one sandbox share its container: give the server's only to people who
 // may see each other's work.
@@ -56,7 +56,7 @@ import {
   tail,
   workspacePath,
 } from "../_shared/codeWorkspace.ts";
-import type { CommandResult, SandboxBackend } from "../_shared/codeSandbox.ts";
+import { codeSandboxProvider, type CommandResult, type SandboxBackend } from "../_shared/codeSandbox.ts";
 
 const env = (name: string) => Deno.env.get(name)?.trim() || undefined;
 const SUPABASE_URL = env("SUPABASE_URL")!;
@@ -128,7 +128,7 @@ async function assertAllowed(url: URL): Promise<void> {
   if (v4.some(isPrivateIPv4) || v6.some(isPrivateIPv6)) refuse();
 }
 
-// ── The sandbox (an OpenHands agent server) ─────────────────────────────────────────────────
+// ── Sandbox execution providers ────────────────────────────────────────────────────────────
 
 class OpenHandsSandbox implements SandboxBackend {
   constructor(
@@ -223,6 +223,89 @@ class OpenHandsSandbox implements SandboxBackend {
   }
 }
 
+class CopilotRunnerSandbox implements SandboxBackend {
+  constructor(
+    readonly url: string,
+    private readonly key: string | null,
+    readonly previewTemplate: string | null,
+    readonly ports: number[],
+    readonly id: string | null,
+  ) {}
+
+  private async call(path: string, init: RequestInit = {}): Promise<Response> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.url}${path}`, {
+        ...init,
+        headers: { ...(this.key ? { Authorization: "Bearer " + this.key } : {}), ...init.headers },
+        redirect: "error",
+        signal: AbortSignal.timeout(WAIT_MS + 15_000),
+      });
+    } catch (error) {
+      fail(502, `The Copilot runner (${new URL(this.url).host}) can't be reached: ${error instanceof Error ? error.message : error}`);
+    }
+    if (response!.status === 401 || response!.status === 403) fail(502, "The Copilot runner refused its key: check the key saved for it");
+    return response!;
+  }
+
+  async run(command: string, options: { cwd?: string; timeoutSeconds?: number; waitMs?: number } = {}): Promise<CommandResult> {
+    const response = await this.call("/v1/sandbox/commands", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command, ...options }),
+    });
+    if (!response.ok) fail(502, `The Copilot runner didn't start the command (${response.status}): ${tail(await response.text(), 500)}`);
+    const result = await response.json() as CommandResult;
+    if (!result.command_id) fail(502, "The Copilot runner returned no command id");
+    return result;
+  }
+
+  async output(commandId: string, waitMs = 0): Promise<CommandResult> {
+    const response = await this.call(`/v1/sandbox/commands/${encodeURIComponent(commandId)}?${new URLSearchParams({ waitMs: String(waitMs) })}`);
+    if (response.status === 404) fail(404, `The Copilot runner knows no command ${commandId}`);
+    if (!response.ok) fail(502, `The Copilot runner didn't give the command's output (${response.status})`);
+    return await response.json() as CommandResult;
+  }
+
+  async must(command: string, cwd?: string, waitMs = WAIT_MS): Promise<string> {
+    const result = await this.run(command, { cwd, waitMs, timeoutSeconds: Math.ceil(waitMs / 1000) + 5 });
+    if (result.running) fail(504, `The sandbox is still busy with: ${command.slice(0, 200)}`);
+    if (result.exit_code !== 0) fail(422, `${command.slice(0, 200)} failed (${result.exit_code}): ${tail(result.stderr || result.stdout, 2000)}`);
+    return result.stdout;
+  }
+
+  async download(path: string): Promise<Uint8Array | null> {
+    const response = await this.call(`/v1/sandbox/files?${new URLSearchParams({ path })}`);
+    if (response.status === 404) return null;
+    if (!response.ok) fail(502, `The Copilot runner didn't give ${path} (${response.status})`);
+    const { content } = await response.json() as { content?: string };
+    if (typeof content !== "string") fail(502, `The Copilot runner returned no file content for ${path}`);
+    return Uint8Array.from(atob(content), (character) => character.charCodeAt(0));
+  }
+
+  async upload(path: string, content: Uint8Array | string): Promise<void> {
+    const bytes = typeof content === "string" ? new TextEncoder().encode(content) : content;
+    const response = await this.call(`/v1/sandbox/files?${new URLSearchParams({ path })}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: bytes as Uint8Array<ArrayBuffer>,
+    });
+    if (!response.ok) fail(502, `The Copilot runner didn't save ${path} (${response.status}): ${tail(await response.text(), 500)}`);
+  }
+
+  async agentPrompt(input: { prompt: string; cwd: string; githubToken: string; model?: string }): Promise<{ session_id: string; content: string }> {
+    const response = await this.call("/v1/agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) fail(response.status === 503 ? 503 : 502, `Copilot couldn't complete the prompt (${response.status}): ${tail(await response.text(), 1000)}`);
+    const result = await response.json() as { session_id?: string; content?: string };
+    if (!result.session_id || typeof result.content !== "string") fail(502, "The Copilot runner returned no answer");
+    return { session_id: result.session_id, content: result.content };
+  }
+}
+
 // ── Who is calling, and their rows ──────────────────────────────────────────────────────────
 
 interface Workspace {
@@ -296,17 +379,20 @@ async function workspaceRepositories(db: SupabaseClient, workspace: Workspace): 
 /** The sandbox a workspace works in: its own, else the server's when OPENHANDS_SHARED_SANDBOX allows it. */
 async function sandboxFor(db: SupabaseClient, workspace: Workspace): Promise<SandboxBackend> {
   if (workspace.sandbox_id) {
-    const { data: row } = await db.from("code_sandboxes").select("id, url, preview_url, preview_ports, enabled").eq("id", workspace.sandbox_id).maybeSingle();
+    const { data: row } = await db.from("code_sandboxes").select("id, provider, url, preview_url, preview_ports, enabled").eq("id", workspace.sandbox_id).maybeSingle();
     if (!row) fail(404, "The workspace's sandbox is gone");
     if (row!.enabled === false) fail(409, "The workspace's sandbox is turned off");
     const url = new URL(row!.url as string);
     await assertAllowed(url);
     const { data: key } = await admin!.from("code_sandbox_keys").select("api_key").eq("sandbox_id", row!.id).eq("user_id", workspace.user_id).maybeSingle();
-    return new OpenHandsSandbox(url.toString().replace(/\/+$/, ""), str(key?.api_key), str(row!.preview_url), portRange(str(row!.preview_ports)), row!.id as string);
+    const base = url.toString().replace(/\/+$/, "");
+    const args = [base, str(key?.api_key), str(row!.preview_url), portRange(str(row!.preview_ports)), row!.id as string] as const;
+    if (codeSandboxProvider(row!.provider) === "copilot") return new CopilotRunnerSandbox(...args);
+    return new OpenHandsSandbox(...args);
   }
   const shared = env("OPENHANDS_AGENT_SERVER_URL");
   const policy = env("OPENHANDS_SHARED_SANDBOX") ?? "off";
-  if (!shared || policy === "off") fail(409, "This workspace has no sandbox: add an OpenHands agent server under Code › Sandboxes and pick it for the workspace");
+  if (!shared || policy === "off") fail(409, "This workspace has no sandbox: add a provider under Code › Sandboxes and pick it for the workspace");
   if (policy === "admins") {
     const { data: isAdmin } = await db.rpc("is_platform_admin");
     if (isAdmin !== true) fail(403, "The server's sandbox is for admins: add a sandbox of your own under Code › Sandboxes");
@@ -428,6 +514,24 @@ async function runCommand(db: SupabaseClient, input: Input) {
   const waitMs = Math.min(WAIT_MS, Math.max(1, Number(input.wait_seconds) || WAIT_MS / 1000) * 1000);
   const result = await sandbox.run(`${ENV_PREFIX(root)}cd ${shellQuote(cwd)} && ${command}`, { cwd, waitMs, timeoutSeconds: Number(input.timeout_seconds) || 900 });
   return { cwd, ...result, ...(result.running ? { note: "Still running: read the rest with code_command_output and this command_id." } : {}) };
+}
+
+async function copilotPrompt(db: SupabaseClient, input: Input) {
+  const workspace = await loadWorkspace(db, input.workspace);
+  const prompt = str(input.prompt) ?? fail(422, "Give Copilot a coding prompt");
+  if (prompt!.length > 20_000) fail(413, "A coding prompt may be at most 20,000 characters");
+  const { sandbox, root } = await ready(db, workspace);
+  if (!sandbox.agentPrompt) fail(409, "Choose a Copilot SDK runner for this workspace's sandbox first");
+  const repos = await workspaceRepositories(db, workspace);
+  const github = await githubToken(workspace.user_id, repos.find((r) => r.code_repositories.github_server_id)?.code_repositories.github_server_id ?? null);
+  if (!github) fail(409, "Connect GitHub before asking Copilot to work on this repository");
+  const result = await sandbox.agentPrompt({
+    prompt: prompt!,
+    cwd: root,
+    githubToken: github.token,
+    ...(str(input.model) ? { model: str(input.model)! } : {}),
+  });
+  return { ...result, workspace: workspace.id };
 }
 
 async function commandOutput(db: SupabaseClient, input: Input) {
@@ -789,6 +893,7 @@ const TOOLS: Record<string, (db: SupabaseClient, input: Input) => Promise<unknow
   code_setup_workspace: async (db, input) => setup(db, await loadWorkspace(db, input.workspace)),
   code_add_repository: addRepository,
   code_run_command: runCommand,
+  code_copilot_prompt: copilotPrompt,
   code_command_output: commandOutput,
   code_read_file: readFile,
   code_write_file: writeFile,

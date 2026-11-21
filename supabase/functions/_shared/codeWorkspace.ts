@@ -3,11 +3,9 @@
 // (paths, shell quoting, a new gondol app's files, a published release's index). Shared by the
 // browser runner, the ai-agents edge function and agent-code, so plain TypeScript without imports.
 //
-// The model is never routed anywhere new: an agent keeps running on its own model through the agents
-// app's runners, and coding is a set of the agents app's MCP tools (`agents__code_*`, served by the
-// app router like any app's), which the agent-code function answers by driving an OpenHands agent
-// server (github.com/OpenHands/software-agent-sdk) as a sandbox: its bash and file endpoints only,
-// never its own LLM conversations.
+// Usually the model keeps running through the agents app's runners and coding is a set of its MCP
+// tools (`agents__code_*`), answered by agent-code through the workspace's execution provider.
+// OpenHands is a shell/file backend; the Copilot runner can also drive a Copilot SDK coding session.
 
 /** How many tool rounds a run gets when its conversation has a workspace (coding takes many steps). */
 export const CODING_TOOL_ROUNDS = 40;

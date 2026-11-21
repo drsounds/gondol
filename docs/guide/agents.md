@@ -106,11 +106,16 @@ agent run (its own model, browser or ai-agents runner)
                      ── GET/POST /api/file/download|upload       never its own LLM conversations)
 ```
 
-**The sandbox** is an [OpenHands](https://github.com/OpenHands/software-agent-sdk) agent server, the
-`ghcr.io/openhands/agent-server` image, used as a sandbox through its bash and file endpoints
-(`X-Session-API-Key`). Users add their own under Code › Sandboxes (`code_sandboxes`: its address, a
-preview address with `{port}` and the preview ports it publishes, the folder workspaces go in; the
-session key is write-only, `set_code_sandbox_key()` into `code_sandbox_keys`). The server's own
+**The sandbox** is an execution provider selected per `code_sandboxes` row (`provider` is
+`openhands` or `copilot`). OpenHands uses an [OpenHands](https://github.com/OpenHands/software-agent-sdk)
+agent server, the `ghcr.io/openhands/agent-server` image, through its bash and file endpoints
+(`X-Session-API-Key`). Copilot uses the same-repo Node service in `services/copilot-runner`: it
+provides the shell and file API and a `code_copilot_prompt` tool that runs a coding session with the
+GitHub Copilot SDK. The coding prompt uses the user's connected GitHub token. The runner must run
+in an isolated container with the workspace volume mounted at the same path. Users add either provider under Code › Sandboxes
+(`code_sandboxes`: provider, address, a preview address with `{port}` and the preview ports it
+publishes, the folder workspaces go in; the key is write-only, `set_code_sandbox_key()` into
+`code_sandbox_keys`). Existing rows default to OpenHands. The server's own
 (`OPENHANDS_AGENT_SERVER_URL`, `OPENHANDS_SESSION_API_KEY`, `OPENHANDS_PREVIEW_URL`,
 `OPENHANDS_PREVIEW_PORTS`) serves the users `OPENHANDS_SHARED_SANDBOX` names: `everyone`, `admins`
 (the host's `is_platform_admin()`) or `off` (the default). Workspaces in one container can read each
@@ -120,6 +125,21 @@ other's files, so share one only between people who may.
 docker run -d --name openhands-sandbox -p 8000:8000 -p 5180-5199:5180-5199 \
   -e OH_SESSION_API_KEYS_0=<a long random key> ghcr.io/openhands/agent-server:latest-python
 ```
+
+For the Copilot runner, apply this host migration to the existing `code_sandboxes` table:
+
+```sql
+alter table public.code_sandboxes
+  add column if not exists provider text not null default 'openhands'
+  check (provider in ('openhands', 'copilot'));
+```
+
+Build `services/copilot-runner/Dockerfile` and run the image with a persistent workspace volume,
+`COPILOT_RUNNER_TOKEN` set to the same value saved as the sandbox's write-only key, and
+`COPILOT_ALLOW_ALL=true` only when the container is isolated and restricted to that volume. The
+service supports `COPILOT_RUNTIME_MODE=inprocess` (default), `spawned`, and `tcp`; `tcp` also needs
+`COPILOT_RUNTIME_URL` and its runtime token. Keep the runner behind HTTPS and do not expose its
+port publicly without a trusted proxy. The service does not log prompts or OAuth tokens.
 
 Put HTTPS in front of port 8000 (the agent server) and of each preview port
 (`https://{port}.sandbox.example.com` → `localhost:{port}`, WebSockets included, for live reload).

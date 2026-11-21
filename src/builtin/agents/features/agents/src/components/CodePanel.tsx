@@ -51,7 +51,7 @@ type Tab = (typeof TABS)[number];
  * Code (`/code`): what the user's AI agents code with. Tabs: workspaces (`/code/workspaces`, each at
  * `/code/workspaces/$workspace`: an agent conversation connected to repositories in a sandbox, its
  * live sandbox and its app releases with Publish), repositories (`/code/repositories`), sandboxes
- * (`/code/sandboxes`, OpenHands agent servers) and apps (`/code/apps`: every release, and the public
+ * (`/code/sandboxes`, OpenHands or Copilot runners) and apps (`/code/apps`: every release, and the public
  * ones admins review). Each has routed sheets at `…/new` and `…/$key/edit`.
  */
 export function CodePanel() {
@@ -803,7 +803,7 @@ function SandboxList() {
                 {rows.map((s) => (
                   <tr key={s.id} className="action-row">
                     <td className="wrap">{s.name}</td>
-                    <td className="wrap">{s.url}</td>
+                    <td className="wrap">{s.url}<br /><Badge>{t(s.provider === "copilot" ? "code.sandboxes.copilot" : "code.sandboxes.openHands")}</Badge></td>
                     <td>
                       <Badge tone={s.enabled ? "success" : "default"}>{s.enabled ? t("code.sandboxes.on") : t("code.sandboxes.off")}</Badge>
                       {s.has_key ? null : <Badge tone="warning">{t("code.sandboxes.noKey")}</Badge>}
@@ -834,6 +834,7 @@ function SandboxList() {
 function SandboxSheet({ sandbox, onClose }: { sandbox?: CodeSandbox; onClose: () => void }) {
   const { t } = useI18n();
   const [name, setName] = useState(sandbox?.name ?? "OpenHands");
+  const [provider, setProvider] = useState<CodeSandbox["provider"]>(sandbox?.provider ?? "openhands");
   const [url, setUrl] = useState(sandbox?.url ?? "");
   const [key, setKey] = useState("");
   const [clearKey, setClearKey] = useState(false);
@@ -853,7 +854,9 @@ function SandboxSheet({ sandbox, onClose }: { sandbox?: CodeSandbox; onClose: ()
   const validUrl = /^https?:\/\/[^\s/?#]+/i.test(url.trim());
   const validPreview = !previewUrl.trim() || (/^https?:\/\/\S+$/i.test(previewUrl.trim()) && previewUrl.includes("{port}"));
   const validPorts = !ports.trim() || /^\d{2,5}(\s*-\s*\d{2,5})?$/.test(ports.trim());
-  const docker = `docker run -d --name openhands-sandbox -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -e OH_SESSION_API_KEYS_0=<key> ghcr.io/openhands/agent-server:latest-python`;
+  const docker = provider === "openhands"
+    ? `docker run -d --name openhands-sandbox -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -e OH_SESSION_API_KEYS_0=<key> ghcr.io/openhands/agent-server:latest-python`
+    : `docker run -d --name copilot-runner -p 8000:8000 -p ${ports.trim() || "5180-5199"}:${ports.trim() || "5180-5199"} -v gondol-workspaces:/workspace -e COPILOT_RUNNER_TOKEN=<key> -e COPILOT_ALLOW_ALL=true ghcr.io/drsounds/gondol-copilot-runner:latest`;
   return (
     <EntitySheet
       title={sandbox ? sandbox.name : t("code.sandboxes.add")}
@@ -866,7 +869,7 @@ function SandboxSheet({ sandbox, onClose }: { sandbox?: CodeSandbox; onClose: ()
         save.mutate(
           {
             id: sandbox?.id,
-            values: { name: name.trim(), url: url.trim().replace(/\/+$/, ""), preview_url: previewUrl.trim() || null, preview_ports: ports.trim() || null, workspace_root: root.trim() || null, enabled },
+            values: { name: name.trim(), provider, url: url.trim().replace(/\/+$/, ""), preview_url: previewUrl.trim() || null, preview_ports: ports.trim() || null, workspace_root: root.trim() || null, enabled },
             apiKey: clearKey ? null : key.trim() ? key.trim() : undefined,
           },
           { onSuccess: onClose },
@@ -895,15 +898,19 @@ function SandboxSheet({ sandbox, onClose }: { sandbox?: CodeSandbox; onClose: ()
     >
       <div className="stack">
         <Input label={t("code.sandboxes.name")} required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} />
-        <Input label={t("code.sandboxes.url")} required value={url} placeholder="https://openhands.example.com" onChange={(e) => setUrl(e.target.value)} hint={t("code.sandboxes.urlHint")} />
+        <Select label={t("code.sandboxes.provider")} value={provider} onChange={(e) => setProvider(e.target.value as CodeSandbox["provider"])}>
+          <option value="openhands">{t("code.sandboxes.openHands")}</option>
+          <option value="copilot">{t("code.sandboxes.copilot")}</option>
+        </Select>
+        <Input label={t("code.sandboxes.url")} required value={url} placeholder={provider === "openhands" ? "https://openhands.example.com" : "https://copilot.example.com"} onChange={(e) => setUrl(e.target.value)} hint={t("code.sandboxes.urlHint")} />
         <Input
-          label={t("code.sandboxes.key")}
+          label={t(provider === "openhands" ? "code.sandboxes.key" : "code.sandboxes.runnerKey")}
           type="password"
           autoComplete="off"
           value={key}
           placeholder={sandbox?.has_key ? t("code.sandboxes.keySaved") : ""}
           onChange={(e) => setKey(e.target.value)}
-          hint={t("code.sandboxes.keyHint")}
+          hint={t(provider === "openhands" ? "code.sandboxes.keyHint" : "code.sandboxes.runnerKeyHint")}
         />
         {sandbox?.has_key ? <Checkbox label={t("code.sandboxes.clearKey")} checked={clearKey} onChange={(e) => setClearKey(e.target.checked)} /> : null}
         <div className="form-grid">

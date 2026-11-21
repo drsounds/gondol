@@ -7,8 +7,8 @@
     "sv": "AI-agenter"
   },
   "description": {
-    "en": "Hire AI agents that work for you: each with a name, avatar and @username, a model to run on, the apps' tools (MCP) it may use, working hours and schedules. Message them directly as yourself, an alter ego or another agent, and, where the host has channels, let them post there. Threads to any depth, several conversations per agent and an intercom with chat bubbles. Connect repositories to a conversation and agents code in a sandbox (an OpenHands agent server) with their own model, push with your GitHub connection, and build gondol apps you try live and publish into the apps registry.",
-    "sv": "Anställ AI-agenter som arbetar åt dig: var och en med namn, avatar och @användarnamn, en modell att köra på, apparnas verktyg (MCP) den får använda, arbetstider och scheman. Skriv direkt till dem som dig själv, ett alter ego eller en annan agent, och, där värdappen har kanaler, låt dem skriva där. Trådar i obegränsat antal nivåer, flera konversationer per agent och en intercom med pratbubblor. Koppla kodförråd till en konversation så kodar agenterna i en sandlåda (en OpenHands-agentserver) med sin egen modell, pushar med din GitHub-koppling och bygger gondol-appar som du provar live och publicerar i appregistret."
+    "en": "Hire AI agents that work for you: each with a name, avatar and @username, a model to run on, the apps' tools (MCP) it may use, working hours and schedules. Message them directly as yourself, an alter ego or another agent, and, where the host has channels, let them post there. Threads to any depth, several conversations per agent and an intercom with chat bubbles. Connect repositories to a conversation and agents code in an execution provider (OpenHands or the GitHub Copilot SDK runner), push with your GitHub connection, and build gondol apps you try live and publish into the apps registry.",
+    "sv": "Anställ AI-agenter som arbetar åt dig: var och en med namn, avatar och @användarnamn, en modell att köra på, apparnas verktyg (MCP) den får använda, arbetstider och scheman. Skriv direkt till dem som dig själv, ett alter ego eller en annan agent, och, där värdappen har kanaler, låt dem skriva där. Trådar i obegränsat antal nivåer, flera konversationer per agent och en intercom med pratbubblor. Koppla kodförråd till en konversation så kodar agenterna i en körningsmiljö (OpenHands eller GitHub Copilot SDK-runnern), pushar med din GitHub-koppling och bygger gondol-appar som du provar live och publicerar i appregistret."
   },
   "iconName": "sparkle",
   "defaultFeatureId": "agents",
@@ -347,6 +347,31 @@
           "workspace",
           "command"
         ]
+      }
+    },
+    "code_copilot_prompt": {
+      "title": "Ask GitHub Copilot to code",
+      "description": "Have the GitHub Copilot SDK work directly in a workspace repository. Requires a sandbox using the Copilot runner and a connected GitHub account.",
+      "function": "agent-code",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "description": "The workspace's id (the conversation's workspace, as you were told)"
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": ["workspace", "prompt"]
       }
     },
     "code_command_output": {
@@ -710,7 +735,7 @@
     }
   },
   "mcp": {
-    "instructions": "AI agents' coding: a workspace connects an agent conversation to a sandbox (an OpenHands agent server) with the user's repositories cloned in it. Read, edit and run code there, commit and push with the user's GitHub connection, create new repositories, and build gondol apps: scaffold one, try it in the live sandbox and prepare a release the user publishes into the apps registry. Every tool but code_list_repositories and code_create_repository needs the workspace's id.",
+    "instructions": "AI agents' coding: a workspace connects an agent conversation to an execution provider (OpenHands or the Copilot SDK runner) with the user's repositories cloned in it. Read, edit and run code there, commit and push with the user's GitHub connection, create new repositories, and build gondol apps: scaffold one, try it in the live sandbox and prepare a release the user publishes into the apps registry. Use code_copilot_prompt to delegate a coding prompt to GitHub Copilot when the workspace uses the Copilot runner. Every tool but code_list_repositories and code_create_repository needs the workspace's id.",
     "tools": [
       {
         "name": "code_list_repositories",
@@ -731,6 +756,10 @@
       {
         "name": "code_run_command",
         "function": "code_run_command"
+      },
+      {
+        "name": "code_copilot_prompt",
+        "function": "code_copilot_prompt"
       },
       {
         "name": "code_command_output",
