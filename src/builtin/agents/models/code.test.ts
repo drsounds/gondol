@@ -13,9 +13,17 @@ import {
   shellQuote,
   workspacePath,
 } from "../../../../supabase/functions/_shared/codeWorkspace.ts";
+import { codeSandboxProvider } from "../../../../supabase/functions/_shared/codeSandbox.ts";
 import { guessProjectName, mentionedRepos } from "../../../../src/builtin/agents/models/ensure";
 
 describe("agent coding helpers", () => {
+  test("sandbox provider defaults to OpenHands and recognizes Copilot", () => {
+    expect(codeSandboxProvider(undefined)).toBe("openhands");
+    expect(codeSandboxProvider("openhands")).toBe("openhands");
+    expect(codeSandboxProvider("copilot")).toBe("copilot");
+    expect(codeSandboxProvider("unknown")).toBe("openhands");
+  });
+
   test("paths stay inside the workspace", () => {
     expect(workspacePath("/w/gondol/1", "apps/x/../y")).toBe("/w/gondol/1/apps/y");
     expect(workspacePath("/w/gondol/1/", "")).toBe("/w/gondol/1");
@@ -70,9 +78,11 @@ describe("agent coding helpers", () => {
       root_path: "/workspace/gondol/ws-1",
       status: "ready",
       sandbox_url: null,
+      projects: [{ id: "p1", name: "Website", slug: "website" }],
       repositories: [{ name: "site", full_name: "me/site", path: "/workspace/gondol/ws-1/site", branch: null, cloned: true }],
     });
     expect(text).toContain("ws-1");
+    expect(text).toContain("project: Website (p1)");
     expect(text).toContain("me/site at /workspace/gondol/ws-1/site");
   });
 
@@ -82,6 +92,8 @@ describe("agent coding helpers", () => {
     expect(JSON.stringify(app.functions.code_run_command.target)).toContain("agent-code");
     expect(app.functions.code_read_file.readOnly).toBe(true);
     expect(app.tools.map((t) => t.name)).toContain("code_prepare_release");
+    expect(app.tools.map((t) => t.name)).toContain("code_copilot_prompt");
+    expect(app.tools.map((t) => t.name)).toContain("code_copilot_output");
   });
 
   test("a prompt's repository mentions", () => {

@@ -1,0 +1,33 @@
+{
+  "$schema": "../../apps/manifest.schema.json",
+  "id": "accounts",
+  "slug": "accounts",
+  "name": { "en": "Accounts", "sv": "Konton" },
+  "description": {
+    "en": "Connect third-party accounts with OAuth and manage their sessions.",
+    "sv": "Koppla tredjepartskonton med OAuth och hantera deras sessioner."
+  },
+  "iconName": "user",
+  "defaultFeatureId": "accounts",
+  "dependencies": [],
+  "defaultActive": true,
+  "features": [
+    {
+      "id": "accounts",
+      "name": { "en": "Connected accounts", "sv": "Anslutna konton" },
+      "description": { "en": "Manage third-party account sessions", "sv": "Hantera sessioner för tredjepartskonton" },
+      "path": "accounts",
+      "iconName": "user",
+      "actions": [
+        {
+          "id": "accounts.view",
+          "title": "Connected accounts",
+          "category": "Settings",
+          "iconName": "user",
+          "navigate": "/accounts",
+          "keywords": ["accounts", "oauth", "github", "connections"]
+        }
+      ]
+    }
+  ]
+}

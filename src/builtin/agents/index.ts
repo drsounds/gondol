@@ -18,7 +18,7 @@ const str = (value: unknown) => (typeof value === "string" && value.trim() ? val
  * media library by answering `mediaHostHook` (avatars). The server runner is the `ai-agents` edge
  * function (`gondol-api --builtin agents --functions …` writes it, and `agent-code`, the coding tools).
  * Agents code through those tools (`agents__code_*`) in a workspace connected to their conversation:
- * repositories cloned in a sandbox (an OpenHands agent server), gondol apps tried in a live sandbox
+ * repositories cloned in a sandbox (OpenHands or the Copilot runner), gondol apps tried in a live sandbox
  * and published into the apps registry (`useAgentAppSources()` hands the host their sources). It needs the ai app:
  * `gondolApps({ builtin: ["ai", "agents"] })`. Its tables are in docs/guide/agents.md.
  */
