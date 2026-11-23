@@ -1,6 +1,10 @@
 /** An app's OAuth credential (`oauth_clients`). The secret itself is never stored, only its hash. */
 export type OAuthClient = {
   id: string;
+  /** Who owns the credential: the signed-in user, site, or workspace. */
+  scope: "user" | "site" | "workspace";
+  scope_id: string;
+  /** The account that created it. */
   user_id: string;
   /** The app it belongs to, as an entity URI (e.g. spacify:app:<id>); null for none. */
   app_uri: string | null;
@@ -52,6 +56,8 @@ type Table<Row, Required extends keyof Row> = {
 
 type Fn<Args, Returns> = { Args: Args; Returns: Returns };
 
+export type OAuthScope = OAuthClient["scope"];
+
 /** The tables and functions the oauth app uses (see the migration in docs/guide/oauth.md). */
 export type OAuthDatabase = {
   public: {
@@ -60,7 +66,10 @@ export type OAuthDatabase = {
     };
     Views: { [_ in never]: never };
     Functions: {
-      oauth_create_client: Fn<{ p_name: string; p_redirect_uri: string; p_app_uri?: string | null; p_callback_url?: string | null; p_scopes?: string[] }, OAuthSecret>;
+      oauth_create_client: Fn<
+        { p_name: string; p_redirect_uri: string; p_app_uri?: string | null; p_callback_url?: string | null; p_scopes?: string[]; p_scope: OAuthScope; p_scope_id: string },
+        OAuthSecret
+      >;
       oauth_regenerate_secret: Fn<{ p_id: string }, OAuthSecret>;
       oauth_client_for_consent: Fn<{ p_client_id: string; p_redirect_uri?: string | null }, OAuthConsentClient>;
       oauth_authorize: Fn<

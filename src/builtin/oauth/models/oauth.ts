@@ -1,23 +1,39 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getSupabaseClient } from "../../../supabase/client";
-import type { OAuthClient, OAuthDatabase, OAuthSecret } from "./types";
+import type { OAuthClient, OAuthDatabase, OAuthScope, OAuthSecret } from "./types";
 
 /** The shared client, typed with the oauth app's tables and functions. */
 export const oauthDb = () => getSupabaseClient<OAuthDatabase>();
 
 /** Every column but `secret_hash`, which the browser can't read (and has no use for). */
 export const OAUTH_CLIENT_COLUMNS =
-  "id, user_id, app_uri, name, client_id, secret_hint, secret_created_at, redirect_uri, callback_url, scopes, last_used_at, created_at, updated_at";
+  "id, scope, scope_id, user_id, app_uri, name, client_id, secret_hint, secret_created_at, redirect_uri, callback_url, scopes, last_used_at, created_at, updated_at";
 
 export const oauthClientsKey = ["gondol", "oauth", "clients"] as const;
 export const oauthGrantsKey = ["gondol", "oauth", "grants"] as const;
 
-/** The user's credentials, newest first. */
-export function useOAuthClients() {
+export type OAuthScopeIds = Record<OAuthScope, string | null>;
+
+/** Scope targets that exist in the current account, site and workspace context. */
+export function availableOAuthScopes(ids: OAuthScopeIds): { scope: OAuthScope; scopeId: string }[] {
+  return (["user", "site", "workspace"] as const).flatMap((scope) => {
+    const scopeId = ids[scope];
+    return scopeId ? [{ scope, scopeId }] : [];
+  });
+}
+
+/** Credentials owned by one scope, newest first. */
+export function useOAuthClients(scope: OAuthScope, scopeId: string | null) {
   return useQuery({
-    queryKey: oauthClientsKey,
+    queryKey: [...oauthClientsKey, scope, scopeId],
+    enabled: !!scopeId,
     queryFn: async () => {
-      const { data, error } = await oauthDb().from("oauth_clients").select(OAUTH_CLIENT_COLUMNS).order("created_at", { ascending: false });
+      const { data, error } = await oauthDb()
+        .from("oauth_clients")
+        .select(OAUTH_CLIENT_COLUMNS)
+        .eq("scope", scope)
+        .eq("scope_id", scopeId!)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as OAuthClient[];
     },
@@ -27,16 +43,19 @@ export function useOAuthClients() {
 export type OAuthClientValues = Pick<OAuthClient, "name" | "app_uri" | "redirect_uri" | "callback_url" | "scopes">;
 
 /** Creates a credential; the answer holds its secret, which nothing can show again. */
-export function useCreateOAuthClient() {
+export function useCreateOAuthClient(scope: OAuthScope, scopeId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (values: OAuthClientValues): Promise<OAuthSecret> => {
+      if (!scopeId) throw new Error(`No ${scope} to create the OAuth credential for`);
       const { data, error } = await oauthDb().rpc("oauth_create_client", {
         p_name: values.name,
         p_redirect_uri: values.redirect_uri,
         p_app_uri: values.app_uri,
         p_callback_url: values.callback_url,
         p_scopes: values.scopes,
+        p_scope: scope,
+        p_scope_id: scopeId,
       });
       if (error) throw error;
       return data as OAuthSecret;

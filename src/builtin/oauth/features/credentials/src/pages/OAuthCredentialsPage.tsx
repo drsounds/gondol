@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Alert, Button, Checkbox, Input } from "../../../../../../design-system/bungalow-79d923";
+import { Alert, Button, Checkbox, Input, Select } from "../../../../../../design-system/bungalow-79d923";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { getInternalApps } from "../../../../../../apps/registry";
 import { getLocalizedText } from "../../../../../../apps/types";
@@ -15,7 +15,9 @@ import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { copyText } from "../../../../../../shell/clipboard";
 import type { EntityType } from "../../../../../../register";
+import { useSettingsScopeIds } from "../../../../../../settings/settings";
 import {
+  availableOAuthScopes,
   useCreateOAuthClient,
   useDeleteOAuthClient,
   useOAuthClients,
@@ -25,7 +27,7 @@ import {
   useUpdateOAuthClient,
   type OAuthClientValues,
 } from "../../../../models/oauth";
-import type { OAuthClient, OAuthSecret } from "../../../../models/types";
+import type { OAuthClient, OAuthScope, OAuthSecret } from "../../../../models/types";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -43,14 +45,20 @@ function useScopeOptions() {
 }
 
 /**
- * The user's OAuth credentials (`/oauth`): one row per credential with its client id, the app it
- * belongs to and its redirect URI; `/oauth/new` and `/oauth/<client id>/edit` are the routed sheets.
+ * The account's, site's or workspace's OAuth credentials (`/oauth`): one row per credential with
+ * its client id, the app it belongs to and its redirect URI; `/oauth/new` and
+ * `/oauth/<client id>/edit` are the routed sheets.
  * A new credential's secret, and a regenerated one, is shown once in a sheet of its own and can't be
  * read back. Under them, the apps the user has allowed, to disconnect.
  */
 export function OAuthCredentialsPage(_props: AppFeaturePageProps) {
   const { t, intlLocale } = useI18n();
-  const clients = useOAuthClients();
+  const ids = useSettingsScopeIds();
+  const targets = availableOAuthScopes({ user: ids.user, site: ids.site, workspace: ids.workspace });
+  const [scope, setScope] = useState<OAuthScope>("user");
+  const activeScope = targets.some((option) => option.scope === scope) ? scope : (targets[0]?.scope ?? "user");
+  const target = targets.find((option) => option.scope === activeScope);
+  const clients = useOAuthClients(activeScope, target?.scopeId ?? null);
   const rows = clients.data ?? [];
   const modal = useEntityModal("/oauth");
   const editing = modal.mode === "edit" ? rows.find((row) => row.client_id === modal.id) : undefined;
@@ -77,10 +85,18 @@ export function OAuthCredentialsPage(_props: AppFeaturePageProps) {
           <h2 className="panel-title">{t("oauth.title")}</h2>
           <p className="muted">{t("oauth.intro")}</p>
         </div>
-        <Button size="sm" tone="primary" onClick={modal.openNew}>
+        <Button size="sm" tone="primary" disabled={!target} onClick={modal.openNew}>
           {t("oauth.new")}
         </Button>
       </div>
+
+      <Select label={t("oauth.scope")} value={activeScope} onChange={(event) => setScope(event.target.value as OAuthScope)} disabled={targets.length < 2}>
+        {targets.map(({ scope: targetScope }) => (
+          <option key={targetScope} value={targetScope}>
+            {t(`oauth.scope.${targetScope}`)}
+          </option>
+        ))}
+      </Select>
 
       {regenerate.error ? <Alert tone="danger">{errorText(regenerate.error)}</Alert> : null}
       {clients.error ? <Alert tone="danger">{errorText(clients.error)}</Alert> : null}
@@ -130,9 +146,18 @@ export function OAuthCredentialsPage(_props: AppFeaturePageProps) {
 
       <ConnectedApps />
 
-      {modal.mode === "new" ? <CredentialSheet onClose={modal.close} onCreated={(created) => (modal.close(), setSecret(created))} /> : null}
+      {modal.mode === "new" && target ? (
+        <CredentialSheet
+          scope={activeScope}
+          scopeId={target.scopeId}
+          onClose={modal.close}
+          onCreated={(created) => (modal.close(), setSecret(created))}
+        />
+      ) : null}
       {modal.mode === "edit" && editing ? (
         <CredentialSheet
+          scope={editing.scope}
+          scopeId={editing.scope_id}
           client={editing}
           onClose={modal.close}
           onRegenerate={() => void regenerateSecret(editing)}
@@ -146,6 +171,8 @@ export function OAuthCredentialsPage(_props: AppFeaturePageProps) {
 }
 
 function CredentialSheet({
+  scope,
+  scopeId,
   client,
   onClose,
   onCreated,
@@ -153,6 +180,8 @@ function CredentialSheet({
   onDelete,
   deleting,
 }: {
+  scope: OAuthScope;
+  scopeId: string;
   client?: OAuthClient;
   onClose: () => void;
   onCreated?: (secret: OAuthSecret) => void;
@@ -162,7 +191,7 @@ function CredentialSheet({
 }) {
   const { t } = useI18n();
   const scopeOptions = useScopeOptions();
-  const create = useCreateOAuthClient();
+  const create = useCreateOAuthClient(scope, scopeId);
   const update = useUpdateOAuthClient();
   const [values, setValues] = useState<OAuthClientValues>(() => ({
     name: client?.name ?? "",
@@ -242,6 +271,7 @@ function CredentialSheet({
     >
       <div className="stack">
         {error ? <Alert tone="danger">{errorText(error)}</Alert> : null}
+        {!client ? <p className="muted">{t("oauth.scopeOwner", { scope: t(`oauth.scope.${scope}`) })}</p> : null}
         <Input label={t("oauth.name")} value={values.name} onChange={(e) => set("name", e.target.value)} required maxLength={200} autoFocus />
         <EntityPicker label={t("oauth.app")} hint={t("oauth.appHint")} types={appTypes} valueKind="uri" value={values.app_uri} onChange={(uri) => set("app_uri", uri)} />
         <Input
