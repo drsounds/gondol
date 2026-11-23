@@ -16,7 +16,10 @@ export type OAuthScopeIds = Record<OAuthScope, string | null>;
 
 /** Scope targets that exist in the current account, site and workspace context. */
 export function availableOAuthScopes(ids: OAuthScopeIds): { scope: OAuthScope; scopeId: string }[] {
-  return (["user", "site", "workspace"] as const).flatMap((scope) => (ids[scope] ? [{ scope, scopeId: ids[scope] }] : []));
+  return (["user", "site", "workspace"] as const).flatMap((scope) => {
+    const scopeId = ids[scope];
+    return scopeId ? [{ scope, scopeId }] : [];
+  });
 }
 
 /** Credentials owned by one scope, newest first. */
