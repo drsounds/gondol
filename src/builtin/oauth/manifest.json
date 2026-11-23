@@ -40,6 +40,14 @@
       "profile": {
         "en": "See who you are (your account's id)",
         "sv": "Se vem du är (ditt kontos id)"
+      },
+      "entities:read": {
+        "en": "Find, list and read entities you can access",
+        "sv": "Hitta, lista och läsa objekt du har åtkomst till"
+      },
+      "entities:write": {
+        "en": "Create, change, delete and restore entities you can access",
+        "sv": "Skapa, ändra, ta bort och återställa objekt du har åtkomst till"
       }
     },
     "schemas": {
@@ -52,6 +60,66 @@
           "client_id": { "type": "string", "description": "The client the token was issued to" },
           "scopes": { "type": "array", "items": { "type": "string" } }
         }
+      },
+      "Entity": {
+        "type": "object",
+        "description": "An entity row. Its fields depend on its type.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "uri": { "type": "string", "format": "uri" },
+          "type": { "type": "string" }
+        },
+        "additionalProperties": true
+      },
+      "EntityCondition": {
+        "type": "object",
+        "required": ["field"],
+        "additionalProperties": false,
+        "properties": {
+          "field": { "type": "string", "maxLength": 80 },
+          "op": {
+            "type": "string",
+            "enum": ["eq", "neq", "gt", "gte", "lt", "lte", "contains", "not_contains", "empty", "not_empty"],
+            "description": "Defaults to eq."
+          },
+          "value": {
+            "description": "The value to compare; dates may be {{today}}, {{today+7}}, {{today-1}} or {{now}}."
+          }
+        }
+      },
+      "EntityCreate": {
+        "type": "object",
+        "required": ["type", "values"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "maxLength": 80 },
+          "values": { "type": "object", "description": "Writable field names and values for the entity type." }
+        }
+      },
+      "EntityUpdate": {
+        "type": "object",
+        "required": ["values"],
+        "additionalProperties": false,
+        "properties": {
+          "values": { "type": "object", "description": "Writable field names and new values; omitted fields stay unchanged." }
+        }
+      },
+      "EntityQuery": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "maxLength": 80 },
+          "conditions": { "type": "array", "maxItems": 20, "items": { "$ref": "#/components/schemas/EntityCondition" } },
+          "match": { "type": "string", "enum": ["all", "any"], "description": "Whether all conditions must hold (default) or any." },
+          "query": { "type": "string", "maxLength": 200, "description": "Words in the entity label." },
+          "order_by": { "type": "string", "maxLength": 80 },
+          "descending": { "type": "boolean" },
+          "limit": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "offset": { "type": "integer", "minimum": 0 },
+          "include_deleted": { "type": "boolean" },
+          "fields": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 80 } }
+        }
       }
     },
     "paths": {
@@ -62,6 +130,132 @@
           "rpc": "api_me",
           "scopes": ["profile"],
           "responses": { "200": { "description": "The user", "schema": { "$ref": "#/components/schemas/Me" } } }
+        }
+      },
+      "/entities/types": {
+        "get": {
+          "operationId": "listEntityTypes",
+          "summary": "List entity types",
+          "description": "Lists the entity types and the actions available to the user.",
+          "rpc": "entity_api_types",
+          "scopes": ["entities:read"],
+          "responses": { "200": { "description": "Entity types", "schema": { "type": "array", "items": { "type": "object" } } } }
+        }
+      },
+      "/entities/types/{type}": {
+        "get": {
+          "operationId": "describeEntityType",
+          "summary": "Describe an entity type",
+          "rpc": "entity_api_describe",
+          "scopes": ["entities:read"],
+          "parameters": [
+            { "name": "type", "in": "path", "required": true, "schema": { "type": "string", "maxLength": 80 } }
+          ],
+          "responses": { "200": { "description": "Entity type schema and permissions", "schema": { "type": "object" } } }
+        }
+      },
+      "/entities/search": {
+        "get": {
+          "operationId": "searchEntities",
+          "summary": "Search entities",
+          "rpc": "entity_api_search",
+          "scopes": ["entities:read"],
+          "parameters": [
+            { "name": "query", "in": "query", "required": true, "schema": { "type": "string", "maxLength": 200 } },
+            { "name": "types", "in": "query", "schema": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 80 } } },
+            { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } }
+          ],
+          "responses": {
+            "200": {
+              "description": "Matching entities",
+              "schema": { "type": "array", "items": { "type": "object", "properties": { "type": { "type": "string" }, "uri": { "type": "string", "format": "uri" }, "label": { "type": "string" } } } }
+            }
+          }
+        }
+      },
+      "/entities": {
+        "get": {
+          "operationId": "listEntities",
+          "summary": "List entities of a type",
+          "rpc": "entity_api_list",
+          "scopes": ["entities:read"],
+          "parameters": [
+            { "name": "type", "in": "query", "required": true, "schema": { "type": "string", "maxLength": 80 } },
+            { "name": "query", "in": "query", "schema": { "type": "string", "maxLength": 200 } },
+            { "name": "order_by", "in": "query", "schema": { "type": "string", "maxLength": 80 } },
+            { "name": "descending", "in": "query", "schema": { "type": "boolean" } },
+            { "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
+            { "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
+            { "name": "include_deleted", "in": "query", "schema": { "type": "boolean" } },
+            { "name": "fields", "in": "query", "schema": { "type": "array", "maxItems": 50, "items": { "type": "string", "maxLength": 80 } } }
+          ],
+          "responses": { "200": { "description": "Entities", "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Entity" } } } }
+        },
+        "post": {
+          "operationId": "createEntity",
+          "summary": "Create an entity",
+          "description": "Creates an entity owned by the user. The entity API only accepts writable fields for its type.",
+          "rpc": "entity_api_create",
+          "scopes": ["entities:write"],
+          "requestBody": { "required": true, "schema": { "$ref": "#/components/schemas/EntityCreate" } },
+          "responses": { "201": { "description": "The created entity", "schema": { "$ref": "#/components/schemas/Entity" } } }
+        }
+      },
+      "/entities/query": {
+        "post": {
+          "operationId": "queryEntities",
+          "summary": "List entities with field conditions",
+          "rpc": "entity_api_list",
+          "scopes": ["entities:read"],
+          "requestBody": { "required": true, "schema": { "$ref": "#/components/schemas/EntityQuery" } },
+          "responses": { "200": { "description": "Entities", "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Entity" } } } }
+        }
+      },
+      "/entities/{uri}": {
+        "get": {
+          "operationId": "getEntity",
+          "summary": "Get an entity",
+          "rpc": "entity_api_get",
+          "scopes": ["entities:read"],
+          "parameters": [
+            { "name": "uri", "in": "path", "required": true, "description": "The URL-encoded entity URI, such as spacify:task:abc.", "schema": { "type": "string", "maxLength": 300 } }
+          ],
+          "responses": { "200": { "description": "The entity and its relations", "schema": { "$ref": "#/components/schemas/Entity" } } }
+        },
+        "patch": {
+          "operationId": "updateEntity",
+          "summary": "Update an entity",
+          "rpc": "entity_api_update",
+          "scopes": ["entities:write"],
+          "parameters": [
+            { "name": "uri", "in": "path", "required": true, "description": "The URL-encoded entity URI.", "schema": { "type": "string", "maxLength": 300 } }
+          ],
+          "requestBody": { "required": true, "schema": { "$ref": "#/components/schemas/EntityUpdate" } },
+          "responses": { "200": { "description": "The updated entity", "schema": { "$ref": "#/components/schemas/Entity" } } }
+        },
+        "delete": {
+          "operationId": "deleteEntity",
+          "summary": "Delete an entity",
+          "description": "Moves an entity to the trash, or deletes it permanently when permanent=true.",
+          "rpc": "entity_api_delete",
+          "scopes": ["entities:write"],
+          "parameters": [
+            { "name": "uri", "in": "path", "required": true, "description": "The URL-encoded entity URI.", "schema": { "type": "string", "maxLength": 300 } },
+            { "name": "permanent", "in": "query", "schema": { "type": "boolean" } }
+          ],
+          "responses": { "200": { "description": "The deleted entity", "schema": { "$ref": "#/components/schemas/Entity" } } }
+        }
+      },
+      "/entities/{uri}/restore": {
+        "post": {
+          "operationId": "restoreEntity",
+          "summary": "Restore an entity",
+          "rpc": "entity_api_restore",
+          "scopes": ["entities:write"],
+          "parameters": [
+            { "name": "uri", "in": "path", "required": true, "description": "The URL-encoded entity URI.", "schema": { "type": "string", "maxLength": 300 } }
+          ],
+          "responses": { "200": { "description": "The restored entity", "schema": { "$ref": "#/components/schemas/Entity" } } }
         }
       }
     }

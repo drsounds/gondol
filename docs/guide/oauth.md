@@ -58,6 +58,28 @@ and stored as its URI in `app_uri`.
 
 `GET /me` (scope `profile`) answers who the token acts for: `{ id, uri, client_id, scopes }`.
 
+### Entity API
+
+OAuth clients can also work with entities through the OpenAPI document served by the gateway. The
+user's row-level security still decides which rows and fields each request may read or change.
+Clients must be granted `entities:read` and/or `entities:write` when their credential is created;
+each operation requires the corresponding scope.
+
+| Route | Scope | |
+| --- | --- | --- |
+| `GET /entities/types`, `GET /entities/types/{type}` | `entities:read` | List entity types or inspect a type's fields and permissions. |
+| `GET /entities/search?query=…`, `GET /entities?type=…` | `entities:read` | Search across visible entities or list one type. |
+| `POST /entities/query` | `entities:read` | List one type with field conditions and paging. |
+| `GET /entities/{uri}` | `entities:read` | Get an entity and its relations. URL-encode the entity URI. |
+| `POST /entities` | `entities:write` | Create an entity with `{ "type": "task", "values": { … } }`. |
+| `PATCH /entities/{uri}` | `entities:write` | Change writable fields with `{ "values": { … } }`. |
+| `DELETE /entities/{uri}` | `entities:write` | Move an entity to the trash; `?permanent=true` deletes it for good. |
+| `POST /entities/{uri}/restore` | `entities:write` | Restore an entity from the trash. |
+
+Use `GET /entities/types/{type}` to discover writable fields before creating or updating an entity.
+The host's entity API validates those fields and enforces row-level security; an OAuth scope does
+not grant more access than the user has in the app.
+
 ## The tables and functions
 
 | Table | |

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import oauthManifest from "../builtin/oauth/manifest.json" with { type: "json" };
+import { parseManifest } from "../apps/manifest";
 import { createApiGateway, rpcArgName, validate, type ApiCaller, type TokenGrant } from "./gateway";
 import { buildOpenApiDocument } from "./openapi";
 
@@ -62,11 +64,71 @@ const handle = createApiGateway({
   },
 });
 
+const oauthApi = parseManifest(oauthManifest).api;
+const oauthDocument = buildOpenApiDocument([{ id: "oauth", api: oauthApi }]);
+const entityCalls: { rpc: string; args: Record<string, unknown> }[] = [];
+const entityHandle = createApiGateway({
+  document: oauthDocument,
+  basePath: "/app-api",
+  authorizeUrl: "https://app.example.com/oauth/authorize",
+  authenticate: async (token) =>
+    token === "good"
+      ? { userId: "u1", clientId: "c1", scopes: ["entities:read", "entities:write"] }
+      : token === "read"
+        ? { userId: "u1", clientId: "c1", scopes: ["entities:read"] }
+        : null,
+  token: async () => ({ error: "unsupported_grant_type" }),
+  invoke: async ({ rpc, args }) => {
+    entityCalls.push({ rpc, args });
+    return { data: { uri: "spacify:task:abc", ...args } };
+  },
+});
+
 const url = (path: string) => `https://db.example.com/functions/v1/app-api${path}`;
 const post = (path: string, body: unknown, token = "good") =>
   handle(new Request(url(path), { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(body) }));
 
 describe("gateway", () => {
+  test("serves OAuth-scoped entity APIs and invokes their entity RPCs", async () => {
+    const document = await (await entityHandle(new Request(url("/openapi.json")))).json();
+    expect(document.paths["/entities"].post.security).toEqual([{ oauth2: ["entities:write"] }]);
+    expect(document.components.schemas.EntityCreate.required).toEqual(["type", "values"]);
+
+    const types = await entityHandle(new Request(url("/entities/types"), { headers: { Authorization: ["Bearer", "good"].join(" ") } }));
+    expect(types.status).toBe(200);
+    expect(entityCalls.at(-1)).toEqual({ rpc: "entity_api_types", args: {} });
+
+    const created = await entityHandle(
+      new Request(url("/entities"), {
+        method: "POST",
+        headers: { Authorization: ["Bearer", "good"].join(" "), "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task", values: { title: "Fly" } }),
+      }),
+    );
+    expect(created.status).toBe(201);
+    expect(entityCalls.at(-1)).toEqual({ rpc: "entity_api_create", args: { p_type: "task", p_values: { title: "Fly" } } });
+
+    const updated = await entityHandle(
+      new Request(url("/entities/spacify%3Atask%3Aabc"), {
+        method: "PATCH",
+        headers: { Authorization: ["Bearer", "good"].join(" "), "Content-Type": "application/json" },
+        body: JSON.stringify({ values: { title: "Fly higher" } }),
+      }),
+    );
+    expect(updated.status).toBe(200);
+    expect(entityCalls.at(-1)).toEqual({ rpc: "entity_api_update", args: { p_uri: "spacify:task:abc", p_values: { title: "Fly higher" } } });
+
+    const denied = await entityHandle(
+      new Request(url("/entities"), {
+        method: "POST",
+        headers: { Authorization: ["Bearer", "read"].join(" "), "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "task", values: { title: "No" } }),
+      }),
+    );
+    expect(denied.status).toBe(403);
+    expect(entityCalls).toHaveLength(3);
+  });
+
   test("runs an operation's function with p_ arguments and its 2xx status", async () => {
     const response = await post("/streams", { object_uri: "spacify:recording:abc", quantity: 2 });
     expect(response.status).toBe(201);
