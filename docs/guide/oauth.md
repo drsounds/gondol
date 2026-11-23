@@ -4,11 +4,11 @@ Gondol's second built-in app, `oauth`, lets HTML5 and other apps act for a user 
 [the apps' HTTP APIs](./api.md), with OAuth 2's authorization code flow (and PKCE for apps that
 can't keep a secret).
 
-- **Credentials**: each app gets any number, each with a **client id**, a **client secret**, a
-  **redirect URI** and an optional **callback URL**, and the scopes it may ask for. The secret is
-  shown once, when it's created or regenerated; only its SHA-256 hash is stored, so nobody, the
-  owner or the database included, can read it back. Regenerating makes a new one and the old one
-  stops working at once.
+- **Credentials**: each account, site or workspace can create any number, each with a **client id**,
+  a **client secret**, a **redirect URI** and an optional **callback URL**, and the scopes it may
+  ask for. The secret is shown once, when it's created or regenerated; only its SHA-256 hash is
+  stored, so nobody, the owner or the database included, can read it back. Regenerating makes a new
+  one and the old one stops working at once.
 - **The consent page** (`/oauth/authorize`) shows the signed-in user which app asks for what, and
   sends them back to the app with a code (or `error=access_denied`).
 - **Connected apps**: the apps a user has allowed, to disconnect.
@@ -22,15 +22,16 @@ configureGondol({ apps: [...myApps, oauthApp] });
 // or: gondolApps({ dir: "apps", builtin: ["oauth"] })
 ```
 
-Then create [its tables and functions](#the-tables-and-functions), deploy [the gateway](./api.md#serving-it)
-and pass `--builtin oauth` to `gondol-api` so its `GET /me` is in the document.
+Then create [its tables and functions](#the-tables-and-functions), including scope-aware credential
+ownership, deploy [the gateway](./api.md#serving-it) and pass `--builtin oauth` to `gondol-api` so
+its `GET /me` is in the document.
 
 ## Pages
 
 | Path | Feature | |
 | --- | --- | --- |
 | `/oauth/authorize?…` | `authorize` | The consent page. Hidden from the menu, offered on every site. A signed-out visitor should come back to it after signing in (the host's sign-in keeps the path). |
-| `/oauth` | `credentials` | The user's credentials (name, app, client id, redirect URI, last used) and the connected apps. Tagged `admin`/`creator`/`operator` and `configure`. |
+| `/oauth` | `credentials` | Credentials owned by the account, site or workspace selected in the page, and the connected apps. Site/workspace writes must be restricted to their administrators by RLS and the database functions. Tagged `admin`/`creator`/`operator` and `configure`. |
 | `/oauth/new`, `/oauth/<client id>/edit` | `credentials` | The routed sheets. A new credential's secret, and a regenerated one, opens in a sheet of its own with copy buttons. |
 
 The app is picked with `<EntityPicker/>` (restricted to the `app` entity type when the host has one)
@@ -61,14 +62,14 @@ and stored as its URI in `app_uri`.
 
 | Table | |
 | --- | --- |
-| `oauth_clients` | `id`, `user_id` (default `auth.uid()`), `app_uri`, `name`, `client_id` (unique, public), `secret_hash` (never readable), `secret_hint` (last four characters), `secret_created_at`, `redirect_uri`, `callback_url`, `scopes` (text[], empty: any), `last_used_at`, `created_at`, `updated_at`. The owner reads, updates (`app_uri`, `name`, `redirect_uri`, `callback_url`, `scopes`) and deletes their own; rows are created by `oauth_create_client()`. |
+| `oauth_clients` | `id`, `scope` (`user`, `site` or `workspace`), `scope_id` (the owner at that scope), `user_id` (creator, default `auth.uid()`), `app_uri`, `name`, `client_id` (unique, public), `secret_hash` (never readable), `secret_hint` (last four characters), `secret_created_at`, `redirect_uri`, `callback_url`, `scopes` (text[], empty: any), `last_used_at`, `created_at`, `updated_at`. The scope owner reads, updates (`app_uri`, `name`, `redirect_uri`, `callback_url`, `scopes`) and deletes their own; rows are created by `oauth_create_client()`. RLS and the RPC must permit user-level owners, site owners and workspace admins respectively. |
 | `oauth_codes` | Hashed codes with the client, user, redirect URI, scopes, PKCE challenge, expiry and use. Service role only. |
 | `oauth_tokens` | Hashed access and refresh tokens with the client, user, scopes, expiries, last use and revocation. Service role only. |
 
 | Function | Who | |
 | --- | --- | --- |
-| `oauth_create_client(p_name, p_redirect_uri, p_app_uri, p_callback_url, p_scopes)` | owner | `{ id, client_id, client_secret }`: the only time the secret is returned. |
-| `oauth_regenerate_secret(p_id)` | owner | The same, with a new secret. |
+| `oauth_create_client(p_name, p_redirect_uri, p_app_uri, p_callback_url, p_scopes, p_scope, p_scope_id)` | owner at `p_scope` | `{ id, client_id, client_secret }`: the only time the secret is returned. The created credential belongs to that account, site or workspace; its later authorizations still issue tokens for the signed-in user who consents. |
+| `oauth_regenerate_secret(p_id)` | credential's scope owner | The same, with a new secret. |
 | `oauth_client_for_consent(p_client_id, p_redirect_uri)` | signed in | Name, app, redirect URI and scopes; refuses a redirect URI that isn't the registered one. |
 | `oauth_authorize(p_client_id, p_redirect_uri, p_scopes, p_code_challenge, p_code_challenge_method)` | signed in | A code for the user. |
 | `oauth_grant_list()`, `oauth_revoke_grant(p_client_id)` | signed in | Connected apps, and disconnecting one. |
