@@ -1,8 +1,8 @@
-import { useMemo, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { Input } from "../design-system/bungalow-79d923";
 import { RangeField } from "./AppearanceSettings";
 import { useI18n } from "../i18n/i18n";
-import { mediaHost } from "../media/host";
+import { MediaPickerDialog } from "../media/MediaPickerDialog";
 import {
   LIQUID_BACKGROUNDS,
   liquidBackgroundDim,
@@ -27,7 +27,6 @@ export function LiquidThemeSettings() {
   const { userTheme, updateUserTheme } = useThemeEditor();
   const liquid = userTheme.liquid ?? {};
   const update = (partial: Partial<LiquidSettings>) => updateUserTheme({ liquid: { ...liquid, ...partial } });
-  const ImagePicker = useMemo(() => mediaHost().ImagePicker, []);
   const background = liquid.background ?? LIQUID_BACKGROUNDS[0].id;
   const custom = background === "custom";
 
@@ -61,15 +60,12 @@ export function LiquidThemeSettings() {
       </div>
       {custom ? (
         <div className="stack">
-          {ImagePicker ? (
-            <div className="bungalow-field">
-              <span className="bungalow-label">{t("appearance.liquid.pickImage")}</span>
-              <ImagePicker
-                value={liquid.backgroundMediaId ?? null}
-                onChange={(mediaId) => update({ backgroundMediaId: mediaId || null })}
-              />
-            </div>
-          ) : null}
+          <MediaPickerDialog
+            imageOnly
+            label={t("appearance.liquid.pickImage")}
+            value={liquid.backgroundMediaId ?? null}
+            onChange={(backgroundMediaId) => update({ backgroundMediaId })}
+          />
           <label className="bungalow-field">
             <span className="bungalow-label">{t("appearance.liquid.imageUrl")}</span>
             <Input

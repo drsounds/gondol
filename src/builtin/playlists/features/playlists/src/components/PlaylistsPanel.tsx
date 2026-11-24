@@ -19,6 +19,7 @@ import { useLinkPreview } from "../../../../../../media/linkPreview";
 import { EntityRow } from "../../../../../../entities/EntityRow";
 import { useLibraryPickerOptions } from "../../../../../library/models/library";
 import { mediaHost, type EntityCovers } from "../../../../../../media/host";
+import { MediaPickerDialog } from "../../../../../../media/MediaPickerDialog";
 import {
   isMusikItem,
   isPlaylistItemUri,
@@ -304,11 +305,10 @@ function PlaylistSheet({
   const queryClient = useQueryClient();
   const covers = usePlaylistCovers(playlist, true);
   const media = mediaHost();
-  const { CoverFrame, ImagePicker } = media;
+  const { CoverFrame } = media;
   const images = media.useImages().data ?? [];
   const setCovers = media.useSetEntityCovers();
   const [edited, setEdited] = useState<Partial<PlaylistDraft>>({});
-  const [openSlot, setOpenSlot] = useState<ImageSlot | null>(null);
   // Covers load asynchronously, so untouched image slots read through to them.
   const draft: PlaylistDraft = {
     name: playlist?.name ?? "",
@@ -417,7 +417,7 @@ function PlaylistSheet({
           />
         </div>
         {/* Images come from the host's media library; without one there is nothing to pick. */}
-        {ImagePicker ? imageSlots.map(({ slot, label }) => {
+        {media.ImagePicker ? imageSlots.map(({ slot, label }) => {
           const id = draft[slot];
           const name = images.find((m) => m.id === id)?.name ?? covers[slot]?.name;
           return (
@@ -434,20 +434,9 @@ function PlaylistSheet({
                       {t("covers.clear")}
                     </Button>
                   ) : null}
-                  <Button type="button" variant="outline" size="sm" aria-expanded={openSlot === slot} onClick={() => setOpenSlot(openSlot === slot ? null : slot)}>
-                    {t("covers.choose")}
-                  </Button>
                 </div>
               </div>
-              {openSlot === slot ? (
-                <ImagePicker
-                  value={id}
-                  onChange={(mediaId) => {
-                    set(slot, mediaId);
-                    setOpenSlot(null);
-                  }}
-                />
-              ) : null}
+              <MediaPickerDialog imageOnly canClear={false} label={label} value={id} onChange={(mediaId) => set(slot, mediaId)} />
             </div>
           );
         }) : null}

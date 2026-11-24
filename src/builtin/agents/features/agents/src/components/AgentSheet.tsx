@@ -6,7 +6,7 @@ import { FormActions } from "../../../../../../entities/FormActions";
 import { sessionUserId } from "../../../../../../supabase/session";
 import { useAiModelChoices, useAiSettings } from "../../../../../ai/models/models";
 import { aiSourceKey, useAiSources } from "../../../../../ai/models/services";
-import { mediaHost } from "../../../../../../media/host";
+import { MediaPickerDialog } from "../../../../../../media/MediaPickerDialog";
 import { supabase } from "../../../../models/db";
 import { isValidUsername, normalizeUsername } from "../../../../models/host";
 import { useI18n, type MessageKey } from "../../../../../../i18n/i18n";
@@ -97,7 +97,6 @@ const isUsernameTaken = (error: unknown) => (error as { code?: string } | null)?
  */
 export function AgentSheet({ agent, onClose, onSaved, onDeleted }: { agent?: Agent; onClose: () => void; onSaved: (agent: Agent) => void; onDeleted: () => void }) {
   const { t } = useI18n();
-  const { MediaPicker } = mediaHost();
   const queryClient = useQueryClient();
   const { settings } = useAiSettings();
   const { sources } = useAiSources(settings);
@@ -259,9 +258,13 @@ export function AgentSheet({ agent, onClose, onSaved, onDeleted }: { agent?: Age
             ))}
           </Select>
         </div>
-        {MediaPicker ? (
-          <MediaPicker label={t("agents.avatar")} hint={t("agents.avatarHint")} kinds={["image"]} value={draft.avatar_media_id} onChange={(avatar_media_id) => update({ avatar_media_id })} />
-        ) : null}
+        <MediaPickerDialog
+          label={t("agents.avatar")}
+          hint={t("agents.avatarHint")}
+          kinds={["image"]}
+          value={draft.avatar_media_id}
+          onChange={(avatar_media_id) => update({ avatar_media_id })}
+        />
         <div className="bungalow-field">
           <label className="bungalow-label" htmlFor="agent-bio">
             {t("agents.bio")}

@@ -5,6 +5,7 @@ import { EntitySheet } from "../../../entities/EntitySheet";
 import { FormActions } from "../../../entities/FormActions";
 import { useI18n } from "../../../i18n/i18n";
 import { mediaHost } from "../../../media/host";
+import { MediaPickerDialog } from "../../../media/MediaPickerDialog";
 import type { EntityType, MessageKey } from "../../../register";
 import {
   accountUri,
@@ -85,11 +86,10 @@ function ImageField({ label, url, mediaId, onChange }: { label: string; url: str
   const { t } = useI18n();
   const host = mediaHost();
   const images = host.useImages();
-  const Picker = host.MediaPicker;
   return (
     <div className="mastodon-image-field">
-      {Picker ? (
-        <Picker
+      {host.MediaPicker ? (
+        <MediaPickerDialog
           label={label}
           kinds={["image"]}
           value={mediaId}
@@ -100,7 +100,7 @@ function ImageField({ label, url, mediaId, onChange }: { label: string; url: str
         />
       ) : null}
       <Input
-        label={Picker ? t("mastodon.field.imageUrl") : label}
+        label={host.MediaPicker ? t("mastodon.field.imageUrl") : label}
         type="url"
         placeholder="https://"
         value={url}
