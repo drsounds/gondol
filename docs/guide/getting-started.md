@@ -55,6 +55,31 @@ Import the framework's styles once, from your app's stylesheet:
 @import "gondol/styles/gondol.css";
 ```
 
+## React Strict DOM
+
+Gondol exposes React Strict DOM's `html` and `css` APIs at `gondol/ui/strictDom` for components
+that are being written or migrated to the cross-platform subset:
+
+```tsx
+import { css, html } from "gondol/ui/strictDom";
+
+const styles = css.create({ message: { padding: 8 } });
+
+export function PortableMessage() {
+  return <html.div style={styles.message}>Hello</html.div>;
+}
+```
+
+`react-strict-dom` is an optional peer dependency; install it in the app when using this entry point.
+Its Babel preset and PostCSS plugin are required to compile/extract `css.create` styles. Follow the
+[React Strict DOM Vite setup](https://react.github.io/react-strict-dom/learn/setup-vite/) and include
+both Gondol's source files and `react-strict-dom` in the Babel and PostCSS plugin filters when
+compiling Gondol from source.
+
+This entry point is an opt-in migration boundary, not a claim that the existing shell is React Native
+ready. Most Gondol UI still uses browser DOM APIs and global CSS, and must be migrated before it can
+run on native.
+
 ::: warning Shell styles still live in Spacify
 `gondol.css` brings the design system's theme, the Aero and TUI engines' styles and the base styles.
 The styles of the chrome bar, the navigation, sheets (`.sheet`), action rows and tables have not
