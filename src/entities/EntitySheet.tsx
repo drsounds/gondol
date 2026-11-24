@@ -6,6 +6,7 @@ interface EntitySheetProps {
   subtitle?: ReactNode;
   onClose: () => void;
   closeLabel: string;
+  ariaLabel?: string;
   /** Right-hand panel shown alongside the form on wide screens: always renders in a fixed dark
    *  theme (see .sheet__preview in styles.css), independent of the app's light/dark setting. */
   preview?: ReactNode;
@@ -26,7 +27,7 @@ interface EntitySheetProps {
  * Layout: full-width header, a two-column body (scrollable form left, fixed-dark preview right)
  * on wide screens, and a full-width footer with the primary save action bottom-right.
  */
-export function EntitySheet({ title, subtitle, onClose, closeLabel, preview, footer, onSubmit, uri, actions = [], children }: EntitySheetProps) {
+export function EntitySheet({ title, subtitle, onClose, closeLabel, ariaLabel, preview, footer, onSubmit, uri, actions = [], children }: EntitySheetProps) {
   function stop(event: MouseEvent<HTMLDivElement>) {
     event.stopPropagation();
   }
@@ -41,7 +42,7 @@ export function EntitySheet({ title, subtitle, onClose, closeLabel, preview, foo
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className={preview ? "sheet sheet--split" : "sheet"} role="dialog" aria-modal="true" onClick={stop}>
+      <div className={preview ? "sheet sheet--split" : "sheet"} role="dialog" aria-modal="true" aria-label={ariaLabel} onClick={stop}>
         <div className="sheet__header">
           <div>
             <h2 className="panel-title">{title}</h2>
