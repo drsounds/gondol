@@ -73,12 +73,12 @@ export function PortableMessage() {
 `react-strict-dom` is an optional peer dependency; install it in the app when using this entry point.
 Its Babel preset and PostCSS plugin are required to compile/extract `css.create` styles. Follow the
 [React Strict DOM Vite setup](https://react.github.io/react-strict-dom/learn/setup-vite/) and include
-both Gondol's source files and `react-strict-dom` in the Babel and PostCSS plugin filters when
-compiling Gondol from source.
+your app's source files and `react-strict-dom` in the Babel and PostCSS plugin filters. Include
+Gondol's source files too when consuming Gondol components migrated to React Strict DOM.
 
-This entry point is an opt-in migration boundary, not a claim that the existing shell is React Native
-ready. Most Gondol UI still uses browser DOM APIs and global CSS, and must be migrated before it can
-run on native.
+This entry point only exposes React Strict DOM primitives; it does not make Gondol's existing
+components portable. The shell still uses browser DOM APIs and global CSS, so only components written
+with React Strict DOM can be considered for native rendering until the rest is migrated.
 
 ::: warning Shell styles still live in Spacify
 `gondol.css` brings the design system's theme, the Aero and TUI engines' styles and the base styles.
