@@ -1,0 +1,65 @@
+/* Page headers (shell/HeroHeader.tsx): a backdrop layer under the header's content that the visitor's
+   settings fade out (headerFade) and move with the scroll (headerParallax), and a tint behind it all
+   (headerTint) from the top of the page that fades out over a quarter of the viewport below it. */
+
+/* The page a HeroHeader sits in: the tint is positioned against it and painted under its content. */
+.hero-page { isolation: isolate; position: relative; }
+
+.hero-header { isolation: isolate; position: relative; }
+/* Edge to edge: over the page's padding (measured by HeroHeader), its content in line with the page's. */
+.hero-header.hero-header--bleed {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-top-left-radius: var(--hero-radius-left, 0);
+  border-top-right-radius: var(--hero-radius-right, 0);
+  margin-left: calc(-1 * var(--hero-bleed-left, 0px));
+  margin-right: calc(-1 * var(--hero-bleed-right, 0px));
+  margin-top: calc(-1 * var(--hero-bleed-top, 0px));
+  padding-left: var(--hero-bleed-left, 0px);
+  padding-right: var(--hero-bleed-right, 0px);
+}
+.hero-header__backdrop {
+  border-radius: inherit;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+.hero-header__layer {
+  inset: 0;
+  position: absolute;
+  will-change: transform;
+}
+.hero-header--parallax .hero-header__layer { transform: translate3d(0, var(--hero-shift, 0px), 0); }
+.hero-header__layer > img {
+  display: block;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  position: absolute;
+  width: 100%;
+}
+/* Fading out: the backdrop's opacity goes to nothing at the header's bottom edge. */
+.hero-header--fade .hero-header__backdrop {
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 25%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 0%, #000 25%, transparent 100%);
+}
+/* With the backdrop faded the text ends up on the page: read it in the page's own colours. */
+.hero-header--fade.hero-header--image { text-shadow: 0 1px 1.25rem var(--bungalow-color-canvas); }
+
+.hero-header__tint {
+  --hero-tint-strong: color-mix(in srgb, var(--hero-tint) 72%, transparent);
+  background: linear-gradient(180deg, var(--hero-tint-strong) 0, var(--hero-tint-strong) var(--hero-height, 0px), transparent 100%);
+  height: calc(var(--hero-height, 0px) + 25vh);
+  inset: 0 0 auto;
+  pointer-events: none;
+  position: absolute;
+  z-index: -1;
+}
+/* A tinted header lets the tint through where it would have painted its own background. */
+.hero-header.hero-header--tinted { background: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-header--parallax .hero-header__layer { transform: none; }
+}

@@ -196,6 +196,15 @@ Moving to another page renders it at once; nothing waits for its data.
   `SkeletonHeader` for an entity page's header and `SkeletonText` for text. `EmptyState` shows
   skeleton rows by itself while data is still on its way. Lazy pages show `PageSkeleton` while their
   code loads.
+- **Page headers.** `<HeroHeader/>` (`shell/HeroHeader.tsx`) is the big header at the top of an
+  entity's page (a playlist, and in spacify Play, releases and entity views). It runs edge to edge
+  over the padding of the `.hero-page` it sits in (measured, so it fits any layout) and applies the
+  visitor's header settings, each an Account and site preference: `headerFade` (its backdrop fades
+  out towards the bottom), `headerTint` (`off`, `image`: a colour node-vibrant takes from the header
+  image, or `color`: `headerTintColor`) drawn from the top of the page and fading out over a quarter
+  of the viewport below the header, and `headerParallax` (the backdrop scrolls slower than the page;
+  off with reduced motion). Style a header's background on `.hero-header__layer` so fade and parallax
+  apply to it.
 - **Progress bar.** `<NavigationProgress/>` draws a thin bar along the top. It always shows while
   something is being saved, changed or deleted (a React Query mutation, or a POST/PUT/PATCH/DELETE
   to the database or storage; database function calls are left to their mutations). For page loads
