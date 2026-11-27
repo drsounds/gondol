@@ -1,13 +1,15 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "../i18n/i18n";
+import { ClampedText } from "./ClampedText";
 import { EntityArt } from "./EntityArt";
 import type { EntityType } from "./uri";
 
 /**
  * The "About" card at the bottom of an entity's page, like the one on a Spotify artist's page: the
  * entity's cover image across the top of the card (or its art beside the text when it has none) and
- * its description under it, clamped to a few lines with "Show more". Entity pages show their
- * description here, never under the title in the header.
+ * its description under it, clamped to a few lines with "Show more". Only subjects (people,
+ * organizations, suppliers, …) show their description here; other entities show it under the toolbar
+ * with `<EntityDescription/>`. Never under the title in the header.
  */
 export function AboutCard({
   type,
@@ -28,21 +30,6 @@ export function AboutCard({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  const textRef = useRef<HTMLDivElement>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [clamped, setClamped] = useState(false);
-
-  // Show "Show more" only when the clamp actually hides text.
-  useLayoutEffect(() => {
-    const el = textRef.current;
-    if (!el || expanded) return;
-    const measure = () => setClamped(el.scrollHeight > el.clientHeight + 1);
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [expanded, children]);
 
   return (
     <section className="about-card-section" aria-label={t("about.title")}>
@@ -58,14 +45,7 @@ export function AboutCard({
           </span>
         )}
         <div className="about-card__body">
-          <div ref={textRef} className={expanded ? "about-card__text" : "about-card__text about-card__text--clamped"}>
-            {children}
-          </div>
-          {clamped || expanded ? (
-            <button type="button" className="link-button about-card__more" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-              {expanded ? t("about.showLess") : t("about.showMore")}
-            </button>
-          ) : null}
+          <ClampedText className="about-card__text">{children}</ClampedText>
         </div>
       </div>
     </section>
