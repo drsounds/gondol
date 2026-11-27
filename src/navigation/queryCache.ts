@@ -5,33 +5,85 @@ const STORAGE_NAME = "query-cache";
 /** Cached data older than this is dropped instead of shown as stale. */
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const WRITE_DELAY_MS = 1000;
-const CACHE_VERSION = 1;
-const SET_MARKER = "__gondolQueryCacheSet";
+/** Bumped whenever the format changes; older caches are dropped. 2: Maps and Dates kept, unsupported data skipped. */
+const CACHE_VERSION = 2;
+const TYPE_MARKER = "__gondolQueryCacheType";
 
 interface PersistedCache {
-  version: 1;
+  version: typeof CACHE_VERSION;
   savedAt: number;
   state: ReturnType<typeof dehydrate>;
 }
 
+class Unsupported extends Error {}
+
+/**
+ * Turns query data into plain JSON, keeping Sets, Maps and Dates. Anything else JSON would silently
+ * change (class instances, functions, …) throws, so that query isn't persisted: a page given a
+ * Map back as `{}` crashes on load (`map.get is not a function`).
+ */
+function encode(value: unknown): unknown {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (value === undefined) return undefined;
+  if (typeof value !== "object") throw new Unsupported();
+  if (Array.isArray(value)) return value.map((item) => (item === undefined ? null : encode(item)));
+  if (value instanceof Set) return { [TYPE_MARKER]: "Set", values: [...value].map(encode) };
+  if (value instanceof Map) return { [TYPE_MARKER]: "Map", entries: [...value].map(([k, v]) => [encode(k), encode(v)]) };
+  if (value instanceof Date) return { [TYPE_MARKER]: "Date", time: value.getTime() };
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) throw new Unsupported();
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (item !== undefined) out[key] = encode(item);
+  }
+  return out;
+}
+
+function decode(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(decode);
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  switch (record[TYPE_MARKER]) {
+    case "Set":
+      return new Set((record.values as unknown[]).map(decode));
+    case "Map":
+      return new Map((record.entries as [unknown, unknown][]).map(([k, v]) => [decode(k), decode(v)]));
+    case "Date":
+      return new Date(record.time as number);
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(record)) out[key] = decode(item);
+  return out;
+}
+
+/** The dehydrated state with every query's data encoded; queries whose data can't be kept are left out. */
+function encodeState(state: ReturnType<typeof dehydrate>): ReturnType<typeof dehydrate> {
+  const queries = state.queries.flatMap((query) => {
+    try {
+      return [{ ...query, state: { ...query.state, data: encode(query.state.data) } }];
+    } catch {
+      return [];
+    }
+  });
+  return { ...state, queries };
+}
+
+function decodeState(state: ReturnType<typeof dehydrate>): ReturnType<typeof dehydrate> {
+  return {
+    ...state,
+    queries: state.queries.map((query) => ({ ...query, state: { ...query.state, data: decode(query.state.data) } })),
+  };
+}
+
 function stringifyCache(value: PersistedCache): string {
-  return JSON.stringify(value, (_key, item: unknown) =>
-    item instanceof Set ? { [SET_MARKER]: [...item] } : item,
-  );
+  return JSON.stringify({ ...value, state: encodeState(value.state) });
 }
 
 function parseCache(raw: string): PersistedCache {
-  return JSON.parse(raw, (_key, item: unknown) => {
-    if (
-      item &&
-      typeof item === "object" &&
-      SET_MARKER in item &&
-      Array.isArray((item as Record<string, unknown>)[SET_MARKER])
-    ) {
-      return new Set((item as Record<string, unknown>)[SET_MARKER] as unknown[]);
-    }
-    return item;
-  }) as PersistedCache;
+  const parsed = JSON.parse(raw) as PersistedCache;
+  if (parsed?.version !== CACHE_VERSION || !parsed.state) return parsed;
+  return { ...parsed, state: decodeState(parsed.state) };
 }
 
 function storage(): Storage | null {
