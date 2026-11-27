@@ -1,3 +1,15 @@
+/* Text clamped to a few lines with "Show more" (entities/ClampedText.tsx). */
+.clamped-text { display: grid; gap: 0.5rem; justify-items: start; min-width: 0; }
+.clamped-text__text { overflow-wrap: anywhere; white-space: pre-line; width: 100%; }
+.clamped-text__text > :first-child { margin-top: 0; }
+.clamped-text__text > :last-child { margin-bottom: 0; }
+.clamped-text__text--clamped { -webkit-box-orient: vertical; display: -webkit-box; overflow: hidden; }
+.clamped-text__more { font-weight: 600; }
+
+/* A thing's description under its page's toolbar (EntityDescription). */
+.entity-description { max-width: 48rem; }
+.entity-description .clamped-text__text { color: var(--bungalow-color-muted); line-height: 1.5; }
+
 /* The "About" card at the bottom of an entity's page (entities/AboutCard.tsx), like Spotify's: the
    cover image across the top, the description under it, clamped with "Show more". */
 .about-card-section { display: grid; gap: 0.75rem; margin-top: 1.5rem; max-width: 42rem; }
@@ -11,13 +23,9 @@
 .about-card__image img { display: block; height: 100%; object-fit: cover; width: 100%; }
 .about-card--art { align-items: flex-start; display: flex; gap: 1rem; padding: 1rem; }
 .about-card__art { flex: none; }
-.about-card__body { display: grid; gap: 0.5rem; justify-items: start; min-width: 0; padding: 1rem 1.25rem 1.25rem; }
+.about-card__body { min-width: 0; padding: 1rem 1.25rem 1.25rem; }
 .about-card--art .about-card__body { padding: 0; }
-.about-card__text { font-size: 0.9375rem; line-height: 1.55; overflow-wrap: anywhere; white-space: pre-line; width: 100%; }
-.about-card__text > :first-child { margin-top: 0; }
-.about-card__text > :last-child { margin-bottom: 0; }
-.about-card__text--clamped { -webkit-box-orient: vertical; -webkit-line-clamp: 4; display: -webkit-box; line-clamp: 4; overflow: hidden; }
-.about-card__more { font-weight: 600; }
+.about-card__text .clamped-text__text { font-size: 0.9375rem; line-height: 1.55; }
 @media (max-width: 40rem) {
   .about-card-section { max-width: none; }
   .about-card__body { padding: 0.875rem 1rem 1rem; }

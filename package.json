@@ -273,6 +273,7 @@
     "./design-system/bungalow-79d923": "./src/design-system/bungalow-79d923/index.ts",
     "./entities/AboutCard": "./src/entities/AboutCard.tsx",
     "./entities/ActionMenu": "./src/entities/ActionMenu.tsx",
+    "./entities/ClampedText": "./src/entities/ClampedText.tsx",
     "./entities/EntityArt": "./src/entities/EntityArt.tsx",
     "./entities/EntityPicker": "./src/entities/EntityPicker.tsx",
     "./entities/EntityRow": "./src/entities/EntityRow.tsx",

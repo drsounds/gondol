@@ -206,11 +206,12 @@ Moving to another page renders it at once; nothing waits for its data.
   mediaHost's `useEntityTint`, wins over both), and `headerParallax` (the backdrop scrolls slower than the page;
   off with reduced motion). Style a header's background on `.hero-header__layer` so fade and parallax
   apply to it.
-- **About card.** An entity's page never shows its description under the title in the header: when it
-  has one, `<AboutCard/>` (`entities/AboutCard.tsx`) shows it at the bottom of the page, like the About
-  card on a Spotify artist's page: an "About" heading, the cover image across the top of the card (the
-  entity's art beside the text when it has none) and the text under it, clamped to four lines with
-  "Show more".
+- **Descriptions.** An entity's page never shows its description under the title in the header.
+  Subjects (people, organizations, suppliers, …) show it at the bottom of the page in `<AboutCard/>`
+  (`entities/AboutCard.tsx`), like the About card on a Spotify artist's page: an "About" heading, the
+  cover image across the top of the card (the entity's art beside the text when it has none) and the
+  text. Everything else (a playlist, a release, …) shows it right under the page's toolbar with
+  `<EntityDescription/>` (`entities/ClampedText.tsx`). Both clamp the text with "Show more".
 - **Progress bar.** `<NavigationProgress/>` draws a thin bar along the top. It always shows while
   something is being saved, changed or deleted (a React Query mutation, or a POST/PUT/PATCH/DELETE
   to the database or storage; database function calls are left to their mutations). For page loads
