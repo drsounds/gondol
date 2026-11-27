@@ -1,6 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useIsFetching } from "@tanstack/react-query";
+import { useIsFetching, useIsMutating } from "@tanstack/react-query";
 import { useRouter, useRouterState } from "@tanstack/react-router";
+import { getWriteActivity, subscribeWriteActivity } from "./writeActivity";
+import { useOptionalUserTheme } from "../theme/userTheme";
 import { beginNavigation, finishNavigation, getNavigationPhase, subscribeNavigationPhase } from "./navigationProgress";
 
 /** Finish the bar after this long, whatever is still loading. */
@@ -11,9 +13,11 @@ const isPendingQuery = { predicate: (query: { state: { status: string } }) => qu
 const SHOW_AFTER_MS = 150;
 
 /**
- * The thin loading bar along the top while a page the user moved to is still waiting for data it
- * has never had (navigationProgress.ts). The page itself is already on screen, cached data and
- * skeletons included.
+ * The thin loading bar along the top. Always while data is being saved, changed or deleted (a React
+ * Query mutation, or a write request to the database or storage: writeActivity.ts); while a page
+ * the user moved to is still waiting for data it has never had (navigationProgress.ts) only when the
+ * "loading bar" preference is on, which it isn't by default. The page itself is already on screen,
+ * cached data and skeletons included.
  */
 export function NavigationProgress() {
   const router = useRouter();
@@ -23,7 +27,10 @@ export function NavigationProgress() {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
 
-  const active = phase !== "idle";
+  const loadingBar = !!useOptionalUserTheme()?.preferences.loadingBar;
+  const mutating = useIsMutating() > 0;
+  const writing = useSyncExternalStore(subscribeWriteActivity, getWriteActivity, () => 0) > 0;
+  const active = mutating || writing || (loadingBar && phase !== "idle");
 
   // Fires after the router has set the new location but before React renders it, so the page the
   // user is leaving is still in the DOM to be held.

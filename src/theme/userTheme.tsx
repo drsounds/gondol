@@ -200,6 +200,8 @@ export interface ShellSettings {
   sheetStyle?: SheetStyle;
   /** Lines between the rows of data tables. Unset follows the site's default, else none. */
   tableLines?: boolean;
+  /** The loading bar along the top while pages load. Off unless set; saving, changing and deleting always show it. */
+  loadingBar?: boolean;
 }
 
 /**
@@ -886,6 +888,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       menuStyle: resolveSitePreference(siteLayout, "menuStyle", own.menuStyle),
       sheetStyle: resolveSitePreference(siteLayout, "sheetStyle", own.sheetStyle),
       tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
+      loadingBar: resolveSitePreference(siteLayout, "loadingBar", own.loadingBar),
       highContrast: resolveSitePreference(siteLayout, "highContrast", own.highContrast),
       // The accent is the theme's (see effectiveAccent), carried here for the attributes.
       accentForeground: effectiveAccent === "foreground",
