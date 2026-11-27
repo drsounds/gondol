@@ -44,6 +44,8 @@ export interface MediaHost {
   useSetEntityCovers(): {
     mutateAsync(input: { uri: string; covers: Partial<Record<CoverSlot, string | null>> }): Promise<unknown>;
   };
+  /** The tint colour the entity's editor picked for its page header (#rrggbb), or null for none. */
+  useEntityTint(uri: string | null | undefined): string | null;
   /** The address a stored file is served from (null while it can't be shown). */
   mediaSrc(file: MediaFileLocation): string | null;
   /** A grid of the user's images to pick one from (uploading one on the spot, where the host can). */
@@ -70,6 +72,7 @@ const DEFAULTS: MediaHost = {
   useImages: () => NO_IMAGES,
   useEntityCovers: () => NO_COVERS,
   useSetEntityCovers: () => NOTHING_TO_SET,
+  useEntityTint: () => null,
   mediaSrc: (file) => (file.source === "link" ? file.url : null),
 };
 

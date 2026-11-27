@@ -266,6 +266,7 @@ function PlaylistHero({
       plain={preview}
       image={covers.header}
       tintImage={covers.image}
+      uri={uri}
       className={preview ? "playlist-hero playlist-hero--preview" : "playlist-hero"}
     >
       {back ? (
