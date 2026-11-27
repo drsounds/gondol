@@ -1,3 +1,5 @@
+import { trackWrite } from "../navigation/writeActivity";
+
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
 }
@@ -19,7 +21,10 @@ export function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set("apikey", supabaseKey);
-    return fetch(input, { ...init, headers });
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    const method = init?.method ?? (typeof Request !== "undefined" && input instanceof Request ? input.method : "GET");
+    // Writes show the loading bar (navigation/writeActivity.ts).
+    return trackWrite(method, url, fetch(input, { ...init, headers }));
   };
 }
 

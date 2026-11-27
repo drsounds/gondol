@@ -37,6 +37,7 @@ export function ShellSettings() {
     savedIcon: !!useSitePreferenceLock("savedIcon"),
     sheetStyle: !!useSitePreferenceLock("sheetStyle"),
     tableLines: !!useSitePreferenceLock("tableLines"),
+    loadingBar: !!useSitePreferenceLock("loadingBar"),
     hideSoftDeletedEntities: !!useSitePreferenceLock("hideSoftDeletedEntities"),
     hideFutureEntities: !!useSitePreferenceLock("hideFutureEntities"),
   };
@@ -162,6 +163,19 @@ export function ShellSettings() {
           <span>{t("appearance.tableLines")}</span>
         </label>
         <SiteLockHint preference="tableLines" />
+      </div>
+      <div className="bungalow-field">
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.loadingBar}
+            disabled={locked.loadingBar}
+            onChange={(e) => update({ loadingBar: e.target.checked })}
+          />
+          <span>{t("appearance.loadingBar")}</span>
+        </label>
+        <p className="muted">{t("appearance.loadingBar.hint")}</p>
+        <SiteLockHint preference="loadingBar" />
       </div>
       <div className="bungalow-field">
         <span className="bungalow-label" id="saved-icon-label">{t("appearance.savedIcon")}</span>

@@ -63,6 +63,8 @@ export interface SiteLayout {
   sheetStyle?: SheetStyle;
   /** Lines between the rows of data tables. */
   tableLines?: boolean;
+  /** The loading bar along the top for page loads (writes always show it). */
+  loadingBar?: boolean;
   /** The preferences visitors can't change here. Unset: see isSitePreferenceLocked(). */
   locked?: SitePreference[];
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */

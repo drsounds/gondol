@@ -196,8 +196,12 @@ Moving to another page renders it at once; nothing waits for its data.
   `SkeletonHeader` for an entity page's header and `SkeletonText` for text. `EmptyState` shows
   skeleton rows by itself while data is still on its way. Lazy pages show `PageSkeleton` while their
   code loads.
-- **Progress bar.** `<NavigationProgress/>` draws a thin bar along the top when the new page is still
-  waiting for data after 150 ms. Opening and closing routed sheets doesn't start it.
+- **Progress bar.** `<NavigationProgress/>` draws a thin bar along the top. It always shows while
+  something is being saved, changed or deleted (a React Query mutation, or a POST/PUT/PATCH/DELETE
+  to the database or storage; database function calls are left to their mutations). For page loads
+  (reads) it is off unless the visitor, or the site, turns on "Loading bar when pages load"
+  (`loadingBar`, an Account and site preference); then it shows when the new page is still waiting
+  for data after 150 ms. Opening and closing routed sheets doesn't start it.
 
 ## Opening entities
 
