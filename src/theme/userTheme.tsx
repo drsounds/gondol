@@ -170,6 +170,9 @@ export const MENU_STYLES: MenuStyle[] = ["features", "appsBeside", "appsInset"];
 /** Edit sheets (EntitySheet): a modal over the page, or a page of their own over everything. */
 export type SheetStyle = "modal" | "page";
 export const SHEET_STYLES: SheetStyle[] = ["modal", "page"];
+/** The tint behind page headers (HeroHeader): none, a colour taken from the header's image, or the visitor's own colour. */
+export type HeaderTint = "off" | "image" | "color";
+export const HEADER_TINTS: HeaderTint[] = ["off", "image", "color"];
 
 export interface ShellSettings {
   /** Simple engine, light mode: dark bottom tab bar on phones. */
@@ -202,6 +205,14 @@ export interface ShellSettings {
   tableLines?: boolean;
   /** The loading bar along the top while pages load. Off unless set; saving, changing and deleting always show it. */
   loadingBar?: boolean;
+  /** Page headers (HeroHeader) fade to transparent towards their bottom. Unset follows the site's default, else off. */
+  headerFade?: boolean;
+  /** A tint behind page headers that fades out over the top quarter of the viewport. Unset follows the site's default, else off. */
+  headerTint?: HeaderTint;
+  /** The tint's colour when headerTint is "color" (and where an image gives none), as #rrggbb. */
+  headerTintColor?: string;
+  /** Page header images scroll slower than the page (parallax). Unset follows the site's default, else off. */
+  headerParallax?: boolean;
 }
 
 /**
@@ -889,6 +900,10 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       sheetStyle: resolveSitePreference(siteLayout, "sheetStyle", own.sheetStyle),
       tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
       loadingBar: resolveSitePreference(siteLayout, "loadingBar", own.loadingBar),
+      headerFade: resolveSitePreference(siteLayout, "headerFade", own.headerFade),
+      headerTint: resolveSitePreference(siteLayout, "headerTint", own.headerTint),
+      headerTintColor: resolveSitePreference(siteLayout, "headerTintColor", own.headerTintColor),
+      headerParallax: resolveSitePreference(siteLayout, "headerParallax", own.headerParallax),
       highContrast: resolveSitePreference(siteLayout, "highContrast", own.highContrast),
       // The accent is the theme's (see effectiveAccent), carried here for the attributes.
       accentForeground: effectiveAccent === "foreground",

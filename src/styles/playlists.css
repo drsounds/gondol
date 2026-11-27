@@ -34,29 +34,41 @@
 }
 .playlist-row--drop-before::before { top: -2px; }
 .playlist-row--drop-after::after { bottom: -2px; }
-/* A playlist's banner: optional header image, its image (or generated art), title, description. */
-.playlist-back { align-self: flex-start; }
+/* A playlist's banner (PlaylistHero, a HeroHeader): edge to edge at the top of the playlist's page,
+   with its header image (if any) behind the way back, its image, the texts and the actions. */
 .playlist-hero {
-  border-radius: var(--bungalow-radius-md, 0.75rem);
-  overflow: hidden;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bungalow-space-4);
+  justify-content: space-between;
+  padding-block: var(--bungalow-space-3) var(--bungalow-space-4);
 }
-.playlist-hero__header {
-  aspect-ratio: 4;
-  background: var(--bungalow-color-surface-strong);
-  max-height: 14rem;
-  overflow: hidden;
-  width: 100%;
-}
-.playlist-hero__header img { display: block; height: 100%; object-fit: cover; width: 100%; }
+.playlist-hero__back { align-self: flex-start; }
 .playlist-hero__body {
   align-items: flex-end;
   display: flex;
   flex-wrap: wrap;
   gap: var(--bungalow-space-4);
-  padding-block: var(--bungalow-space-3);
 }
-.playlist-hero--header .playlist-hero__body { margin-top: -3rem; padding-inline: var(--bungalow-space-3); position: relative; }
+.playlist-hero.hero-header--image { color: #fff; min-height: clamp(16rem, 30vw, 22rem); }
+.playlist-hero.hero-header--image .hero-header__layer::after {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.3) 0%, transparent 30%, rgb(0 0 0 / 0.6) 100%);
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+.playlist-hero.hero-header--image .playlist-hero__back,
+.playlist-hero.hero-header--image .playlist-hero__kind,
+.playlist-hero.hero-header--image .playlist-hero__description,
+.playlist-hero.hero-header--image .playlist-hero__meta { color: rgb(255 255 255 / 0.85); }
+/* Faded out, the texts end up on the page: back to its own colours. */
+.playlist-hero.hero-header--image.hero-header--fade { color: inherit; }
+.playlist-hero.hero-header--image.hero-header--fade .hero-header__layer::after { display: none; }
+.playlist-hero.hero-header--image.hero-header--fade .playlist-hero__kind,
+.playlist-hero.hero-header--image.hero-header--fade .playlist-hero__description,
+.playlist-hero.hero-header--image.hero-header--fade .playlist-hero__meta { color: color-mix(in srgb, var(--bungalow-color-ink) 78%, transparent); }
+.playlist-hero--preview { margin: 0; padding: 0; }
+.playlist-hero--preview.hero-header--image { min-height: 12rem; padding: var(--bungalow-space-3); }
 .playlist-hero__art { flex: none; position: relative; }
 .playlist-hero__text { display: flex; flex: 1; flex-direction: column; gap: var(--bungalow-space-1); min-width: 12rem; }
 .playlist-hero__kind {
@@ -74,8 +86,7 @@
 .playlist-hero__meta { color: var(--bungalow-color-muted); font-size: 0.75rem; }
 .playlist-hero__actions { display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
 .entity-preview .playlist-hero__title { font-size: 1.5rem; }
-.entity-preview .playlist-hero__text { min-width: 0; }
-
+.entity-preview 
 .playlist-list { min-height: 3rem; }
 .playlist-list__empty {
   border: 1px dashed var(--bungalow-color-border);
@@ -99,10 +110,7 @@
   width: 100%;
 }
 .playlist-cover--lg { flex-shrink: 0; font-size: 3.5rem; width: 9rem; }
-.playlist-hero { align-items: flex-end; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-5); }
 .playlist-hero__text { min-width: 0; }
-.playlist-hero__title { font-size: clamp(1.75rem, 5vw, 3rem); line-height: 1.1; margin: var(--bungalow-space-1) 0 var(--bungalow-space-2); overflow-wrap: anywhere; }
-.playlist-hero .muted { margin: 0; }
 .playlist-head { align-items: center; display: flex; gap: var(--bungalow-space-3); }
 /* A playlist's items: selection (click with Ctrl/⌘ or Shift, the arrow keys), the date added column. */
 .playlist-row:focus { outline: none; }

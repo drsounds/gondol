@@ -43,6 +43,7 @@ import { isEntityUri, resolveEntityUri, toEntityUri } from "../../../../../../en
 import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { entityKey, findByEntityKey } from "../../../../../../entities/slugs";
 import { EmptyState } from "../../../../../../shell/EmptyState";
+import { HeroHeader } from "../../../../../../shell/HeroHeader";
 import { SkeletonHeader, SkeletonRows } from "../../../../../../shell/Skeleton";
 import { useSiteShows } from "../../../../../../sites/sites";
 import { playback } from "../../../../../../playback/coordinator";
@@ -234,7 +235,9 @@ function useDeletePlaylist(onDone: () => void) {
   });
 }
 
-/** The banner at the top of a playlist (and of its sheet's preview): header image, image, texts. */
+/** The banner at the top of a playlist (and of its sheet's preview): header image, image, texts. On
+ * the playlist's own page it is a HeroHeader with the visitor's header settings (fade, tint, parallax),
+ * running edge to edge with the way back on top. */
 function PlaylistHero({
   title,
   description,
@@ -243,6 +246,8 @@ function PlaylistHero({
   uri,
   badge,
   actions,
+  back,
+  preview,
 }: {
   title: string;
   description: string | null;
@@ -251,14 +256,22 @@ function PlaylistHero({
   uri?: string;
   badge?: string;
   actions?: ReactNode;
+  back?: { label: string; onClick: () => void };
+  preview?: boolean;
 }) {
   const { t } = useI18n();
   return (
-    <div className={covers.header ? "playlist-hero playlist-hero--header" : "playlist-hero"}>
-      {covers.header ? (
-        <div className="playlist-hero__header" aria-hidden="true">
-          <img src={covers.header} alt="" loading="lazy" referrerPolicy="no-referrer" />
-        </div>
+    <HeroHeader
+      as="div"
+      plain={preview}
+      image={covers.header}
+      tintImage={covers.image}
+      className={preview ? "playlist-hero playlist-hero--preview" : "playlist-hero"}
+    >
+      {back ? (
+        <button type="button" className="link-button playlist-hero__back" onClick={back.onClick}>
+          ‹ {back.label}
+        </button>
       ) : null}
       <div className="playlist-hero__body">
         {covers.image ? (
@@ -281,7 +294,7 @@ function PlaylistHero({
         </div>
         {actions ? <div className="playlist-hero__actions">{actions}</div> : null}
       </div>
-    </div>
+    </HeroHeader>
   );
 }
 
@@ -385,6 +398,7 @@ function PlaylistSheet({
       preview={
         <div className="entity-preview">
           <PlaylistHero
+            preview
             title={draft.name}
             description={draft.description.trim() || null}
             count={itemCount}
@@ -948,12 +962,10 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
 
   return (
     <>
-      <Card>
+      <Card className="playlist-page hero-page">
         <div className="stack" ref={rootRef}>
-          <button type="button" className="link-button playlist-back" onClick={() => go("/playlists")}>
-            ‹ {t("playlists.title")}
-          </button>
           <PlaylistHero
+            back={{ label: t("playlists.title"), onClick: () => go("/playlists") }}
             title={playlist.name}
             description={playlist.description}
             count={items.length}

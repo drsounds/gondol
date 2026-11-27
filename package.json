@@ -29,7 +29,8 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
-    "lottie-web": "^5.13.0"
+    "lottie-web": "^5.13.0",
+    "node-vibrant": "^4.0.4"
   },
   "peerDependencies": {
     "@supabase/supabase-js": "^2.117.2",
@@ -309,6 +310,7 @@
     "./navigation/shortcuts": "./src/navigation/shortcuts.ts",
     "./navigation/undo": "./src/navigation/undo.ts",
     "./navigation/useEntityModal": "./src/navigation/useEntityModal.ts",
+    "./navigation/writeActivity": "./src/navigation/writeActivity.ts",
     "./playback/accounts": "./src/playback/accounts.ts",
     "./playback/coordinator": "./src/playback/coordinator.ts",
     "./playback/host": "./src/playback/host.ts",
@@ -348,6 +350,7 @@
     "./shell/ChromeSearch": "./src/shell/ChromeSearch.tsx",
     "./shell/DeveloperModeToggle": "./src/shell/DeveloperModeToggle.tsx",
     "./shell/EmptyState": "./src/shell/EmptyState.tsx",
+    "./shell/HeroHeader": "./src/shell/HeroHeader.tsx",
     "./shell/MobileNavDrawer": "./src/shell/MobileNavDrawer.tsx",
     "./shell/NavItem": "./src/shell/NavItem.tsx",
     "./shell/PageNotFound": "./src/shell/PageNotFound.tsx",

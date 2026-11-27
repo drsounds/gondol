@@ -9,7 +9,7 @@ import { faviconUrlFor } from "../apps/external";
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
-import type { DesktopLayout, LayoutStyle, MenuStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { DesktopLayout, HeaderTint, LayoutStyle, MenuStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from "./preferences";
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
@@ -65,6 +65,14 @@ export interface SiteLayout {
   tableLines?: boolean;
   /** The loading bar along the top for page loads (writes always show it). */
   loadingBar?: boolean;
+  /** Page headers fade out towards their bottom (HeroHeader). */
+  headerFade?: boolean;
+  /** The tint behind page headers: none, from the header's image or headerTintColor. */
+  headerTint?: HeaderTint;
+  /** The page header tint's colour, #rrggbb. */
+  headerTintColor?: string;
+  /** Parallax scrolling of page header images. */
+  headerParallax?: boolean;
   /** The preferences visitors can't change here. Unset: see isSitePreferenceLocked(). */
   locked?: SitePreference[];
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */

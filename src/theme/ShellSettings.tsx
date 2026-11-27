@@ -3,13 +3,16 @@ import { useI18n, type MessageKey } from "../i18n/i18n";
 import { SiteLockHint } from "../sites/SiteLockHint";
 import { useSitePreferenceLock } from "../sites/preferences";
 import { SAVED_ICON_STYLES, SavedIcon, isSavedIconStyle } from "./savedIcon";
+import { DEFAULT_HEADER_TINT } from "../shell/HeroHeader";
 import {
   DESKTOP_LAYOUTS,
+  HEADER_TINTS,
   MENU_STYLES,
   PLAYER_VISIBILITIES,
   SHEET_STYLES,
   useUserTheme,
   type DesktopLayout,
+  type HeaderTint,
   type MenuStyle,
   type PlayerVisibility,
   type SheetStyle,
@@ -38,6 +41,10 @@ export function ShellSettings() {
     sheetStyle: !!useSitePreferenceLock("sheetStyle"),
     tableLines: !!useSitePreferenceLock("tableLines"),
     loadingBar: !!useSitePreferenceLock("loadingBar"),
+    headerFade: !!useSitePreferenceLock("headerFade"),
+    headerTint: !!useSitePreferenceLock("headerTint"),
+    headerTintColor: !!useSitePreferenceLock("headerTintColor"),
+    headerParallax: !!useSitePreferenceLock("headerParallax"),
     hideSoftDeletedEntities: !!useSitePreferenceLock("hideSoftDeletedEntities"),
     hideFutureEntities: !!useSitePreferenceLock("hideFutureEntities"),
   };
@@ -177,6 +184,60 @@ export function ShellSettings() {
         <p className="muted">{t("appearance.loadingBar.hint")}</p>
         <SiteLockHint preference="loadingBar" />
       </div>
+      <div className="bungalow-field">
+        <span className="bungalow-label">{t("appearance.headers")}</span>
+        <span className="bungalow-help">{t("appearance.headers.hint")}</span>
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.headerFade}
+            disabled={locked.headerFade}
+            onChange={(e) => update({ headerFade: e.target.checked })}
+          />
+          <span>{t("appearance.headerFade")}</span>
+        </label>
+        <SiteLockHint preference="headerFade" />
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.headerParallax}
+            disabled={locked.headerParallax}
+            onChange={(e) => update({ headerParallax: e.target.checked })}
+          />
+          <span>{t("appearance.headerParallax")}</span>
+        </label>
+        <SiteLockHint preference="headerParallax" />
+      </div>
+      <Select
+        label={t("appearance.headerTint")}
+        hint={t("appearance.headerTint.hint")}
+        value={preferences.headerTint ?? "off"}
+        disabled={locked.headerTint}
+        onChange={(e) => update({ headerTint: e.target.value as HeaderTint })}
+      >
+        {HEADER_TINTS.map((option) => (
+          <option key={option} value={option}>{t(`appearance.headerTint.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="headerTint" />
+      {preferences.headerTint && preferences.headerTint !== "off" ? (
+        <div className="bungalow-field">
+          <div className="accent-color-picker">
+            <input
+              type="color"
+              aria-label={t("appearance.headerTintColor")}
+              title={t("appearance.headerTintColor")}
+              className="accent-color-picker__swatch"
+              value={preferences.headerTintColor ?? DEFAULT_HEADER_TINT}
+              disabled={locked.headerTintColor}
+              onChange={(e) => update({ headerTintColor: e.target.value })}
+            />
+            <span className="bungalow-label">{t("appearance.headerTintColor")}</span>
+          </div>
+          {preferences.headerTint === "image" ? <span className="bungalow-help">{t("appearance.headerTintColor.fallback")}</span> : null}
+          <SiteLockHint preference="headerTintColor" />
+        </div>
+      ) : null}
       <div className="bungalow-field">
         <span className="bungalow-label" id="saved-icon-label">{t("appearance.savedIcon")}</span>
         <div className="saved-icon-choice" role="radiogroup" aria-labelledby="saved-icon-label">
