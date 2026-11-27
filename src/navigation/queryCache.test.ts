@@ -16,7 +16,7 @@ beforeEach(() => {
 
 test("restores persisted queries as stale data", () => {
   store.set("gondol:query-cache", JSON.stringify({
-    version: 2,
+    version: 3,
     savedAt: Date.now(),
     state: { mutations: [], queries: [{ queryKey: ["a"], queryHash: '["a"]', state: { data: 1, dataUpdateCount: 1, dataUpdatedAt: Date.now(), error: null, errorUpdateCount: 0, errorUpdatedAt: 0, fetchFailureCount: 0, fetchFailureReason: null, fetchMeta: null, isInvalidated: false, status: "success", fetchStatus: "idle" } }] },
   }));
@@ -58,13 +58,13 @@ test("persists Maps and Dates, and leaves out data it can't keep", async () => {
 });
 
 test("drops caches from an older format", () => {
-  store.set("gondol:query-cache", JSON.stringify({ version: 1, savedAt: Date.now(), state: { mutations: [], queries: [] } }));
+  store.set("gondol:query-cache", JSON.stringify({ version: 2, savedAt: Date.now(), state: { mutations: [], queries: [] } }));
   expect(restoreQueryCache(new QueryClient())).toBe(false);
   expect(store.size).toBe(0);
 });
 
 test("drops expired and cleared caches", () => {
-  store.set("gondol:query-cache", JSON.stringify({ version: 2, savedAt: 0, state: { mutations: [], queries: [] } }));
+  store.set("gondol:query-cache", JSON.stringify({ version: 3, savedAt: 0, state: { mutations: [], queries: [] } }));
   expect(restoreQueryCache(new QueryClient())).toBe(false);
   expect(store.size).toBe(0);
   store.set("gondol:query-cache", JSON.stringify({ savedAt: Date.now(), state: { mutations: [], queries: [] } }));
@@ -106,7 +106,7 @@ test("drops single queries older than the cache's age limit", () => {
     state: { data: key, dataUpdateCount: 1, dataUpdatedAt, error: null, errorUpdateCount: 0, errorUpdatedAt: 0, fetchFailureCount: 0, fetchFailureReason: null, fetchMeta: null, isInvalidated: false, status: "success", fetchStatus: "idle" },
   });
   store.set("gondol:query-cache", JSON.stringify({
-    version: 2,
+    version: 3,
     savedAt: Date.now(),
     state: { mutations: [], queries: [query("fresh", Date.now()), query("ancient", 1)] },
   }));
