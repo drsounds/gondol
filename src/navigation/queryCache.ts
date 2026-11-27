@@ -32,8 +32,8 @@ export const queryClientDefaults: DefaultOptions = {
     refetchOnWindowFocus: false,
   },
 };
-/** Bumped whenever the format changes; older caches are dropped. 2: Maps and Dates kept, unsupported data skipped. */
-const CACHE_VERSION = 2;
+/** Bumped whenever the format changes; older caches are dropped. 2: Maps and Dates kept, unsupported data skipped. 3: queries that shared a key with a different shape (spacify) may have been cached narrow. */
+const CACHE_VERSION = 3;
 const TYPE_MARKER = "__gondolQueryCacheType";
 
 interface PersistedCache {
