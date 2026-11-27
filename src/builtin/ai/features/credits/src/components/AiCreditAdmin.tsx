@@ -25,6 +25,7 @@ import {
   type AiCreditTier,
 } from "../../../../models";
 import { CreditPie } from "./CreditPie";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -116,7 +117,7 @@ export function AiCreditTiersSection({ scopes }: { scopes: AiCreditScope[] }) {
       {remove.error ? <Alert tone="danger">{errorText(remove.error)}</Alert> : null}
 
       {tiers.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonRows />
       ) : rows.length === 0 ? (
         <EmptyState items={t("ai.credits.tiers.items")} actionLabel={t("ai.credits.tiers.new")} onAction={modal.openNew} />
       ) : (
@@ -406,7 +407,7 @@ export function AiCreditRatesSection({ scopes }: { scopes: AiCreditScope[] }) {
       {remove.error ? <Alert tone="danger">{errorText(remove.error)}</Alert> : null}
 
       {rates.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonRows />
       ) : rows.length === 0 ? (
         <EmptyState items={t("ai.credits.rates.items")} description={t("ai.credits.rates.empty")} actionLabel={t("ai.credits.rates.new")} onAction={modal.openNew} />
       ) : (

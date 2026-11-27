@@ -24,6 +24,7 @@ import {
   useMyAccounts,
 } from "../../../../models/mastodon";
 import type { DomainBlock, MastodonInstance } from "../../../../models/types";
+import { SkeletonTable, SkeletonText } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -46,7 +47,7 @@ export function InstancesPage({ splat }: AppFeaturePageProps) {
   const rows = instances.data ?? [];
 
   if (parts[0] === "domain-blocks" && parts[1]) return <DomainBlockForward blockKey={parts[1]} instances={rows} />;
-  if (instances.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (instances.isLoading) return <SkeletonTable />;
   if (parts[0] && parts[0] !== "new") {
     const instance = findByKey(rows, parts[0]);
     if (!instance) return <EmptyState items={t("mastodon.instance.items")} description={t("mastodon.instance.notFound")} />;
@@ -189,7 +190,7 @@ function InstanceView({ instance, rest }: { instance: MastodonInstance; rest: st
           </div>
           {section === "people" ? (
             people.isLoading ? (
-              <p className="muted">{t("app.loading" as MessageKey)}</p>
+              <SkeletonTable />
             ) : people.error ? (
               <Alert tone="danger">{errorText(people.error)}</Alert>
             ) : !entries.length ? (
@@ -263,7 +264,7 @@ function InstanceView({ instance, rest }: { instance: MastodonInstance; rest: st
               </table>
             )
           ) : blocks.isLoading ? (
-            <p className="muted">{t("app.loading" as MessageKey)}</p>
+            <SkeletonTable />
           ) : blocks.error ? (
             <Alert tone="danger">{errorText(blocks.error)}</Alert>
           ) : !(blocks.data ?? []).length ? (
@@ -320,7 +321,7 @@ function DomainBlockForward({ blockKey, instances }: { blockKey: string; instanc
   useEffect(() => {
     if (instance && block.data) go(`${paths.instance(instance)}/domain-blocks/${keyOf(block.data)}/edit`);
   }, [instance, block.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (block.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (block.isLoading) return <SkeletonText />;
   if (!block.data) return <EmptyState items={t("mastodon.block.items")} description={t("mastodon.notFound")} />;
   return null;
 }

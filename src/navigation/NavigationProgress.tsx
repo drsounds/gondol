@@ -3,30 +3,17 @@ import { useIsFetching } from "@tanstack/react-query";
 import { useRouter, useRouterState } from "@tanstack/react-router";
 import { beginNavigation, finishNavigation, getNavigationPhase, subscribeNavigationPhase } from "./navigationProgress";
 
-/** Give up waiting (show the new page as it is and finish the bar) after this long. */
+/** Finish the bar after this long, whatever is still loading. */
 const MAX_LOADING_MS = 10000;
-/** How long to wait for the new page's images before showing it anyway. */
-const MAX_IMAGE_WAIT_MS = 3000;
-
 /** Queries that have nothing to show yet; a background refetch of cached data doesn't count. */
 const isPendingQuery = { predicate: (query: { state: { status: string } }) => query.state.status === "pending" };
-
-/** Resolves once the new page's (non-lazy) images have loaded or failed, or after MAX_IMAGE_WAIT_MS. */
-function imagesLoaded() {
-  const images = Array.from(document.querySelectorAll<HTMLImageElement>(".app-main img")).filter(
-    (img) => !img.closest(".nav-hold") && img.loading !== "lazy" && !img.complete,
-  );
-  if (images.length === 0) return Promise.resolve();
-  const loads = images.map((img) => new Promise<void>((resolve) => {
-    img.addEventListener("load", () => resolve(), { once: true });
-    img.addEventListener("error", () => resolve(), { once: true });
-  }));
-  return Promise.race([Promise.all(loads), new Promise<void>((resolve) => setTimeout(resolve, MAX_IMAGE_WAIT_MS))]);
-}
+/** The bar only shows when the new page takes longer than this; cached pages finish well before. */
+const SHOW_AFTER_MS = 150;
 
 /**
- * Keeps the current page on screen while the next one loads (src/lib/navigationProgress.ts), with a
- * thin loading bar along the top in the meantime.
+ * The thin loading bar along the top while a page the user moved to is still waiting for data it
+ * has never had (navigationProgress.ts). The page itself is already on screen, cached data and
+ * skeletons included.
  */
 export function NavigationProgress() {
   const router = useRouter();
@@ -51,10 +38,16 @@ export function NavigationProgress() {
   // Start the bar and trickle it towards (never quite reaching) the end while active.
   useEffect(() => {
     if (!active) return;
-    setVisible(true);
-    setProgress((p) => (p > 0 && p < 1 ? p : 0.08));
-    const interval = setInterval(() => setProgress((p) => p + (0.9 - p) * 0.08), 200);
-    return () => clearInterval(interval);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const show = setTimeout(() => {
+      setVisible(true);
+      setProgress((p) => (p > 0 && p < 1 ? p : 0.08));
+      interval = setInterval(() => setProgress((p) => p + (0.9 - p) * 0.08), 200);
+    }, SHOW_AFTER_MS);
+    return () => {
+      clearTimeout(show);
+      if (interval) clearInterval(interval);
+    };
   }, [active]);
 
   // Complete the bar, then fade it away.
@@ -75,17 +68,14 @@ export function NavigationProgress() {
     return () => clearTimeout(giveUp);
   }, [phase]);
 
-  // The new page is done once its route has rendered, no query has been waiting for its first data
-  // for two frames (so queries that only start once another one's data is in get the chance to),
-  // and its images are in.
+  // The new page is done once its route has rendered and no query has been waiting for its first
+  // data for two frames (so queries that only start once another one's data is in get the chance to).
   useEffect(() => {
     if (phase !== "loading" || routeLoading || pending > 0) return;
     let cancelled = false;
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() => {
-        void imagesLoaded().then(() => {
-          if (!cancelled) finishNavigation();
-        });
+        if (!cancelled) finishNavigation();
       });
     });
     return () => {

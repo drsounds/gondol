@@ -5,7 +5,6 @@ import { Card } from "../../../../../../design-system/bungalow-79d923";
 import { uuidFromIdentifier } from "../../../../../../entities/slugs";
 import { PageNotFound } from "../../../../../../shell/PageNotFound";
 import { useAgentEgos } from "../../../../models/host";
-import { useI18n } from "../../../../../../i18n/i18n";
 import { supabase } from "../../../../models/db";
 import {
   AGENT_CONVERSATION_COLUMNS,
@@ -17,6 +16,7 @@ import {
   type AgentConversation,
   type AgentRun,
 } from "../../../../models/agents";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 /**
  * A run of an agent's work opened as a conversation (`/agents/$agent/runs/$run`, from the run log):
@@ -25,7 +25,6 @@ import {
  * writes on from there like in any other conversation.
  */
 export function AgentRunConversation({ agent, agents, runKey }: { agent: Agent; agents: Agent[]; runKey: string }) {
-  const { t } = useI18n();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const egos = useAgentEgos();
@@ -53,5 +52,5 @@ export function AgentRunConversation({ agent, agents, runKey }: { agent: Agent; 
   }, [target, opened.data, navigate]);
 
   if (opened.isSuccess && !opened.data) return <PageNotFound />;
-  return <Card>{opened.error ? <p className="bungalow-help bungalow-help--error">{opened.error.message}</p> : <p className="stat-label">{t("app.loading")}</p>}</Card>;
+  return <Card>{opened.error ? <p className="bungalow-help bungalow-help--error">{opened.error.message}</p> : <SkeletonRows />}</Card>;
 }

@@ -5,6 +5,7 @@ import { EmptyState } from "../../../../../../shell/EmptyState";
 import { formatCredits, useAiCreditScopes, useAiCreditUsage, useAiCredits, type AiCreditTierState } from "../../../../models";
 import { CreditPie } from "../components/CreditPie";
 import { AiCreditRatesSection, AiCreditTiersSection, appName, useAiCreditFormat } from "../components/AiCreditAdmin";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -35,7 +36,7 @@ export function AiCreditsPage(_props: AppFeaturePageProps) {
 
       <Card>
         {credits.isLoading ? (
-          <p className="muted">{t("app.loading")}</p>
+          <SkeletonRows />
         ) : !state?.limited ? (
           <div className="ai-credits__balance">
             <CreditPie remaining={1} total={1} size={88} />
@@ -86,7 +87,7 @@ export function AiCreditsPage(_props: AppFeaturePageProps) {
         <h3 className="panel-title">{t("ai.credits.usage")}</h3>
         {usage.error ? <Alert tone="danger">{errorText(usage.error)}</Alert> : null}
         {usage.isLoading ? (
-          <p className="muted">{t("app.loading")}</p>
+          <SkeletonRows />
         ) : !usage.data?.length ? (
           <EmptyState items={t("ai.credits.usageItems")} description={t("ai.credits.usageEmpty")} />
         ) : (

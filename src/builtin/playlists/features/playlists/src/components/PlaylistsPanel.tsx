@@ -43,6 +43,7 @@ import { isEntityUri, resolveEntityUri, toEntityUri } from "../../../../../../en
 import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { entityKey, findByEntityKey } from "../../../../../../entities/slugs";
 import { EmptyState } from "../../../../../../shell/EmptyState";
+import { SkeletonHeader, SkeletonRows } from "../../../../../../shell/Skeleton";
 import { useSiteShows } from "../../../../../../sites/sites";
 import { playback } from "../../../../../../playback/coordinator";
 import { usePlaybackSelector } from "../../../../../../playback/usePlayback";
@@ -937,7 +938,7 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
   if (!playlist) {
     return (
       <Card>
-        <p className="stat-label">{shared.isPending ? t("app.loading") : t("playlists.notFound")}</p>
+        {shared.isPending ? <SkeletonHeader rows={5} /> : <p className="stat-label">{t("playlists.notFound")}</p>}
       </Card>
     );
   }

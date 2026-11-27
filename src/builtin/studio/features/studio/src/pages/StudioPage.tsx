@@ -11,6 +11,7 @@ import type { MessageKey } from "../../../../../../register";
 import { AskAgentSheet, LiteAppSheet, LitePageSheet, LiteRelationSheet, LiteTypeSheet } from "../../../../components/StudioSheets";
 import { appUri, findLiteApp, firstLitePage, litePagePath, studioDb, useDeleteLiteApp, useDeleteLiteRow, useLiteApps, useLiteRecords } from "../../../../models/studio";
 import type { LiteAppTree } from "../../../../models/types";
+import { SkeletonTable, SkeletonText } from "../../../../../../shell/Skeleton";
 
 /**
  * The App Studio (`/studio`): the user's apps, each with its pages, entity types and relations.
@@ -30,7 +31,7 @@ export function StudioPage({ splat }: AppFeaturePageProps) {
 
   const app = parts[0] && parts[0] !== "new" && parts[0] !== "ask" ? findLiteApp(rows, parts[0]) : undefined;
   if (parts[0] && parts[0] !== "new" && parts[0] !== "ask") {
-    if (apps.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+    if (apps.isLoading) return <SkeletonTable />;
     if (!app) return <EmptyState items={t("studio.items")} description={t("studio.app.notFound")} />;
     return <LiteAppView app={app} rest={parts.slice(1)} />;
   }
@@ -66,7 +67,7 @@ function StudioList({ apps, loading, error }: { apps: LiteAppTree[]; loading: bo
       </div>
       {error ? <Alert tone="danger">{error instanceof Error ? error.message : String((error as { message?: string }).message ?? error)}</Alert> : null}
       {loading ? (
-        <p className="muted">{t("app.loading" as MessageKey)}</p>
+        <SkeletonTable />
       ) : apps.length === 0 ? (
         <EmptyState items={t("studio.items")} actionLabel={t("studio.app.new")} onAction={() => go("/studio/new")} />
       ) : (
@@ -322,7 +323,7 @@ function RecordForward({ recordKey, apps, loading }: { recordKey: string; apps: 
     if (app && page && record.data) go(`${litePagePath(app, page)}/records/${entityKey(record.data)}/edit`);
     else if (app && !page) go(`/studio/${entityKey(app)}`);
   }, [app, page, record.data]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (loading || record.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (loading || record.isLoading) return <SkeletonText />;
   if (!record.data) return <EmptyState items={t("studio.record.items")} description={t("studio.record.notFound")} />;
   return null;
 }

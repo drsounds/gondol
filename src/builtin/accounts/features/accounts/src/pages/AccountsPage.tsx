@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Badge, Button, Card } from "../../../../../../design-system/bungalow-79d923";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useAccountConnections, useConnectGithub, useDisconnectAccount } from "../../../../models/accounts";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 export function AccountsPage() {
   const { t } = useI18n();
@@ -35,7 +36,7 @@ export function AccountsPage() {
             {t("accounts.connectGithub")}
           </Button>
         </div>
-        {accounts.isLoading ? <p className="stat-label">{t("app.loading")}</p> : null}
+        {accounts.isLoading ? <SkeletonRows /> : null}
         {!accounts.isLoading && !accounts.data?.length ? <p className="muted">{t("accounts.empty")}</p> : null}
         {accounts.data?.map((account) => (
           <div className="panel-head" key={account.id}>

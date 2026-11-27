@@ -33,6 +33,7 @@ import {
 } from "../../../../models/mastodon";
 import { RemoteClient } from "../components/RemoteClient";
 import type { MAccount, MastodonAccountRow, MastodonInstance, MNotification, MStatus } from "../../../../models/types";
+import { PageSkeleton, SkeletonHeader, SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -72,7 +73,7 @@ export function MastodonPage({ splat }: AppFeaturePageProps) {
     sheet = <ProfileSheet instances={instances.data ?? []} onClose={close("/mastodon/profiles")} onSaved={(saved) => { me.pick(saved.id); go("/mastodon/profiles"); }} />;
   }
 
-  if (me.isLoading || instances.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (me.isLoading || instances.isLoading) return <PageSkeleton />;
 
   const header = (
     <div className="panel-head">
@@ -157,7 +158,7 @@ function Timeline({ kind, viewer, arg, withReplies, empty }: { kind: TimelineKin
   const { t } = useI18n();
   const feed = useTimeline(kind, viewer, arg, { withReplies });
   const statuses = feed.data?.pages.flat() ?? [];
-  if (feed.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (feed.isLoading) return <SkeletonRows art="round" />;
   if (feed.error) return <Alert tone="danger">{errorText(feed.error)}</Alert>;
   if (!statuses.length) return <EmptyState items={t("mastodon.status.items")} description={empty ?? t(`mastodon.empty.${kind}` as MessageKey)} />;
   return (
@@ -185,7 +186,7 @@ function Notifications({ account }: { account: MastodonAccountRow }) {
   useEffect(() => {
     if (items.some((n) => !n.read)) markRead.mutate(account.id);
   }, [items.length, account.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (feed.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (feed.isLoading) return <SkeletonRows art="round" />;
   if (feed.error) return <Alert tone="danger">{errorText(feed.error)}</Alert>;
   return (
     <div className="mastodon-feed">
@@ -234,7 +235,7 @@ function FollowRequests({ account }: { account: MastodonAccountRow }) {
   const { t } = useI18n();
   const requests = useFollowRequests(account.id);
   const decide = useFollowRequest();
-  if (requests.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (requests.isLoading) return <SkeletonRows art="round" />;
   if (!requests.data?.length) return <EmptyState items={t("mastodon.followRequests.items")} description={t("mastodon.followRequests.empty")} />;
   return (
     <div className="mastodon-feed">
@@ -358,7 +359,7 @@ function ProfileView({ accountKey, action, viewer, instances }: { accountKey: st
   const [withReplies, setWithReplies] = useState(false);
   const me = useCurrentAccount();
 
-  if (account.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (account.isLoading) return <SkeletonHeader round rows={3} />;
   const found = account.data;
   if (!found) {
     const lookup = accountKey.includes("@") ? accountKey : null;
@@ -470,7 +471,7 @@ function ThreadView({ statusKey, action, viewer, accounts, instance }: { statusK
   const { t } = useI18n();
   const go = useNavigateKeepingSearch();
   const thread = useThread(statusKey, viewer?.id);
-  if (thread.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (thread.isLoading) return <SkeletonRows art="round" />;
   if (thread.error) return <Alert tone="danger">{errorText(thread.error)}</Alert>;
   const data = thread.data;
   if (!data?.status) return <EmptyState items={t("mastodon.status.items")} description={t("mastodon.status.notFound")} />;
@@ -518,7 +519,7 @@ function ListsView({ listKey, action, account }: { listKey?: string; action?: st
       <ListSheet key={list.id} list={list} account={account} onClose={() => go(paths.list(list))} onSaved={() => go(paths.list(list))} />
     ) : null;
 
-  if (lists.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (lists.isLoading) return <SkeletonRows art={false} />;
   if (list) {
     return (
       <div className="stack">
@@ -632,7 +633,7 @@ function SearchView({ query, viewer }: { query: string; viewer: MastodonAccountR
       {resolve.error ? <Alert tone="danger">{errorText(resolve.error)}</Alert> : null}
       {resolve.data && !resolve.data.accounts.length && !resolve.data.statuses.length ? <Alert tone="info">{t("mastodon.search.nothingRemote")}</Alert> : null}
       {!settled.trim() ? <EmptyState items={t("mastodon.search.items")} description={t("mastodon.search.hint")} /> : null}
-      {results.isLoading && settled.trim() ? <p className="muted">{t("app.loading" as MessageKey)}</p> : null}
+      {results.isLoading && settled.trim() ? <SkeletonRows art="round" /> : null}
       {nothing ? <EmptyState items={t("mastodon.search.items")} description={t("mastodon.search.nothing")} /> : null}
       {data?.accounts.length ? (
         <section className="stack">

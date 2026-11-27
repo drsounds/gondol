@@ -12,6 +12,7 @@ import {
   useRemoveProjectResource,
 } from "../../../../models/projects";
 import { PROJECT_RESOURCE_TYPES, type ProjectResourceType } from "../../../../models/types";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 export function ProjectsPage() {
   const { t } = useI18n();
@@ -25,7 +26,7 @@ export function ProjectsPage() {
 
   if (projectId) {
     const project = projects.data?.find((row) => row.id === projectId || row.slug === projectId);
-    if (projects.isLoading) return <Card><p className="stat-label">{t("app.loading")}</p></Card>;
+    if (projects.isLoading) return <Card><SkeletonRows /></Card>;
     if (!project) return <Card><p className="muted">{t("projects.notFound")}</p><Button onClick={() => go("/projects")}>{t("projects.back")}</Button></Card>;
     return <ProjectDetails projectId={project.id} projectName={project.name} onBack={() => go("/projects")} />;
   }
@@ -46,7 +47,7 @@ export function ProjectsPage() {
           <Input label={t("projects.name")} value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} />
           <Button type="submit" size="sm" tone="primary" disabled={!name.trim() || create.isPending}>{t("projects.create")}</Button>
         </form>
-        {projects.isLoading ? <p className="stat-label">{t("app.loading")}</p> : null}
+        {projects.isLoading ? <SkeletonRows /> : null}
         {!projects.isLoading && !projects.data?.length ? <p className="muted">{t("projects.empty")}</p> : null}
         {projects.data?.map((project) => (
           <button key={project.id} type="button" className="panel-head" onClick={() => go(`/projects/${project.id}`)}>
@@ -113,7 +114,7 @@ function ProjectDetails({ projectId, projectName, onBack }: { projectId: string;
           </Select>
           <Button type="submit" size="sm" tone="primary" disabled={!resourceId || add.isPending}>{t("projects.connect")}</Button>
         </form>
-        {resources.isLoading ? <p className="stat-label">{t("app.loading")}</p> : null}
+        {resources.isLoading ? <SkeletonRows /> : null}
         {!resources.isLoading && !resources.data?.length ? <p className="muted">{t("projects.noResources")}</p> : null}
         {resources.data?.map((resource) => (
           <div className="panel-head" key={resource.id}>

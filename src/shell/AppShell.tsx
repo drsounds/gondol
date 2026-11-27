@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouterState } from "@tanstack/react-router";
-import { persistQueryCache, restoreQueryCache } from "../navigation/queryCache";
+import { clearQueryCacheOnSignOut, persistQueryCache, restoreQueryCache } from "../navigation/queryCache";
+import { supabase } from "../supabase/client";
 import { useI18n } from "../i18n/i18n";
 import { useActiveAppWidgets, useAppNavigation, Widgets } from "../apps/navigation";
 import { ActionsPalette } from "../apps/components/ActionsPalette";
@@ -126,10 +127,15 @@ export function AppShell({
 }: AppShellProps) {
   const { t, intlLocale } = useI18n();
   const queryClient = useQueryClient();
-  // Revisited pages show what was cached last time while it refetches.
+  // Revisited pages show what was cached last time while it refetches (navigation/queryCache.ts).
   useEffect(() => {
     restoreQueryCache(queryClient);
-    return persistQueryCache(queryClient);
+    const stopPersisting = persistQueryCache(queryClient);
+    const stopClearing = clearQueryCacheOnSignOut(queryClient, (callback) => supabase.auth.onAuthStateChange(callback));
+    return () => {
+      stopPersisting();
+      stopClearing();
+    };
   }, [queryClient]);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navSections = useAppNavigation(intlLocale);

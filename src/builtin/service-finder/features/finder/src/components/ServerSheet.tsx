@@ -18,6 +18,7 @@ import {
   type McpRegistry,
 } from "../../../../models";
 import { ServerArt } from "./ServerArt";
+import { SkeletonText } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -181,7 +182,7 @@ export function ServerSheet({
       }
     >
       <div className="stack">
-        {found.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+        {found.isLoading ? <SkeletonText /> : null}
         {found.error ? <Alert tone="danger">{errorText(found.error)}</Alert> : null}
         {found.isSuccess && !found.data ? <Alert tone="warning">{t("serviceFinder.notFound", { name })}</Alert> : null}
         {save.error ? <Alert tone="danger">{errorText(save.error)}</Alert> : null}

@@ -43,6 +43,7 @@ import {
 } from "../../../../models/code";
 import { ensureAgentWorkspace, mentionedRepos, useKickstartWorkspace } from "../../../../models/ensure";
 import { githubFullName } from "../../../../../../../supabase/functions/_shared/codeWorkspace.ts";
+import { SkeletonTable } from "../../../../../../shell/Skeleton";
 
 const TABS = ["workspaces", "repositories", "sandboxes", "apps"] as const;
 type Tab = (typeof TABS)[number];
@@ -86,8 +87,7 @@ export function CodePanel() {
 }
 
 function Loading() {
-  const { t } = useI18n();
-  return <p className="stat-label">{t("app.loading")}</p>;
+  return <SkeletonTable />;
 }
 
 function ErrorText({ error }: { error: Error | null | undefined }) {

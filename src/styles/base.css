@@ -624,20 +624,92 @@ body {
   }
 }
 
+/* Skeletons (src/shell/Skeleton.tsx): placeholders for data a view hasn't got yet, shimmering in the
+   ink colour so they suit every theme, the fixed-dark sheet preview included. */
 .skeleton {
+  --skeleton-base: color-mix(in srgb, var(--bungalow-color-ink, #808080) 9%, transparent);
+  --skeleton-shine: color-mix(in srgb, var(--bungalow-color-ink, #808080) 17%, transparent);
   display: block;
-  border-radius: 0.375rem;
-  background: linear-gradient(90deg, rgb(128 128 128 / 0.15) 25%, rgb(128 128 128 / 0.28) 50%, rgb(128 128 128 / 0.15) 75%);
+  flex: none;
+  border-radius: var(--bungalow-radius-sm, 0.375rem);
+  background: linear-gradient(90deg, var(--skeleton-base) 25%, var(--skeleton-shine) 50%, var(--skeleton-base) 75%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton--circle { border-radius: 50%; }
+.skeleton--line { height: 0.8em; max-width: 100%; border-radius: 999px; }
+.skeleton--small { height: 0.65em; }
+.skeleton--title { height: 1.6rem; max-width: 100%; }
+
+.skeleton-group { min-width: 0; }
+
+.skeleton-rows,
+.skeleton-table__narrow { display: flex; flex-direction: column; }
+.skeleton-rows__row {
+  align-items: center;
+  display: flex;
+  gap: var(--bungalow-space-3, 0.75rem);
+  min-height: calc(2.75rem + 2 * var(--bungalow-space-2, 0.5rem));
+  padding: var(--bungalow-space-2, 0.5rem);
+}
+.skeleton-rows__art { height: 2.75rem; width: 2.75rem; border-radius: var(--bungalow-radius-sm, 0.25rem); }
+.skeleton-rows__number { height: 0.8em; width: 1.25rem; }
+.skeleton-rows__text { display: flex; flex: 1; flex-direction: column; gap: 0.45rem; min-width: 0; }
+
+/* A table on desktop, list rows on phones, where data tables render as list rows too. */
+.skeleton-table__narrow { display: none; }
+.skeleton-table .data-table td,
+.skeleton-table .data-table th { height: 2.75rem; vertical-align: middle; }
+@media (max-width: 40rem) {
+  .skeleton-table__wide { display: none; }
+  .skeleton-table__narrow { display: flex; }
+}
+
+.skeleton-tiles {
+  display: grid;
+  gap: var(--bungalow-space-4, 1rem);
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+}
+.skeleton-tiles--wide { grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.skeleton-tiles__tile { display: flex; flex-direction: column; gap: 0.5rem; }
+.skeleton-tiles__art { aspect-ratio: 1; width: 100%; }
+.skeleton-tiles--wide .skeleton-tiles__art { aspect-ratio: 16 / 9; }
+
+.skeleton-messages { display: flex; flex-direction: column; gap: var(--bungalow-space-3, 0.75rem); padding-block: var(--bungalow-space-2, 0.5rem); }
+.skeleton-messages__message { align-items: flex-end; display: flex; gap: 0.5rem; }
+.skeleton-messages__message--own { justify-content: flex-end; }
+.skeleton-messages__avatar { height: 2rem; width: 2rem; }
+.skeleton-messages__bubble {
+  background: color-mix(in srgb, var(--bungalow-color-ink, #808080) 5%, transparent);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+  width: min(22rem, 70%);
+}
+
+.skeleton-text { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.skeleton-header-page { display: flex; flex-direction: column; gap: var(--bungalow-space-2, 0.5rem); }
+.skeleton-header { align-items: flex-end; display: flex; gap: var(--bungalow-space-4, 1rem); padding-block: var(--bungalow-space-3, 0.75rem); }
+.skeleton-header__art { height: 8rem; width: 8rem; }
+.skeleton-header__text { display: flex; flex: 1; flex-direction: column; gap: 0.6rem; min-width: 0; }
+@media (max-width: 40rem) {
+  .skeleton-header { align-items: center; flex-direction: column; text-align: center; }
+  .skeleton-header__art { height: 10rem; width: 10rem; }
+  .skeleton-header__text { align-items: center; width: 100%; }
 }
 
 .skeleton-page {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: var(--bungalow-space-1, 0.25rem);
+  padding: var(--bungalow-space-4, 1rem);
 }
+.skeleton-page__head { align-items: center; display: flex; gap: var(--bungalow-space-3, 0.75rem); margin-bottom: var(--bungalow-space-3, 0.75rem); }
+.skeleton-page__title { display: flex; flex: 1; flex-direction: column; gap: 0.6rem; min-width: 0; }
+.skeleton-page__button { height: 2rem; width: 6rem; border-radius: 999px; }
 
 @keyframes skeleton-shimmer {
   from { background-position: 200% 0; }
@@ -645,5 +717,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton { animation: none; }
+  .skeleton { animation: skeleton-pulse 2s ease-in-out infinite; background: var(--skeleton-base); }
+}
+@keyframes skeleton-pulse {
+  50% { opacity: 0.55; }
 }

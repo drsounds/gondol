@@ -5,6 +5,7 @@ import { EntitySheet } from "../../../../../../entities/EntitySheet";
 import { FormActions } from "../../../../../../entities/FormActions";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { agentMessagesKey, queueAgentRun, updateAgentMessage, useAgentMessages, type AgentConversation, type AgentMessage } from "../../../../models/agents";
+import { SkeletonMessages } from "../../../../../../shell/Skeleton";
 
 /**
  * Editing one of your own messages to an agent (`…/message/<message>/edit`). When the agent
@@ -94,7 +95,7 @@ export function AgentMessageSheet({
       }
     >
       {messages.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonMessages />
       ) : !editable ? (
         <p className="muted">{t("agents.chat.cantEdit")}</p>
       ) : (
@@ -148,7 +149,7 @@ export function AgentDeletedMessagesSheet({
       }
     >
       {messages.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonMessages />
       ) : deleted.length === 0 ? (
         <p className="muted">{t("agents.chat.noDeleted")}</p>
       ) : (

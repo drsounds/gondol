@@ -17,6 +17,7 @@ import { AgentSheet } from "./AgentSheet";
 import { AgentView } from "./AgentView";
 import { useAgentActions } from "./useAgentActions";
 import { useAvailabilityText } from "./useAvailabilityText";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 /**
  * Agents (`/agents`): the user's AI agents listed like their alter egos. Opening one goes straight
@@ -52,7 +53,7 @@ export function AgentsPanel() {
       <AgentRunConversation key={parts[2]} agent={agent} agents={agents} runKey={parts[2]} />
     ) : isLoading ? (
       <Card>
-        <p className="stat-label">{t("app.loading")}</p>
+        <SkeletonRows />
       </Card>
     ) : (
       <PageNotFound />
@@ -62,7 +63,7 @@ export function AgentsPanel() {
       <AgentChatPage key={agent.id} agent={agent} agents={agents} parts={parts.slice(1)} onQueued={runner.kick} />
     ) : isLoading ? (
       <Card>
-        <p className="stat-label">{t("app.loading")}</p>
+        <SkeletonRows />
       </Card>
     ) : (
       <PageNotFound />
@@ -107,7 +108,7 @@ function AgentList({ agents, loading, onNew, onEdit }: { agents: Agent[]; loadin
         </div>
         {agents.length === 0 ? (
           loading ? (
-            <p className="stat-label">{t("app.loading")}</p>
+            <SkeletonRows />
           ) : (
             <EmptyState items={t("agents.items")} actionLabel={t("agents.add")} onAction={onNew} />
           )

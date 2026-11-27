@@ -7,6 +7,7 @@ import { getLocalizedText } from "../../../../../../apps/types";
 import { apiScopes } from "../../../../../../api/openapi";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { authorizeOAuth, parseAuthorizeRequest, redirectWith, useOAuthConsentClient } from "../../../../models/oauth";
+import { SkeletonText } from "../../../../../../shell/Skeleton";
 
 /**
  * The consent page (`/oauth/authorize`, where the API gateway's GET /oauth/authorize sends the
@@ -37,7 +38,7 @@ export function OAuthAuthorizePage(_props: AppFeaturePageProps) {
   }, [unsupported, client.data, request]);
 
   if (!request.clientId) return <ConsentProblem text={t("oauth.consent.noClient")} />;
-  if (client.isLoading) return <p className="muted">{t("app.loading")}</p>;
+  if (client.isLoading) return <SkeletonText lines={4} />;
   if (client.error || !client.data) {
     const message = client.error instanceof Error ? client.error.message : String((client.error as { message?: string } | null)?.message ?? "");
     return <ConsentProblem text={t("oauth.consent.badClient")} detail={message} />;

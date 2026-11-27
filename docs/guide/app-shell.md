@@ -177,6 +177,28 @@ Before rendering a feature, check that the [site](./sites.md) allows its app:
 already includes the site, so `AppDeactivatedNotice` covers both cases if you don't need a separate
 message.
 
+## Navigation, cached data and skeletons
+
+Moving to another page renders it at once; nothing waits for its data.
+
+- **Cached data first.** `AppShell` restores the query cache that `gondol/navigation/queryCache`
+  keeps in localStorage and keeps writing it back, so every query a page ran before, in this visit
+  or an earlier one (up to a week, the 400 most recent queries), shows its last data straight away
+  and refetches in the background. Create your `QueryClient` with `queryClientDefaults` from there
+  (`new QueryClient({ defaultOptions: queryClientDefaults })`): it keeps loaded data in memory as long
+  as it is persisted, treats it as fresh for 30 seconds and doesn't refetch on window focus. A query
+  with data that shouldn't be stored on the device passes `meta: { persist: false }`. Signing out
+  empties the cache.
+- **Skeletons for the rest.** Where a query has nothing yet (`isLoading`), render a skeleton from
+  `gondol/shell/Skeleton` shaped like what will come, never a "Loading…" line or a spinner:
+  `SkeletonTable` for a `.data-table` (a table on desktop, Spotify-style list rows on phones),
+  `SkeletonRows` for lists, `SkeletonTiles` for grids of cards, `SkeletonMessages` for chats,
+  `SkeletonHeader` for an entity page's header and `SkeletonText` for text. `EmptyState` shows
+  skeleton rows by itself while data is still on its way. Lazy pages show `PageSkeleton` while their
+  code loads.
+- **Progress bar.** `<NavigationProgress/>` draws a thin bar along the top when the new page is still
+  waiting for data after 150 ms. Opening and closing routed sheets doesn't start it.
+
 ## Opening entities
 
 Anything that opens an entity by URI goes through one function in the shell, so special cases live

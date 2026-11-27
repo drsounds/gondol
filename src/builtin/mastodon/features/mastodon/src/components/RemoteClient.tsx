@@ -24,6 +24,7 @@ import {
 } from "../../../../models/remote";
 import type { RemoteSession, Visibility } from "../../../../models/types";
 import { VISIBILITIES } from "../../../../models/types";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error ?? ""));
 
@@ -41,7 +42,7 @@ export function RemoteClient({ rest }: { rest: string[] }) {
   const active = (sessions.data ?? []).filter((s) => s.state === "active");
 
   if (first === "callback") return <Callback />;
-  if (sessions.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (sessions.isLoading) return <SkeletonRows />;
   const session = first && first !== "new" ? active.find((s) => s.id === first) : undefined;
   if (session) return <RemoteTimelineView session={session} timeline={(REMOTE_TIMELINES as readonly string[]).includes(second ?? "") ? (second as RemoteTimeline) : "home"} composing={second === "compose" || third === "compose"} />;
 
@@ -177,7 +178,7 @@ function RemoteTimelineView({ session, timeline, composing }: { session: RemoteS
           </button>
         ))}
       </div>
-      {feed.isLoading ? <p className="muted">{t("app.loading" as MessageKey)}</p> : null}
+      {feed.isLoading ? <SkeletonRows art="round" /> : null}
       {feed.error ? <Alert tone="danger">{t("mastodon.remote.failed", { error: errorText(feed.error) })}</Alert> : null}
       {!feed.isLoading && !items.length && !feed.error ? <EmptyState items={t("mastodon.status.items")} /> : null}
       <div className="mastodon-feed">

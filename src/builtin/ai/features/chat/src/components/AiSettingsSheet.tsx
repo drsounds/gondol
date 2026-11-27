@@ -4,6 +4,7 @@ import { useI18n } from "../../../../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
 import { AppSettingsPanel } from "../../../../../../settings/AppSettingsPanel";
 import { useAiConversations, useAiToolPermissions, useRevokeAiToolPermission, type AiToolPermission } from "../../../../models";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 /**
  * The AI settings as a dialog over the chat (`/ai/settings`, `/ai/<conversation>/settings`): the
@@ -76,7 +77,7 @@ function ToolPermissions({ conversationId }: { conversationId: string | null }) 
       </div>
       {permissions.error ? <Alert tone="danger">{permissions.error.message}</Alert> : null}
       {revoke.error ? <Alert tone="danger">{revoke.error.message}</Alert> : null}
-      {permissions.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+      {permissions.isLoading ? <SkeletonRows /> : null}
       {permissions.data && !rows.length ? <p className="muted">{t("ai.permissions.none")}</p> : null}
       {always.length ? (
         <div>

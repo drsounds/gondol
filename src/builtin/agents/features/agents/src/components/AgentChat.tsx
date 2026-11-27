@@ -24,6 +24,7 @@ import {
   type AgentRun,
 } from "../../../../models/agents";
 import { AgentAvatar } from "./AgentAvatar";
+import { SkeletonMessages } from "../../../../../../shell/Skeleton";
 
 type PendingRun = Pick<AgentRun, "id" | "status" | "run_after" | "speaker_agent_id" | "agent_id" | "message_parent_id" | "replace_message_id" | "progress" | "progress_at" | "progress_tools">;
 
@@ -263,7 +264,7 @@ export function AgentChat({
   const main = (
     <div className="agent-chat__line">
       <div className="agent-chat__messages" ref={lineList}>
-        {messages.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+        {messages.isLoading ? <SkeletonMessages /> : null}
         {empty}
         {line.map(bubble)}
         {streamedBubble && !threadId ? streamedBubble : null}
@@ -345,7 +346,7 @@ function ThreadPane({
             ))}
           </nav>
         ) : null}
-        {loading ? <p className="muted">{t("app.loading")}</p> : !message ? <p className="muted">{t("agents.chat.notFound")}</p> : bubble(message)}
+        {loading ? <SkeletonMessages /> : !message ? <p className="muted">{t("agents.chat.notFound")}</p> : bubble(message)}
         {message ? <div className="agent-chat__thread-divider muted">{t("agents.chat.repliesHeading")}</div> : null}
         {replies.map(bubble)}
         {status}

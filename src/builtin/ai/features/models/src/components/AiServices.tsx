@@ -15,6 +15,7 @@ import {
   useSaveAiService,
   type AiService,
 } from "../../../../models";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -60,7 +61,7 @@ export function AiServicesSection() {
       {remove.error ? <Alert tone="danger">{errorText(remove.error)}</Alert> : null}
 
       {services.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonRows />
       ) : rows.length === 0 ? (
         <EmptyState items={t("ai.services.items")} actionLabel={t("ai.services.new")} onAction={modal.openNew} />
       ) : (

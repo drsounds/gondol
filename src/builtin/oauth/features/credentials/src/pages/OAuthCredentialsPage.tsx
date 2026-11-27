@@ -28,6 +28,7 @@ import {
   type OAuthClientValues,
 } from "../../../../models/oauth";
 import type { OAuthClient, OAuthScope, OAuthSecret } from "../../../../models/types";
+import { SkeletonTable } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -102,7 +103,7 @@ export function OAuthCredentialsPage(_props: AppFeaturePageProps) {
       {clients.error ? <Alert tone="danger">{errorText(clients.error)}</Alert> : null}
 
       {clients.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonTable />
       ) : rows.length === 0 ? (
         <EmptyState items={t("oauth.items")} actionLabel={t("oauth.new")} onAction={modal.openNew} />
       ) : (

@@ -5,6 +5,7 @@ import { FormActions } from "../../../../../../entities/FormActions";
 import { useI18n } from "../../../../../../i18n/i18n";
 import { useUpdateAiMessage, type AiMessage } from "../../../../models";
 import { Markdown } from "./Markdown";
+import { SkeletonMessages } from "../../../../../../shell/Skeleton";
 
 /**
  * Editing one of the user's messages (`/ai/<id>/messages/<message>/edit`). When the model answered
@@ -78,7 +79,7 @@ export function AiMessageSheet({
       }
     >
       {loading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonMessages />
       ) : !editable ? (
         <p className="muted">{t("ai.message.cantEdit")}</p>
       ) : (

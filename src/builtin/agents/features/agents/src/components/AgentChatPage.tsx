@@ -8,6 +8,7 @@ import { PageNotFound } from "../../../../../../shell/PageNotFound";
 import { supabase } from "../../../../models/db";
 import { useAgentEgos } from "../../../../models/host";
 import { useI18n } from "../../../../../../i18n/i18n";
+import { SkeletonMessages } from "../../../../../../shell/Skeleton";
 import { toEntityUri } from "../../../../../../entities/uri";
 import {
   agentConversationsKey,
@@ -246,7 +247,7 @@ export function AgentChatPage({ agent, agents, parts, onQueued }: { agent: Agent
                 onQueued={onQueued}
               />
             ) : (
-              <p className="muted">{opened.error || conversation.error ? (opened.error ?? conversation.error)?.message : t("app.loading")}</p>
+              opened.error || conversation.error ? <p className="muted">{(opened.error ?? conversation.error)?.message}</p> : <SkeletonMessages />
             )}
           </section>
         </div>

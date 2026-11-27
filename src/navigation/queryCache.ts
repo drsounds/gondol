@@ -1,10 +1,37 @@
-import { dehydrate, hydrate, type QueryClient } from "@tanstack/react-query";
+import { dehydrate, hydrate, type DefaultOptions, type Query, type QueryClient } from "@tanstack/react-query";
 import { namespaced } from "../shell/storage";
+
+/**
+ * Every page's data is kept on the device: the query client keeps loaded queries for a week
+ * (queryClientDefaults' gcTime, not React Query's five minutes, after which a page left behind would
+ * be forgotten), and persistQueryCache() writes them to localStorage, so a page visited before,
+ * in this visit or an earlier one, shows its last data at once and refreshes it in the background
+ * (stale-while-revalidate). Data never loaded shows as skeletons (src/shell/Skeleton.tsx).
+ *
+ * A query opts out with `meta: { persist: false }` (secrets, huge or short-lived data). Signing out
+ * forgets the cache (clearQueryCacheOnSignOut), so the next account never sees the previous one's.
+ */
 
 const STORAGE_NAME = "query-cache";
 /** Cached data older than this is dropped instead of shown as stale. */
-const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const QUERY_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const MAX_AGE_MS = QUERY_CACHE_MAX_AGE_MS;
 const WRITE_DELAY_MS = 1000;
+/** At most this many queries are persisted, the most recently loaded first. */
+const MAX_PERSISTED_QUERIES = 400;
+
+/**
+ * Defaults for the app's QueryClient: loaded data stays in memory as long as it is persisted, counts
+ * as fresh for 30 s (navigating back and forth doesn't refetch everything) and isn't refetched on
+ * every window focus. Mutations invalidate what they change as before.
+ */
+export const queryClientDefaults: DefaultOptions = {
+  queries: {
+    gcTime: QUERY_CACHE_MAX_AGE_MS,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  },
+};
 /** Bumped whenever the format changes; older caches are dropped. 2: Maps and Dates kept, unsupported data skipped. */
 const CACHE_VERSION = 2;
 const TYPE_MARKER = "__gondolQueryCacheType";
@@ -106,7 +133,8 @@ export function restoreQueryCache(queryClient: QueryClient, now: number = Date.n
       store.removeItem(namespaced(STORAGE_NAME));
       return false;
     }
-    hydrate(queryClient, persisted.state);
+    const fresh = persisted.state.queries.filter((query) => now - query.state.dataUpdatedAt <= MAX_AGE_MS);
+    hydrate(queryClient, { ...persisted.state, queries: fresh });
     return true;
   } catch {
     store.removeItem(namespaced(STORAGE_NAME));
@@ -121,12 +149,27 @@ export function persistQueryCache(queryClient: QueryClient): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const write = () => {
     timer = undefined;
-    try {
-      const state = dehydrate(queryClient, { shouldDehydrateQuery: (query) => query.state.status === "success" });
-      store.setItem(namespaced(STORAGE_NAME), stringifyCache({ version: CACHE_VERSION, savedAt: Date.now(), state }));
-    } catch {
-      // Storage full or data not serializable: the cache just isn't persisted.
+    const savedAt = Date.now();
+    // The most recently loaded queries first, so a full store keeps those.
+    const recent = queryClient
+      .getQueryCache()
+      .getAll()
+      .filter(shouldPersist)
+      .sort((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)
+      .slice(0, MAX_PERSISTED_QUERIES);
+    let keep = recent.length;
+    while (keep > 0) {
+      const allowed = new Set(recent.slice(0, keep));
+      try {
+        const state = dehydrate(queryClient, { shouldDehydrateQuery: (query) => allowed.has(query) });
+        store.setItem(namespaced(STORAGE_NAME), stringifyCache({ version: CACHE_VERSION, savedAt, state }));
+        return;
+      } catch {
+        // Storage full: try again with the more recent half.
+        keep = Math.floor(keep / 2);
+      }
     }
+    store.removeItem(namespaced(STORAGE_NAME));
   };
   const unsubscribe = queryClient.getQueryCache().subscribe(() => {
     if (timer === undefined) timer = setTimeout(write, WRITE_DELAY_MS);
@@ -137,7 +180,27 @@ export function persistQueryCache(queryClient: QueryClient): () => void {
   };
 }
 
+function shouldPersist(query: Query): boolean {
+  return query.state.status === "success" && query.meta?.persist !== false;
+}
+
 /** Forgets the persisted cache, e.g. on sign out, so the next user doesn't see the previous one's data. */
 export function clearPersistedQueryCache(): void {
   storage()?.removeItem(namespaced(STORAGE_NAME));
+}
+
+/**
+ * Empties the client and the persisted cache when the user signs out (or the session ends). Pass
+ * the auth client's onAuthStateChange; returns a stop function.
+ */
+export function clearQueryCacheOnSignOut(
+  queryClient: QueryClient,
+  onAuthStateChange: (callback: (event: string) => void) => { data: { subscription: { unsubscribe: () => void } } },
+): () => void {
+  const { data } = onAuthStateChange((event) => {
+    if (event !== "SIGNED_OUT") return;
+    clearPersistedQueryCache();
+    queryClient.clear();
+  });
+  return () => data.subscription.unsubscribe();
 }

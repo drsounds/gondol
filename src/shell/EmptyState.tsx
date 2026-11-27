@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
+import { useIsFetching } from "@tanstack/react-query";
 import { Button } from "../design-system/bungalow-79d923";
 import { useI18n } from "../i18n/i18n";
 import { useSiteOffers } from "../sites/capabilities";
+import { SkeletonRows } from "./Skeleton";
 
 interface EmptyStateProps {
   /** What the list holds, plural and lower case ("projects"), for the default title and text. */
@@ -16,13 +18,24 @@ interface EmptyStateProps {
   actionDisabled?: boolean;
   /** Glyph inside the circle; a magnifying glass by default. */
   icon?: ReactNode;
+  /**
+   * Whether the list is still loading, so it shows skeleton rows instead. By default it is while
+   * any query is fetching its first data (nothing cached), since a list that hasn't loaded isn't
+   * empty yet; pass the list's own state where it knows better, `false` to never show skeletons.
+   */
+  loading?: boolean;
 }
 
+/** Queries fetching data they never had; a background refetch of cached data doesn't count. */
+const firstLoad = { predicate: (query: { state: { status: string } }) => query.state.status === "pending" };
+
 /** Spotify-style "nothing here" placeholder for an empty list: a round glyph, a title, a line of text and a create button. */
-export function EmptyState({ items, title, description, actionLabel, onAction, actionDisabled, icon }: EmptyStateProps) {
+export function EmptyState({ items, title, description, actionLabel, onAction, actionDisabled, icon, loading }: EmptyStateProps) {
   const { t } = useI18n();
   // The create action goes when the site doesn't offer creating (its aspects, sites/capabilities.ts).
   const canCreate = useSiteOffers()({ aspects: ["create"] });
+  const fetchingFirst = useIsFetching(firstLoad) > 0;
+  if (loading ?? fetchingFirst) return <SkeletonRows rows={4} />;
   return (
     <div className="empty-state">
       <div className="empty-state__icon">{icon ?? <MagnifyingGlass />}</div>
