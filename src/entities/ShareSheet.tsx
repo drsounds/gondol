@@ -10,6 +10,7 @@ import { useEntityLifecycle } from "./lifecycle";
 import { entityTypeLabel } from "./lookup";
 import { shareUri, shareUrl, useShareKey } from "./shareUri";
 import { parseEntityUri } from "./uri";
+import { SkeletonRows } from "../shell/Skeleton";
 
 interface ShareSheetProps {
   /** spacify: URI of the entity (by uuid, as ActionMenu gets it). */
@@ -197,7 +198,7 @@ export function ShareSheet({ uri, name, onClose }: ShareSheetProps) {
                 aria-label={t("share.search")}
                 onChange={(event) => setQuery(event.target.value)}
               />
-              {share.isLoading && !share.targets.length ? <p className="share-sheet__empty">{t("app.loading")}</p> : null}
+              {share.isLoading && !share.targets.length ? <SkeletonRows art="round" rows={4} /> : null}
               {!share.isLoading && !shown.length ? <p className="share-sheet__empty">{t("share.noMatches")}</p> : null}
               {groups.map(([group, targets]) => (
                 <div key={group} className="share-sheet__group" role="group" aria-label={group}>

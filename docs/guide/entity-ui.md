@@ -317,4 +317,6 @@ configureGondol({
 ```
 
 It says "We couldn't find any notes" and "When you create notes they will show up here." unless you
-pass `title` and `description`.
+pass `title` and `description`. While any query is still fetching data it never had, it shows
+skeleton rows instead, since a list that hasn't loaded isn't empty yet; pass `loading` with the
+list's own state where it knows better.

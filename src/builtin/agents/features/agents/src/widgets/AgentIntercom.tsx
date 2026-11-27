@@ -7,6 +7,7 @@ import { entityIdentifier, entityKey } from "../../../../../../entities/slugs";
 import { useNavigateKeepingSearch } from "../../../../../../navigation/useEntityModal";
 import { useSession } from "../../../../../../supabase/useSession";
 import { useI18n } from "../../../../../../i18n/i18n";
+import { SkeletonMessages } from "../../../../../../shell/Skeleton";
 import {
   agentConversationPath,
   agentMessagesKey,
@@ -413,7 +414,7 @@ function IntercomPopup({
           compact
         />
       ) : (
-        <p className="muted intercom__loading">{conversation.error ? conversation.error.message : t("app.loading")}</p>
+        conversation.error ? <p className="muted intercom__loading">{conversation.error.message}</p> : <div className="intercom__loading"><SkeletonMessages messages={3} /></div>
       )}
     </section>
   );

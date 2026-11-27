@@ -33,6 +33,7 @@ import { AgentScheduleSheet } from "./AgentScheduleSheet";
 import { useAgentActions } from "./useAgentActions";
 import { useAvailabilityText } from "./useAvailabilityText";
 import { workingHoursSummary } from "./WorkingHoursField";
+import { SkeletonHeader, SkeletonRows, SkeletonTable } from "../../../../../../shell/Skeleton";
 
 /** The settings page's tabs, each at `/agents/$agent/settings/<tab>` (the profile at the page itself). */
 const TABS = ["profile", "conversations", "schedules", "runs"] as const;
@@ -122,7 +123,7 @@ export function AgentView({
   if (!agent) {
     return loading ? (
       <Card>
-        <p className="stat-label">{t("app.loading")}</p>
+        <SkeletonHeader round rows={3} />
       </Card>
     ) : (
       <PageNotFound />
@@ -292,7 +293,7 @@ export function AgentView({
             </div>
             {(schedules.data ?? []).length === 0 ? (
               schedules.isLoading ? (
-                <p className="stat-label">{t("app.loading")}</p>
+                <SkeletonHeader round rows={3} />
               ) : (
                 <EmptyState items={t("agents.schedule.items")} actionLabel={t("agents.schedule.add")} onAction={scheduleModal.openNew} />
               )
@@ -359,7 +360,7 @@ export function AgentView({
               <p className="muted">{t("agents.runsIntro")}</p>
             </div>
             {(runs.data ?? []).length === 0 ? (
-              <p className="muted">{runs.isLoading ? t("app.loading") : t("agents.noRuns")}</p>
+              runs.isLoading ? <SkeletonRows art={false} rows={3} /> : <p className="muted">{t("agents.noRuns")}</p>
             ) : (
               <ul className="agent-runs">
                 {(runs.data ?? []).map((run) => {

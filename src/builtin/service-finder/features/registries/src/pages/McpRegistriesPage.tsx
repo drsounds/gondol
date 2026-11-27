@@ -8,6 +8,7 @@ import { useEntityModal, useNavigateKeepingSearch } from "../../../../../../navi
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { listRegistryServers, registryApiBase, useDeleteMcpRegistry, useMcpRegistries, useSaveMcpRegistry, type McpRegistry } from "../../../../models";
+import { SkeletonTable } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -48,7 +49,7 @@ export function McpRegistriesPage(_props: AppFeaturePageProps) {
       {remove.error ? <Alert tone="danger">{errorText(remove.error)}</Alert> : null}
 
       {registries.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonTable />
       ) : rows.length === 0 ? (
         <EmptyState items={t("serviceFinder.registryItems")} actionLabel={t("serviceFinder.addRegistry")} onAction={modal.openNew} />
       ) : (

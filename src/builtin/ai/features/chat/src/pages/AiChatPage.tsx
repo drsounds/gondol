@@ -42,6 +42,7 @@ import type { UiAction } from "../../../../../../genui/mcpUi";
 import { Markdown } from "../components/Markdown";
 import { AiSettingsSheet } from "../components/AiSettingsSheet";
 import { AiDeletedMessagesSheet, AiMessageSheet } from "../components/AiMessageSheets";
+import { SkeletonMessages, SkeletonRows } from "../../../../../../shell/Skeleton";
 
 /**
  * The AI chat (`/ai`, `/ai/new`, `/ai/<conversation id>`): the user's conversations beside the open
@@ -250,7 +251,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
         <Button type="button" variant="outline" size="sm" className="ai-chat__new" onClick={() => go("/ai/new")}>
           <Icon name="plus" /> {t("ai.newConversation")}
         </Button>
-        {conversations.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+        {conversations.isLoading ? <SkeletonRows art={false} rows={4} /> : null}
         {conversations.data && !conversations.data.length ? <p className="muted">{t("ai.noConversations")}</p> : null}
         <ul className="ai-chat__conversation-list">
           {(conversations.data ?? []).map((c) => (
@@ -351,7 +352,7 @@ export function AiChatPage({ splat }: AppFeaturePageProps) {
 
         <div className={`ai-chat__messages${onTop ? " ai-chat__messages--newest-first" : ""}`} ref={list}>
           {!conversationId && !inLine ? <p className="ai-chat__intro muted">{t("ai.intro")}</p> : null}
-          {conversationId && messages.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+          {conversationId && messages.isLoading ? <SkeletonMessages /> : null}
           {onTop ? (
             <>
               {inLine ? (
@@ -624,7 +625,7 @@ function ThreadPane({
             ))}
           </nav>
         ) : null}
-        {loading ? <p className="muted">{t("app.loading")}</p> : !message ? <p className="muted">{t("ai.thread.notFound")}</p> : bubble(message)}
+        {loading ? <SkeletonMessages /> : !message ? <p className="muted">{t("ai.thread.notFound")}</p> : bubble(message)}
         {message ? <div className="ai-chat__thread-divider muted">{t("ai.thread.repliesHeading")}</div> : null}
         {replies.map(bubble)}
         {answerBeingWritten}
@@ -656,7 +657,7 @@ function AppsPanel({ settings, toolSupport, error, onAddServer }: { settings: Ai
       {!enabled ? <p className="muted">{t("ai.appsOff")}</p> : null}
       {enabled && !toolSupport ? <p className="muted">{t("ai.appsNoToolSupport")}</p> : null}
       {enabled && problem ? <p className="muted">{t("ai.appsUnavailable", { message: problem })}</p> : null}
-      {enabled && catalog.isLoading ? <p className="muted">{t("app.loading")}</p> : null}
+      {enabled && catalog.isLoading ? <SkeletonRows art={false} rows={3} /> : null}
       {enabled && catalog.data && !apps.length ? <p className="muted">{t("ai.appsNone")}</p> : null}
       <ul className="ai-chat__app-list">
         {apps.map((app) => (

@@ -5,10 +5,10 @@ import { useI18n } from "../../../i18n/i18n";
 import { useNavigateKeepingSearch } from "../../../navigation/useEntityModal";
 import { useSiteOffers } from "../../../sites/capabilities";
 import { EmptyState } from "../../../shell/EmptyState";
-import type { MessageKey } from "../../../register";
 import { litePagePath, pageCreateTypes, useLiteApps, useLiteRecords } from "../models/studio";
 import { LitePageView } from "./LitePageView";
 import { RecordSheet } from "./RecordSheet";
+import { SkeletonRows } from "../../../shell/Skeleton";
 
 /** A built app's bundle id: `lite.<app id>` (../widgets/LiteAppsProvider). */
 export const liteBundleId = (appId: string) => `lite.${appId}`;
@@ -27,7 +27,7 @@ export function LiteAppPage({ appId, featureId, splat, onOpenUri }: AppFeaturePa
   const records = useLiteRecords(app?.id ?? null);
   const canCreate = useSiteOffers()({ aspects: ["create"] });
 
-  if (apps.isLoading) return <p className="muted">{t("app.loading" as MessageKey)}</p>;
+  if (apps.isLoading) return <SkeletonRows />;
   if (!app || !page) return <EmptyState items={t("studio.page.items")} description={t("studio.page.notFound")} />;
 
   const base = litePagePath(app, page);

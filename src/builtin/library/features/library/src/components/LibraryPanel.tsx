@@ -11,6 +11,7 @@ import { showToast } from "../../../../../../shell/clipboard";
 import { useI18n, type MessageKey } from "../../../../../../i18n/i18n";
 import { useActiveBundles } from "../../../../../../apps/hooks";
 import { EntityRow } from "../../../../../../entities/EntityRow";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 interface Props {
   /** Opens an entity by its URI (the host's entity resolver, which also handles entries). */
@@ -105,7 +106,7 @@ export function LibraryPanel({ onOpenUri }: Props) {
         ) : null}
 
         {library.isLoading ? (
-          <p className="muted">{t("app.loading")}</p>
+          <SkeletonRows />
         ) : items.length === 0 ? (
           <EmptyState
             items={t("library.items")}

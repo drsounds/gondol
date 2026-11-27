@@ -8,6 +8,7 @@ import { useEntityModal, useNavigateKeepingSearch } from "../../../../../../navi
 import { useRegisteredBundles } from "../../../../../../apps/hooks";
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { HEADER_NAME, mcpServerAppId, useAiMcpServers, useDeleteAiMcpServer, useSaveAiMcpServer, type AiMcpServer } from "../../../../models";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -67,7 +68,7 @@ export function AiMcpServersSection({
       {remove.error ? <Alert tone="danger">{errorText(remove.error)}</Alert> : null}
 
       {servers.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonRows />
       ) : rows.length === 0 ? (
         <EmptyState
           items={t("ai.mcp.items")}

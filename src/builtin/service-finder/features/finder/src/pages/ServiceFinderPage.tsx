@@ -21,6 +21,7 @@ import {
 } from "../../../../models";
 import { ServerArt } from "../components/ServerArt";
 import { ServerSheet } from "../components/ServerSheet";
+import { SkeletonRows } from "../../../../../../shell/Skeleton";
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String((error as { message?: string } | null)?.message ?? error ?? ""));
 
@@ -179,7 +180,7 @@ export function ServiceFinderPage(_props: AppFeaturePageProps) {
       {servers.error ? <Alert tone="danger">{t("serviceFinder.registryError", { name: registry?.name ?? "", error: errorText(servers.error) })}</Alert> : null}
 
       {registries.isLoading || (servers.isLoading && !rows.length) ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonRows />
       ) : !registry ? (
         <EmptyState
           items={t("serviceFinder.registryItems")}

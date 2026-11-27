@@ -18,7 +18,7 @@ test("restores persisted queries as stale data", () => {
   store.set("gondol:query-cache", JSON.stringify({
     version: 2,
     savedAt: Date.now(),
-    state: { mutations: [], queries: [{ queryKey: ["a"], queryHash: '["a"]', state: { data: 1, dataUpdateCount: 1, dataUpdatedAt: 1, error: null, errorUpdateCount: 0, errorUpdatedAt: 0, fetchFailureCount: 0, fetchFailureReason: null, fetchMeta: null, isInvalidated: false, status: "success", fetchStatus: "idle" } }] },
+    state: { mutations: [], queries: [{ queryKey: ["a"], queryHash: '["a"]', state: { data: 1, dataUpdateCount: 1, dataUpdatedAt: Date.now(), error: null, errorUpdateCount: 0, errorUpdatedAt: 0, fetchFailureCount: 0, fetchFailureReason: null, fetchMeta: null, isInvalidated: false, status: "success", fetchStatus: "idle" } }] },
   }));
   const client = new QueryClient();
   expect(restoreQueryCache(client)).toBe(true);
@@ -73,4 +73,45 @@ test("drops expired and cleared caches", () => {
   store.set("gondol:query-cache", "x");
   clearPersistedQueryCache();
   expect(store.size).toBe(0);
+});
+
+test("leaves out queries that opt out, and keeps the most recent when storage is full", async () => {
+  const client = new QueryClient();
+  client.getQueryCache().build(client, { queryKey: ["secret"], meta: { persist: false } });
+  client.setQueryData(["secret"], "hidden");
+  client.setQueryData(["old"], "a", { updatedAt: Date.now() - 1000 });
+  client.setQueryData(["new"], "b");
+  // A store with room for one query only.
+  const window = (globalThis as unknown as { window: { localStorage: { setItem: (k: string, v: string) => void } } }).window;
+  const setItem = window.localStorage.setItem;
+  window.localStorage.setItem = (k, v) => {
+    if (v.includes('"old"') && v.includes('"new"')) throw new Error("QuotaExceededError");
+    setItem(k, v);
+  };
+  const stop = persistQueryCache(client);
+  client.setQueryData(["new"], "c");
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  stop();
+
+  const restored = new QueryClient();
+  expect(restoreQueryCache(restored)).toBe(true);
+  expect(restored.getQueryData(["new"])).toBe("c");
+  expect(restored.getQueryData(["old"])).toBeUndefined();
+  expect(restored.getQueryData(["secret"])).toBeUndefined();
+});
+
+test("drops single queries older than the cache's age limit", () => {
+  const query = (key: string, dataUpdatedAt: number) => ({
+    queryKey: [key], queryHash: `["${key}"]`,
+    state: { data: key, dataUpdateCount: 1, dataUpdatedAt, error: null, errorUpdateCount: 0, errorUpdatedAt: 0, fetchFailureCount: 0, fetchFailureReason: null, fetchMeta: null, isInvalidated: false, status: "success", fetchStatus: "idle" },
+  });
+  store.set("gondol:query-cache", JSON.stringify({
+    version: 2,
+    savedAt: Date.now(),
+    state: { mutations: [], queries: [query("fresh", Date.now()), query("ancient", 1)] },
+  }));
+  const client = new QueryClient();
+  expect(restoreQueryCache(client)).toBe(true);
+  expect(client.getQueryData(["fresh"])).toBe("fresh");
+  expect(client.getQueryData(["ancient"])).toBeUndefined();
 });

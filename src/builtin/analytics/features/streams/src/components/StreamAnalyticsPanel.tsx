@@ -28,6 +28,7 @@ import {
   type StreamGrouping,
   type StreamTotals,
 } from "../../../../models";
+import { SkeletonTable } from "../../../../../../shell/Skeleton";
 
 type Metric = "count" | "quantity" | "duration";
 const METRICS: readonly Metric[] = ["count", "quantity", "duration"];
@@ -287,7 +288,7 @@ export function StreamAnalyticsPanel() {
       </Card>
 
       {query.isLoading ? (
-        <p className="muted">{t("app.loading")}</p>
+        <SkeletonTable />
       ) : streams.length === 0 ? (
         <EmptyState items={t("streams.items")} description={inSpan.length > 0 ? t("analytics.noneMatch") : t("analytics.noneInPeriod")} />
       ) : (

@@ -15,6 +15,7 @@ import { EmptyState } from "../../../../../../shell/EmptyState";
 import { showToast } from "../../../../../../shell/clipboard";
 import type { AppFeaturePageProps } from "../../../../../../apps/types";
 import { accountsCache, deleteAccount, saveSignIn, saveSignOut, type ExternalServiceAccount } from "../../../../models/accounts";
+import { SkeletonTable } from "../../../../../../shell/Skeleton";
 
 /**
  * Music services (`/music-services`): every service the apps that are on contribute (YouTube from
@@ -92,7 +93,7 @@ export function MusicServicesPage(_props: AppFeaturePageProps) {
             {t("playback.accounts")}
           </h3>
           {!accountsCache.loaded ? (
-            <p className="muted">{t("app.loading")}</p>
+            <SkeletonTable />
           ) : accounts.length === 0 ? (
             <EmptyState items={t("playback.accountItems")} actionLabel={t("playback.addAccount")} onAction={modal.openNew} />
           ) : (
