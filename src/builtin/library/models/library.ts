@@ -43,12 +43,6 @@ export const pinnedItemsQueryOptions = {
 import { sessionUserId } from "../../../supabase/session";
 export { sessionUserId };
 
-async function currentUserId() {
-  const { data } = await supabase.auth.getUser();
-  if (!data.user) throw new Error("Not signed in");
-  return data.user.id;
-}
-
 /** Save/unsave and pin/unpin an entity by its entity URI. */
 export function useLibrary() {
   const queryClient = useQueryClient();
@@ -69,7 +63,8 @@ export function useLibrary() {
         if (error) throw error;
         return;
       }
-      const user_id = await currentUserId();
+      // The session's user, read locally: getUser() would ask the auth server first on every save.
+      const user_id = await sessionUserId();
       // A dropped URI can address its row by slug or identifier; the library keys on the uuid.
       const row = { user_id, spacify_uri: await canonicalEntityUri(uri), label: label?.trim() || null };
       const { error } =

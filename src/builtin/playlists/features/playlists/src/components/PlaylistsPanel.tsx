@@ -8,6 +8,7 @@ import { EntitySheet } from "../../../../../../entities/EntitySheet";
 import { FormActions } from "../../../../../../entities/FormActions";
 import { Button, Card, Icon, Input } from "../../../../../../design-system/bungalow-79d923";
 import { supabase } from "../../../../models/db";
+import { sessionUserId } from "../../../../../../supabase/session";
 import { copyText, showToast } from "../../../../../../shell/clipboard";
 import type { DateRangeSearch } from "../../../../../../navigation/dateRangeSearch";
 import { readEntityDrop, useEntityDropTarget } from "../../../../../../entities/dragEntity";
@@ -334,9 +335,7 @@ function PlaylistSheet({
         const { error } = await supabase.from("playlists").update(payload).eq("id", id);
         if (error) throw error;
       } else {
-        const { data: userData } = await supabase.auth.getUser();
-        if (!userData.user) throw new Error("Not signed in");
-        const { data, error } = await supabase.from("playlists").insert({ user_id: userData.user.id, ...payload }).select("id").single();
+        const { data, error } = await supabase.from("playlists").insert({ user_id: await sessionUserId(), ...payload }).select("id").single();
         if (error) throw error;
         id = data.id;
       }
