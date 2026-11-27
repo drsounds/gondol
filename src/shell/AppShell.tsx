@@ -407,26 +407,26 @@ export function AppShell({
           <AppInset key={insetApp.id} section={insetApp} pathname={pathname} onBack={() => setOpenApp(null)} onNavigate={onNavigate} />
         ) : null}
         {/* A site that doesn't offer creating (its aspects, sites/capabilities.ts) has no plus button. */}
-        {/*canCreate ? (
-        <div className="bottom-nav__add">
-          <button
-            type="button"
-            className="plus-button"
-            aria-label={t("nav.add")}
-            title={t("nav.add")}
-            aria-haspopup="dialog"
-            aria-expanded={addOpen}
-            onClick={onAdd}
-            data-tour="add-button"
-          >
-            {featureDot("add-button", { prefix: "create-" })}
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
-            </svg>
-            <span className="plus-button__text">{t("nav.add")}</span>
-          </button>
-        </div>
-        ) : null*/}
+        {canCreate ? (
+          <div className="bottom-nav__add">
+            <button
+              type="button"
+              className="plus-button"
+              aria-label={t("nav.add")}
+              title={t("nav.add")}
+              aria-haspopup="dialog"
+              aria-expanded={addOpen}
+              onClick={onAdd}
+              data-tour="add-button"
+            >
+              {featureDot("add-button", { prefix: "create-" })}
+              <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+              </svg>
+              <span className="plus-button__text">{t("nav.add")}</span>
+            </button>
+          </div>
+        ) : null}
       </nav>}
       {showLibrary && sidebarPanelWidgets.length > 0 && !navCollapsed ? (
         <div
