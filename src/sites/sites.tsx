@@ -9,7 +9,7 @@ import { faviconUrlFor } from "../apps/external";
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
-import type { DesktopLayout, HeaderTint, LayoutStyle, MenuStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
+import type { ActiveTabStyle, DesktopLayout, HeaderTint, LayoutStyle, MenuStyle, PlayerVisibility, SheetStyle, ThemeEngine, UserTheme } from "../theme/userTheme";
 import { isSitePreferenceLocked, sitePreferenceValue, type SitePreference } from "./preferences";
 import { setSiteDeveloperMode } from "../shell/developerMode";
 import type { Theme } from "../theme/theme";
@@ -61,6 +61,8 @@ export interface SiteLayout {
   highContrast?: boolean;
   /** Edit sheets as a modal or as a page over everything (SheetStyle). */
   sheetStyle?: SheetStyle;
+  /** The selected tab in the accent colour or in the foreground colour (ActiveTabStyle). */
+  activeTab?: ActiveTabStyle;
   /** Lines between the rows of data tables. */
   tableLines?: boolean;
   /** The loading bar along the top for page loads (writes always show it). */

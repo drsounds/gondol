@@ -170,6 +170,10 @@ export const MENU_STYLES: MenuStyle[] = ["features", "appsBeside", "appsInset"];
 /** Edit sheets (EntitySheet): a modal over the page, or a page of their own over everything. */
 export type SheetStyle = "modal" | "page";
 export const SHEET_STYLES: SheetStyle[] = ["modal", "page"];
+/** The selected tab: the accent colour with its foreground ("accent", the default) or the
+ * foreground colour on the background colour, as tabs used to be ("contrast"; data-active-tab). */
+export type ActiveTabStyle = "accent" | "contrast";
+export const ACTIVE_TAB_STYLES: ActiveTabStyle[] = ["accent", "contrast"];
 /** The tint behind page headers (HeroHeader): none, a colour taken from the header's image, or the visitor's own colour. */
 export type HeaderTint = "off" | "image" | "color";
 export const HEADER_TINTS: HeaderTint[] = ["off", "image", "color"];
@@ -201,6 +205,8 @@ export interface ShellSettings {
   highContrast?: boolean;
   /** Unset follows the site's default, else "modal". */
   sheetStyle?: SheetStyle;
+  /** Unset follows the site's default, else "accent". */
+  activeTab?: ActiveTabStyle;
   /** Lines between the rows of data tables. Unset follows the site's default, else none. */
   tableLines?: boolean;
   /** The loading bar along the top while pages load. Off unless set; saving, changing and deleting always show it. */
@@ -615,6 +621,7 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
     "data-high-contrast": shell?.highContrast ? "" : null,
     "data-accent": shell?.accentForeground ? "foreground" : null,
     "data-sheet-style": shell?.sheetStyle === "page" ? "page" : null,
+    "data-active-tab": shell?.activeTab === "contrast" ? "contrast" : null,
     "data-table-lines": shell?.tableLines ? "" : null,
   };
 }
@@ -898,6 +905,7 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       sidebarLibrary: resolveSitePreference(siteLayout, "sidebarLibrary", own.sidebarLibrary),
       menuStyle: resolveSitePreference(siteLayout, "menuStyle", own.menuStyle),
       sheetStyle: resolveSitePreference(siteLayout, "sheetStyle", own.sheetStyle),
+      activeTab: resolveSitePreference(siteLayout, "activeTab", own.activeTab),
       tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
       loadingBar: resolveSitePreference(siteLayout, "loadingBar", own.loadingBar),
       headerFade: resolveSitePreference(siteLayout, "headerFade", own.headerFade),

@@ -19,6 +19,7 @@ export const SITE_PREFERENCES = [
   "fadingTabBar",
   "savedIcon",
   "sheetStyle",
+  "activeTab",
   "tableLines",
   "loadingBar",
   "headerFade",

@@ -86,6 +86,11 @@
 .search-chip:hover { background: var(--bungalow-color-surface-strong); }
 .search-chip[aria-selected="true"],
 .search-chip[aria-pressed="true"] { background: var(--bungalow-color-ink); color: var(--bungalow-color-canvas); }
+/* The selected tab (and picked filter chip) is accented unless the visitor (or site) keeps the old look (base.css, "Selected tab"). */
+:root:not([data-active-tab="contrast"]) .search-chip:is([aria-selected="true"], [aria-pressed="true"]) {
+  background: var(--bungalow-color-primary);
+  color: var(--bungalow-color-primary-contrast);
+}
 .search-chip:focus-visible { outline: none; box-shadow: var(--bungalow-focus-ring); }
 
 .search-art {

@@ -722,3 +722,26 @@ body {
 @keyframes skeleton-pulse {
   50% { opacity: 0.55; }
 }
+
+/* ── Selected tab ─────────────────────────────────────────────────────────────
+   The tab you are on is the accent colour with its foreground (--bungalow-color-primary /
+   -primary-contrast). data-active-tab="contrast" (ShellSettings.activeTab, a site preference)
+   keeps the old look: the foreground colour on the background colour. Chip tabs
+   (.search-chip) follow it in search.css; theme engines with tabs of their own keep theirs. */
+.bungalow-button--solid[role="tab"][aria-selected="true"],
+.app-bundle-header__tabs > [role="tab"][aria-selected="true"] {
+  --button-color: var(--bungalow-color-primary);
+  --button-contrast: var(--bungalow-color-primary-contrast);
+}
+.app-bundle-header__tabs > [role="tab"] {
+  background: var(--bungalow-color-surface);
+  color: var(--bungalow-color-muted);
+}
+.app-bundle-header__tabs > [role="tab"][aria-selected="true"] {
+  background: var(--button-color);
+  color: var(--button-contrast);
+}
+:root[data-active-tab="contrast"] :is(.bungalow-button--solid, .app-bundle-header__tabs > *)[role="tab"][aria-selected="true"] {
+  --button-color: var(--bungalow-color-ink);
+  --button-contrast: var(--bungalow-color-canvas);
+}
