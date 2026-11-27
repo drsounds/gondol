@@ -59,13 +59,11 @@
 }
 .playlist-hero.hero-header--image .playlist-hero__back,
 .playlist-hero.hero-header--image .playlist-hero__kind,
-.playlist-hero.hero-header--image .playlist-hero__description,
 .playlist-hero.hero-header--image .playlist-hero__meta { color: rgb(255 255 255 / 0.85); }
 /* Faded out, the texts end up on the page: back to its own colours. */
 .playlist-hero.hero-header--image.hero-header--fade { color: inherit; }
 .playlist-hero.hero-header--image.hero-header--fade .hero-header__layer::after { display: none; }
 .playlist-hero.hero-header--image.hero-header--fade .playlist-hero__kind,
-.playlist-hero.hero-header--image.hero-header--fade .playlist-hero__description,
 .playlist-hero.hero-header--image.hero-header--fade .playlist-hero__meta { color: color-mix(in srgb, var(--bungalow-color-ink) 78%, transparent); }
 .playlist-hero--preview { margin: 0; padding: 0; }
 .playlist-hero--preview.hero-header--image { min-height: 12rem; padding: var(--bungalow-space-3); }
@@ -82,7 +80,6 @@
   text-transform: uppercase;
 }
 .playlist-hero__title { font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.1; margin: 0; overflow-wrap: anywhere; }
-.playlist-hero__description { color: var(--bungalow-color-muted); font-size: 0.875rem; margin: 0; white-space: pre-line; }
 .playlist-hero__meta { color: var(--bungalow-color-muted); font-size: 0.75rem; }
 .playlist-hero__actions { display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); }
 .entity-preview .playlist-hero__title { font-size: 1.5rem; }

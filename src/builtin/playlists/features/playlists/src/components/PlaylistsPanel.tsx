@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EntityPicker } from "../../../../../../entities/EntityPicker";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { ActionMenu, type MenuAction } from "../../../../../../entities/ActionMenu";
+import { AboutCard } from "../../../../../../entities/AboutCard";
 import { EntityArt } from "../../../../../../entities/EntityArt";
 import { EntitySheet } from "../../../../../../entities/EntitySheet";
 import { FormActions } from "../../../../../../entities/FormActions";
@@ -235,12 +236,12 @@ function useDeletePlaylist(onDone: () => void) {
   });
 }
 
-/** The banner at the top of a playlist (and of its sheet's preview): header image, image, texts. On
+/** The banner at the top of a playlist (and of its sheet's preview): header image, image, title (its
+ * description is in the About card at the bottom of the page). On
  * the playlist's own page it is a HeroHeader with the visitor's header settings (fade, tint, parallax),
  * running edge to edge with the way back on top. */
 function PlaylistHero({
   title,
-  description,
   count,
   covers,
   uri,
@@ -250,7 +251,6 @@ function PlaylistHero({
   preview,
 }: {
   title: string;
-  description: string | null;
   count: number;
   covers: { header: string | null; image: string | null };
   uri?: string;
@@ -289,7 +289,6 @@ function PlaylistHero({
             {badge ? <span className="search-badge">{badge}</span> : null}
           </span>
           <h2 className="playlist-hero__title">{title || t("form.namePlaceholder")}</h2>
-          {description ? <p className="playlist-hero__description">{description}</p> : null}
           <span className="playlist-hero__meta">{t("playlists.itemCountValue", { count })}</span>
         </div>
         {actions ? <div className="playlist-hero__actions">{actions}</div> : null}
@@ -400,11 +399,20 @@ function PlaylistSheet({
           <PlaylistHero
             preview
             title={draft.name}
-            description={draft.description.trim() || null}
             count={itemCount}
             covers={{ header: srcFor("header_image"), image: srcFor("square_cover_image") }}
             uri={playlist ? toEntityUri("playlist", playlist.id) : undefined}
           />
+          {draft.description.trim() ? (
+            <AboutCard
+              type="playlist"
+              title={draft.name}
+              image={srcFor("header_image") ?? srcFor("square_cover_image")}
+              uri={playlist ? toEntityUri("playlist", playlist.id) : undefined}
+            >
+              {draft.description.trim()}
+            </AboutCard>
+          ) : null}
           <dl className="entity-preview__meta">
             <div>
               <dt>{t("visibility.label")}</dt>
@@ -967,7 +975,6 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
           <PlaylistHero
             back={{ label: t("playlists.title"), onClick: () => go("/playlists") }}
             title={playlist.name}
-            description={playlist.description}
             count={items.length}
             covers={coverSrc(covers)}
             uri={readOnly ? undefined : toEntityUri("playlist", playlist.id)}
@@ -1127,6 +1134,16 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
               {t("playlists.dropHint")} <span className="playlist-keys-hint">{t("playlists.keysHint", { copy: formatShortcut("Mod+C"), cut: formatShortcut("Mod+X"), paste: formatShortcut("Mod+V"), undo: formatShortcut("Mod+Z") })}</span>
             </p>
           )}
+          {playlist.description?.trim() ? (
+            <AboutCard
+              type="playlist"
+              title={playlist.name}
+              image={covers.header_image?.src ?? covers.square_cover_image?.src ?? null}
+              uri={readOnly ? undefined : toEntityUri("playlist", playlist.id)}
+            >
+              {playlist.description.trim()}
+            </AboutCard>
+          ) : null}
         </div>
       </Card>
 
