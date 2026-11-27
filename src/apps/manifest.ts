@@ -156,7 +156,7 @@ export const manifestEntitySchema = z
     edit: keyTemplate.optional().meta({ description: "The row's edit sheet, e.g. `/ideas/{key}/edit`." }),
     plural: z.string().optional().meta({ description: "The plural segment of its shelf sub-view, when adding -s is wrong (media)." }),
     sheet: z.boolean().optional().meta({ description: "Opens in a sheet the app owns rather than a route (registerEntitySheetOpener)." }),
-    art: z.object({ iconName, hue: z.number().min(0).max(360) }).strict().optional(),
+    art: z.object({ iconName, hue: z.number().min(0).max(360), shape: z.enum(["square", "round"]).optional() }).strict().optional(),
     source: manifestEntitySourceSchema.optional(),
   })
   .strict();

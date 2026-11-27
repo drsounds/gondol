@@ -223,8 +223,15 @@ export const ENTITY_ART: Record<EntityType, EntityArtStyle> = {
   note: { icon: "document", hue: 212 },
   notebook: { icon: "folder-open", hue: 48 },
   tag: { icon: "like", hue: 330 },
+  author: { icon: "user", hue: 18, shape: "round" },
 };
 ```
+
+`shape: "round"` crops a type's art (cover image and generated tile alike) to a circle, like
+Spotify's artists: use it for person-like types (people, profiles, alter egos, agents). Every
+`EntityArt` then draws it round, in rows, cards, pickers, share sheets and entity pages. In a
+manifest it's `"art": { "iconName": "user", "hue": 18, "shape": "round" }`. For art you draw
+yourself (an `<img>` of your own), ask `isRoundEntityType(type)` and round it the same way.
 
 `<EntityArt type="note" title={note.title} size="sm" uri={uri} />` renders the tile: the glyph at
 `sm`, the title's initial with a small glyph badge at `md` and `lg`, or the entity's cover image

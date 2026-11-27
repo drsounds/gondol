@@ -496,6 +496,13 @@
                 "type": "number",
                 "minimum": 0,
                 "maximum": 360
+              },
+              "shape": {
+                "type": "string",
+                "enum": [
+                  "square",
+                  "round"
+                ]
               }
             },
             "required": [

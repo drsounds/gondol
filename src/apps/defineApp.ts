@@ -99,7 +99,7 @@ function entityContribution(type: string, entity: ManifestEntity, codeSource: En
       ...(entity.plural ? { plural: entity.plural } : {}),
     },
     source: codeSource ?? (entity.source ? sourceFromManifest(entity.source) : undefined),
-    art: entity.art ? { icon: entity.art.iconName as IconName, hue: entity.art.hue } : undefined,
+    art: entity.art ? { icon: entity.art.iconName as IconName, hue: entity.art.hue, shape: entity.art.shape } : undefined,
     sheet: entity.sheet,
   };
 }
