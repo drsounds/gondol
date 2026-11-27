@@ -5,12 +5,14 @@ import { useSitePreferenceLock } from "../sites/preferences";
 import { SAVED_ICON_STYLES, SavedIcon, isSavedIconStyle } from "./savedIcon";
 import { DEFAULT_HEADER_TINT } from "../shell/HeroHeader";
 import {
+  ACTIVE_TAB_STYLES,
   DESKTOP_LAYOUTS,
   HEADER_TINTS,
   MENU_STYLES,
   PLAYER_VISIBILITIES,
   SHEET_STYLES,
   useUserTheme,
+  type ActiveTabStyle,
   type DesktopLayout,
   type HeaderTint,
   type MenuStyle,
@@ -39,6 +41,7 @@ export function ShellSettings() {
     menuStyle: !!useSitePreferenceLock("menuStyle"),
     savedIcon: !!useSitePreferenceLock("savedIcon"),
     sheetStyle: !!useSitePreferenceLock("sheetStyle"),
+    activeTab: !!useSitePreferenceLock("activeTab"),
     tableLines: !!useSitePreferenceLock("tableLines"),
     loadingBar: !!useSitePreferenceLock("loadingBar"),
     headerFade: !!useSitePreferenceLock("headerFade"),
@@ -159,6 +162,18 @@ export function ShellSettings() {
         ))}
       </Select>
       <SiteLockHint preference="sheetStyle" />
+      <Select
+        label={t("appearance.activeTab")}
+        hint={t("appearance.activeTab.hint")}
+        value={preferences.activeTab ?? "accent"}
+        disabled={locked.activeTab}
+        onChange={(e) => update({ activeTab: e.target.value as ActiveTabStyle })}
+      >
+        {ACTIVE_TAB_STYLES.map((option) => (
+          <option key={option} value={option}>{t(`appearance.activeTab.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="activeTab" />
       <div className="bungalow-field">
         <label className="bungalow-check">
           <input

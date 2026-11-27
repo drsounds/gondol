@@ -104,10 +104,7 @@ export function AppFeatureNav({
                   fontWeight: isSelected ? 600 : 500,
                   border: "none",
                   cursor: "pointer",
-                  background: isSelected
-                    ? "var(--bungalow-color-primary, #6366f1)"
-                    : "rgba(255, 255, 255, 0.05)",
-                  color: isSelected ? "#ffffff" : "var(--bungalow-text-secondary, #cbd5e1)",
+                  // Colours: "Selected tab" in styles/base.css.
                   transition: "all 0.15s ease",
                   whiteSpace: "nowrap",
                 }}
