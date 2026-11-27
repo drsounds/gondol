@@ -271,6 +271,7 @@
     "./design-system/bungalow-79d923/design-system/bungalow": "./src/design-system/bungalow-79d923/design-system/bungalow/index.ts",
     "./design-system/bungalow-79d923/design-system/bungalow/lib/utils": "./src/design-system/bungalow-79d923/design-system/bungalow/lib/utils.ts",
     "./design-system/bungalow-79d923": "./src/design-system/bungalow-79d923/index.ts",
+    "./entities/AboutCard": "./src/entities/AboutCard.tsx",
     "./entities/ActionMenu": "./src/entities/ActionMenu.tsx",
     "./entities/EntityArt": "./src/entities/EntityArt.tsx",
     "./entities/EntityPicker": "./src/entities/EntityPicker.tsx",
