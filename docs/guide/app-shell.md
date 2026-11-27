@@ -202,7 +202,8 @@ Moving to another page renders it at once; nothing waits for its data.
   visitor's header settings, each an Account and site preference: `headerFade` (its backdrop fades
   out towards the bottom), `headerTint` (`off`, `image`: a colour node-vibrant takes from the header
   image, or `color`: `headerTintColor`) drawn from the top of the page and fading out over a quarter
-  of the viewport below the header, and `headerParallax` (the backdrop scrolls slower than the page;
+  of the viewport below the header; a colour the entity's editor picked, read through `uri` from
+  mediaHost's `useEntityTint`, wins over both), and `headerParallax` (the backdrop scrolls slower than the page;
   off with reduced motion). Style a header's background on `.hero-header__layer` so fade and parallax
   apply to it.
 - **About card.** An entity's page never shows its description under the title in the header: when it

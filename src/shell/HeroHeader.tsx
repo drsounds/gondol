@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import { useOptionalUserTheme } from "../theme/userTheme";
+import { mediaHost } from "../media/host";
 
 /** The tint's colour when the visitor (or the site) picked none, and an image gives none. */
 export const DEFAULT_HEADER_TINT = "#5b6bd2";
@@ -109,6 +110,10 @@ export interface HeroHeaderProps extends HTMLAttributes<HTMLElement> {
   image?: string | null;
   /** Where the tint's colour comes from when it isn't `image` (a cover, say). */
   tintImage?: string | null;
+  /** The entity the header is for: the tint colour its editor picked (mediaHost's useEntityTint) wins over the image's. */
+  uri?: string | null;
+  /** A tint colour of the entity's own (#rrggbb), when it isn't read through `uri`. */
+  tintColor?: string | null;
   /** Leave the visitor's header settings out (a preview in an edit sheet). */
   plain?: boolean;
   children?: ReactNode;
@@ -119,7 +124,8 @@ export interface HeroHeaderProps extends HTMLAttributes<HTMLElement> {
  * visitor's header settings (Account › Layout, or the site's; userTheme's headerFade, headerTint,
  * headerTintColor, headerParallax):
  * - its backdrop (`image` and anything styled on `.hero-header__layer`) fades out to the bottom;
- * - a tint, from the image (node-vibrant) or a picked colour, sits behind it from the top of the
+ * - a tint, in the colour the entity's editor picked (`uri`/`tintColor`), else from the image
+ *   (node-vibrant) or the visitor's colour, sits behind it from the top of the
  *   page and fades out to transparent over a quarter of the viewport's height below it (so it shows
  *   through a faded header and runs on under it). It is a sibling positioned against the page, so
  *   the page element must be `position: relative; isolation: isolate` (the `.hero-page` class);
@@ -128,16 +134,19 @@ export interface HeroHeaderProps extends HTMLAttributes<HTMLElement> {
  * Style the header's background on `.hero-header__layer` (not on the header itself) so the fade and
  * the parallax apply to it, and its text above with the usual classes.
  */
-export function HeroHeader({ as: Tag = "header", image, tintImage, plain, className, style, children, ...rest }: HeroHeaderProps) {
+export function HeroHeader({ as: Tag = "header", image, tintImage, uri, tintColor: ownTint, plain, className, style, children, ...rest }: HeroHeaderProps) {
   const theme = useOptionalUserTheme();
   const prefs = plain ? undefined : theme?.preferences;
   const tint = prefs?.headerTint ?? "off";
   const fade = !!prefs?.headerFade;
   const parallax = !!prefs?.headerParallax;
   const picked = prefs?.headerTintColor || DEFAULT_HEADER_TINT;
-  const source = tint === "image" ? (image ?? tintImage ?? null) : null;
+  // The entity's own colour, picked by its editor, wins whenever the tint is on.
+  const entityTint = mediaHost().useEntityTint(uri) ?? ownTint ?? null;
+  const source = tint === "image" && !entityTint ? (image ?? tintImage ?? null) : null;
   const fromImage = useImageColor(source);
-  const tintColor = tint === "color" ? picked : tint === "image" ? (fromImage ?? (source ? null : picked)) : null;
+  const tintColor =
+    tint === "off" ? null : entityTint ?? (tint === "color" ? picked : (fromImage ?? (source ? null : picked)));
   const ref = useRef<HTMLElement | null>(null);
   useParallax(ref, parallax);
   useBleed(ref, !plain);
