@@ -84,6 +84,7 @@ completion and checks in your editor:
 | `staticPaths`, `uuidPaths`, `menuAspects` | Routing facts: static sub-routes that are never a key, path prefixes whose uuids stay uuids, aspects of the app's own menu keys. |
 | `settings` | The app's settings: sections, settings of six types and submenus, each stored per user, workspace or site. See [App settings](./settings.md). |
 | `services` | Third-party services the app uses that store or process personal data: `id`, `name`, `provider`, consent `category`, `countries`, `domains`, `purpose`, `data`, `legalBasis`, `transfer`, `policyUrl` and the cookies or `storage` they set. The [consent app](./consent.md) lists them in the cookie notice and the privacy policy. |
+| `mediaTypes` | Content types the app adds to the host's media library: `kind` (what is stored for a file, `[a-z][a-z0-9_-]*`), `label`, `plural`, `iconName`, `mimeTypes` (exact or `model/*`), `extensions`, `upload`/`link` (default true), `order` and the `feature` it goes with. See [Media content types](./media-types.md). |
 
 Every answer a manifest declares under a feature goes with that feature: when a site doesn't offer
 it (its roles and aspects) or the app is switched off, its nav item, create items and browse tile go
@@ -122,6 +123,7 @@ export default defineApp({
 | `resolutions` | Answers to hooks in code (below). |
 | `entitySources` | Entity sources whose label needs code, replacing the manifest's `source`. |
 | `hooks` | Optional hooks the bundle exposes (`useAppStatus`, or your own). |
+| `mediaPreviews` | Components drawing the files of the manifest's `mediaTypes`, by kind (`MediaPreviewProps`). |
 
 ## Hooks and resolutions
 
@@ -147,7 +149,8 @@ const reports = useResolutions(reportHook).map((a) => a.value);
   addresses, sources, art).
 - `configureGondol({ resolutions })` adds the host's own answers (its core items, always there).
 - gondol's own hooks: `navItemsHook`, `createItemsHook`, `searchBrowseHook`, `entityTypesHook`,
-  `entityExtensionsHook` (covers, tags, likes, restrictions) and `routingHook`.
+  `entityExtensionsHook` (covers, tags, likes, restrictions), `routingHook` and
+  `mediaContentTypesHook` (`gondol/media/contentTypes`, the media library's content types).
 
 ## Registering the apps
 
