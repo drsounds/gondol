@@ -1912,6 +1912,96 @@
         ]
       }
     },
+    "mediaTypes": {
+      "description": "Content types the app adds to the host's media library: images, videos, audio and PDFs are the host's; 3D models, subtitles, fonts, … can be an app's.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "What the library stores for a file of this type (`media.kind`), e.g. `model3d`. Keep it stable.",
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,39}$"
+          },
+          "label": {
+            "description": "The name of one file of this type (\"3D model\").",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "plural": {
+            "description": "The library filter's text (\"3D models\"); `label` when left out.",
+            "type": "object",
+            "properties": {
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "en"
+            ],
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "iconName": {
+            "description": "A glyph of the bungalow icon font (IconName).",
+            "type": "string",
+            "minLength": 1
+          },
+          "mimeTypes": {
+            "description": "MIME types its files have, exact or a family (`model/*`).",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*\\/(\\*|[a-z0-9][a-z0-9!#$&^_.+-]*)$"
+            }
+          },
+          "extensions": {
+            "description": "File extensions without the dot, for files and links whose MIME type says nothing.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_+-]{0,15}$"
+            }
+          },
+          "upload": {
+            "description": "Whether its files can be uploaded (default true).",
+            "type": "boolean"
+          },
+          "link": {
+            "description": "Whether links to its files can be saved (default true).",
+            "type": "boolean"
+          },
+          "order": {
+            "description": "Position in the library's filters and type list (ascending).",
+            "type": "number"
+          },
+          "feature": {
+            "description": "The feature it goes with: a site that doesn't offer that feature doesn't get the type.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][\\w.-]*$"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "iconName"
+        ],
+        "additionalProperties": false
+      }
+    },
     "api": {
       "description": "The app's HTTP API (OpenAPI subset), served by the gondol API gateway.",
       "type": "object",

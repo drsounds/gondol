@@ -4,6 +4,7 @@ import { appSettingsSchema } from "../settings/schema";
 import { settingsProblems } from "../settings/tree";
 import { appApiSchema } from "../api/openapi";
 import { appFunctionsSchema, appMcpSchema } from "../api/functions";
+import { MEDIA_EXTENSION_PATTERN, MEDIA_KIND_PATTERN, MEDIA_MIME_PATTERN } from "../media/kinds";
 
 /**
  * The schema of an app's `manifest.json`: everything an app declares about itself as data, checked
@@ -212,6 +213,38 @@ const runtimeServiceFields = {
   surface: z.string().url().optional().meta({ description: "An http(s) page that runs the service in an iframe (gondol's service protocol, docs/guide/playback.md)." }),
 };
 
+/**
+ * A content type the app adds to the host's media library (../media/contentTypes.ts): what is
+ * stored for its files, its name and icon, and how a file is recognised as one. defineApp's
+ * `mediaPreviews` can attach the component that draws it.
+ */
+export const manifestMediaTypeSchema = z
+  .object({
+    kind: z
+      .string()
+      .regex(MEDIA_KIND_PATTERN, "lower-case letters, digits, - and _, starting with a letter, at most 40 characters")
+      .meta({ description: "What the library stores for a file of this type (`media.kind`), e.g. `model3d`. Keep it stable." }),
+    label: localized.meta({ description: "The name of one file of this type (\"3D model\")." }),
+    plural: localized.optional().meta({ description: "The library filter's text (\"3D models\"); `label` when left out." }),
+    iconName,
+    mimeTypes: z
+      .array(z.string().regex(MEDIA_MIME_PATTERN, "a MIME type such as `model/gltf-binary`, or a family such as `model/*`"))
+      .optional()
+      .meta({ description: "MIME types its files have, exact or a family (`model/*`)." }),
+    extensions: z
+      .array(z.string().regex(MEDIA_EXTENSION_PATTERN, "an extension without the dot, lower case, e.g. `glb`"))
+      .optional()
+      .meta({ description: "File extensions without the dot, for files and links whose MIME type says nothing." }),
+    upload: z.boolean().optional().meta({ description: "Whether its files can be uploaded (default true)." }),
+    link: z.boolean().optional().meta({ description: "Whether links to its files can be saved (default true)." }),
+    order: z.number().optional().meta({ description: "Position in the library's filters and type list (ascending)." }),
+    feature: id.optional().meta({ description: "The feature it goes with: a site that doesn't offer that feature doesn't get the type." }),
+  })
+  .strict()
+  .refine((type) => (type.mimeTypes?.length ?? 0) + (type.extensions?.length ?? 0) > 0, {
+    message: "needs at least one MIME type or extension",
+  });
+
 /** A service used for privacy reporting, runtime capabilities, or both. */
 export const manifestServiceSchema = z.union([
   z.object({ ...serviceIdentity, ...privacyServiceFields }).strict(),
@@ -250,6 +283,10 @@ export const appManifestSchema = z
       .array(manifestServiceSchema)
       .optional()
       .meta({ description: "Third-party services the app uses that store or process personal data, for cookie consent and the privacy policy." }),
+    mediaTypes: z
+      .array(manifestMediaTypeSchema)
+      .optional()
+      .meta({ description: "Content types the app adds to the host's media library: images, videos, audio and PDFs are the host's; 3D models, subtitles, fonts, … can be an app's." }),
     api: appApiSchema.optional(),
     functions: appFunctionsSchema.optional(),
     mcp: appMcpSchema.optional(),
@@ -287,6 +324,12 @@ export const appManifestSchema = z
       if (services.has(service.id)) ctx.addIssue({ code: "custom", path: ["services", index, "id"], message: `duplicate service id "${service.id}"` });
       services.add(service.id);
     }
+    const mediaKinds = new Set<string>();
+    for (const [index, type] of (manifest.mediaTypes ?? []).entries()) {
+      if (mediaKinds.has(type.kind)) ctx.addIssue({ code: "custom", path: ["mediaTypes", index, "kind"], message: `duplicate media kind "${type.kind}"` });
+      mediaKinds.add(type.kind);
+      if (type.feature && !features.has(type.feature)) ctx.addIssue({ code: "custom", path: ["mediaTypes", index, "feature"], message: `no feature "${type.feature}"` });
+    }
     if (manifest.dependencies.includes(manifest.id)) {
       ctx.addIssue({ code: "custom", path: ["dependencies"], message: "an app can't depend on itself" });
     }
@@ -309,6 +352,7 @@ export type ManifestNavItem = z.infer<typeof manifestNavItemSchema>;
 export type ManifestEntity = z.infer<typeof manifestEntitySchema>;
 export type ManifestEntitySource = z.infer<typeof manifestEntitySourceSchema>;
 export type ManifestService = z.infer<typeof manifestServiceSchema>;
+export type ManifestMediaTypeEntry = z.infer<typeof manifestMediaTypeSchema>;
 
 /** Validates a manifest.json, throwing an error that names the app and every problem. */
 export function parseManifest(json: unknown): AppManifest {

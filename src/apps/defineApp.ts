@@ -24,6 +24,7 @@ import type {
 import type { EntitySource } from "../entities/lookup";
 import type { Concept, ServiceDefinition } from "../services/concept";
 import { createSurfaceService } from "../playback/surfaceService";
+import { mediaContentTypeResolutions, type MediaPreviewProps } from "../media/contentTypes";
 import type { EntityType, MessageKey } from "../register";
 
 /**
@@ -61,6 +62,8 @@ export interface AppDefinition {
   services?: Record<string, ServiceDefinition["create"]>;
   /** What the app does when it comes on and goes off, beyond its services (services/concept.ts). */
   concept?: Concept;
+  /** Components drawing the files of the manifest's `mediaTypes`, by kind (media/contentTypes.ts); lazyWidget keeps them out of the first load. */
+  mediaPreviews?: Record<string, ComponentType<MediaPreviewProps>>;
 }
 
 /** `/ideas/{key}/edit` -> key => `/ideas/<key>/edit`. */
@@ -107,7 +110,7 @@ function entityContribution(type: string, entity: ManifestEntity, codeSource: En
 /**
  * Builds an app from its manifest.json and code: validates the manifest, makes every feature's page
  * lazy, turns the manifest's actions into palette actions and its declarations (navigation items,
- * create items, browse tiles, entity types, routing facts) into answers to the shell's hooks. The
+ * create items, browse tiles, entity types, media content types, routing facts) into answers to the shell's hooks. The
  * app's index.ts default-exports the result, which the build picks up (gondol/vite/apps.mjs).
  */
 export function defineApp(definition: AppDefinition): InternalAppBundle {
@@ -224,6 +227,7 @@ export function defineApp(definition: AppDefinition): InternalAppBundle {
       }));
     }
   }
+  resolutions.push(...mediaContentTypeResolutions(manifest.id, manifest.mediaTypes, definition.mediaPreviews));
   if (manifest.staticPaths || manifest.uuidPaths || manifest.menuAspects) {
     resolutions.push(answer(routingHook, { staticPaths: manifest.staticPaths, uuidPaths: manifest.uuidPaths, menuAspects: manifest.menuAspects }));
   }
