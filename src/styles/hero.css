@@ -1,6 +1,6 @@
 /* Page headers (shell/HeroHeader.tsx): a backdrop layer under the header's content that the visitor's
    settings fade out (headerFade) and move with the scroll (headerParallax), and a tint behind it all
-   (headerTint) from the top of the page that fades out over a quarter of the viewport below it. */
+   (headerTint) at 25 % from the top of the page, fading out linearly to a quarter of the viewport below it. */
 
 /* The page a HeroHeader sits in: the tint is positioned against it and painted under its content. */
 .hero-page { isolation: isolate; position: relative; }
@@ -49,8 +49,8 @@
 .hero-header--fade.hero-header--image { text-shadow: 0 1px 1.25rem var(--bungalow-color-canvas); }
 
 .hero-header__tint {
-  --hero-tint-strong: color-mix(in srgb, var(--hero-tint) 72%, transparent);
-  background: linear-gradient(180deg, var(--hero-tint-strong) 0, var(--hero-tint-strong) var(--hero-height, 0px), transparent 100%);
+  /* A quarter of the colour at the top, fading evenly (one plain linear ramp) to nothing at the bottom. */
+  background: linear-gradient(180deg, color-mix(in srgb, var(--hero-tint) 25%, transparent), transparent);
   height: calc(var(--hero-height, 0px) + 25vh);
   inset: 0 0 auto;
   pointer-events: none;
