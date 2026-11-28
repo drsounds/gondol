@@ -107,3 +107,37 @@
 @media (max-width: 40rem) {
   .entity-view__hero-main { align-items: flex-start; gap: var(--bungalow-space-4); }
 }
+/* The entity's description in the header (vertical layout, phones only; entityHeaderSettings.ts). */
+.entity-view__hero-description { display: none; }
+@media (max-width: 40rem) {
+  /* Vertical layout: the art large and centred, 80 % of the view's width, the name and the
+     description under it, aligned to the start. */
+  .entity-view__hero--vertical .entity-view__hero-main { align-items: stretch; flex-direction: column; }
+  .entity-view__hero--vertical .entity-view__art { align-self: center; width: 80vw; }
+  .entity-view__hero--vertical .entity-view__art :is(.search-art, .entity-art) { aspect-ratio: 1; height: auto; width: 100%; }
+  .entity-view__hero--vertical .entity-view__art .search-art__initial { font-size: 8rem; }
+  .entity-view__hero--vertical .entity-view__text { align-items: flex-start; text-align: start; }
+  .entity-view__hero--vertical .entity-view__title { font-size: clamp(1.75rem, 8vw, 2.5rem); }
+  .entity-view__hero--vertical .entity-view__hero-description { display: block; width: 100%; }
+  /* …and the page's own description under the toolbar goes, as it is in the header. */
+  .entity-view__hero--vertical ~ .entity-description { display: none; }
+  /* Related subjects ("auto"): entries at the bottom of the page instead of a byline. */
+  .entity-view--subjects-auto .entity-view__byline { display: none; }
+}
+@media (min-width: 40.0625rem) {
+  .entity-view--subjects-auto .entity-view__subject-shelves { display: none; }
+}
+/* Header settings per entity type (EntityHeaderTypesField). */
+.entity-header-types__row {
+  align-items: end;
+  border-top: 1px solid var(--bungalow-color-line, color-mix(in srgb, currentColor 12%, transparent));
+  display: grid;
+  gap: var(--bungalow-space-2);
+  grid-template-columns: minmax(7rem, 1fr) minmax(0, 2fr) minmax(0, 2fr) auto;
+  padding-top: var(--bungalow-space-2);
+}
+.entity-header-types__type { align-self: center; font-weight: 600; }
+@media (max-width: 40rem) {
+  .entity-header-types__row { grid-template-columns: 1fr auto; }
+  .entity-header-types__row > .bungalow-field, .entity-header-types__row > label { grid-column: 1 / -1; }
+}

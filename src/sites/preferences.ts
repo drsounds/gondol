@@ -28,6 +28,9 @@ export const SITE_PREFERENCES = [
   "headerTint",
   "headerTintColor",
   "headerParallax",
+  "headerLayout",
+  "headerSubjects",
+  "entityHeaders",
   "highContrast",
   "hideSoftDeletedEntities",
   "hideFutureEntities",
@@ -39,11 +42,16 @@ const LEGACY_LOCKED: readonly SitePreference[] = ["desktopLayout", "layoutStyle"
 
 const BOOLEAN_PREFERENCES: readonly SitePreference[] = ["sidebarLibrary", "darkTabBar", "darkFrame", "fadingTabBar", "tableLines", "loadingBar", "menuFade", "staggeredTransitions", "headerFade", "headerParallax", "highContrast", "hideSoftDeletedEntities", "hideFutureEntities", "developerMode"];
 
+/** Preferences whose value is an object (per entity type). */
+const OBJECT_PREFERENCES: readonly SitePreference[] = ["entityHeaders"];
+
 /** The value a site sets for a preference, or undefined when it leaves it to the visitor. */
 export function sitePreferenceValue<K extends SitePreference>(layout: SiteLayout | null | undefined, key: K): SiteLayout[K] | undefined {
   const value = layout?.[key];
   if (value == null || value === "") return undefined;
-  if (BOOLEAN_PREFERENCES.includes(key) ? typeof value !== "boolean" : typeof value !== "string") return undefined;
+  if (OBJECT_PREFERENCES.includes(key)) {
+    if (typeof value !== "object" || Array.isArray(value) || Object.keys(value as object).length === 0) return undefined;
+  } else if (BOOLEAN_PREFERENCES.includes(key) ? typeof value !== "boolean" : typeof value !== "string") return undefined;
   return value;
 }
 

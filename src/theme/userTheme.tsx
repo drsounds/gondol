@@ -1,3 +1,4 @@
+import type { EntityHeaderTypes, HeaderLayout, HeaderSubjects } from "../entities/entityHeaderSettings";
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
 import { installMenuFade } from "../shell/menuFade";
@@ -226,6 +227,12 @@ export interface ShellSettings {
   headerTintColor?: string;
   /** Page header images scroll slower than the page (parallax). Unset follows the site's default, else off. */
   headerParallax?: boolean;
+  /** Entity page headers (entities/entityHeaderSettings.ts). Unset follows the site's default, else "standard". */
+  headerLayout?: HeaderLayout;
+  /** Where a thing's related subjects go. Unset follows the site's default, else "auto". */
+  headerSubjects?: HeaderSubjects;
+  /** Header layout and related subjects per entity type, over the two above. */
+  entityHeaders?: EntityHeaderTypes;
 }
 
 /**
@@ -923,6 +930,9 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       headerTint: resolveSitePreference(siteLayout, "headerTint", own.headerTint),
       headerTintColor: resolveSitePreference(siteLayout, "headerTintColor", own.headerTintColor),
       headerParallax: resolveSitePreference(siteLayout, "headerParallax", own.headerParallax),
+      headerLayout: resolveSitePreference(siteLayout, "headerLayout", own.headerLayout),
+      headerSubjects: resolveSitePreference(siteLayout, "headerSubjects", own.headerSubjects),
+      entityHeaders: resolveSitePreference(siteLayout, "entityHeaders", own.entityHeaders),
       highContrast: resolveSitePreference(siteLayout, "highContrast", own.highContrast),
       // The accent is the theme's (see effectiveAccent), carried here for the attributes.
       accentForeground: effectiveAccent === "foreground",

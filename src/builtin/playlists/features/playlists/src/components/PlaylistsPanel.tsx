@@ -302,7 +302,7 @@ function PlaylistPageHeader({
   readOnly,
   onBack,
 }: {
-  playlist: { id: string; name: string };
+  playlist: { id: string; name: string; description?: string | null };
   count: number;
   covers: { header: string | null; image: string | null };
   readOnly: boolean;
@@ -316,6 +316,7 @@ function PlaylistPageHeader({
       uri={uri}
       image={covers.header}
       tintImage={covers.image}
+      description={playlist.description?.trim() ? <EntityDescription>{playlist.description.trim()}</EntityDescription> : null}
       back={
         <button type="button" className="link-button entity-view__back" onClick={onBack}>
           ‹ {t("playlists.title")}
