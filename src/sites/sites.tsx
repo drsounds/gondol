@@ -67,6 +67,10 @@ export interface SiteLayout {
   tableLines?: boolean;
   /** The loading bar along the top for page loads (writes always show it). */
   loadingBar?: boolean;
+  /** Desktop menus fade in, and out like Windows 2000. */
+  menuFade?: boolean;
+  /** Views, entries and list rows come and go one after another. */
+  staggeredTransitions?: boolean;
   /** Page headers fade out towards their bottom (HeroHeader). */
   headerFade?: boolean;
   /** The tint behind page headers: none, from the header's image or headerTintColor. */

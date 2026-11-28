@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "@tanstack/react-router";
+import { installMenuFade } from "../shell/menuFade";
+import { installStaggeredTransitions } from "../shell/staggeredTransitions";
 import { useUserThemeSync } from "./useUserThemeSync";
 import { setForcedTheme, useTheme, type Theme } from "./theme";
 import { accentColorVars, useAccentColor } from "./accentColor";
@@ -211,6 +213,11 @@ export interface ShellSettings {
   tableLines?: boolean;
   /** The loading bar along the top while pages load. Off unless set; saving, changing and deleting always show it. */
   loadingBar?: boolean;
+  /** Desktop menus fade in, and out like Windows 2000 (shell/menuFade.ts). Unset follows the site's default, else off. */
+  menuFade?: boolean;
+  /** A view's parts and list rows come and go one after another (shell/staggeredTransitions.ts). Unset follows the
+   * site's default, else the old theme switch `staggeredEntries`, else off. */
+  staggeredTransitions?: boolean;
   /** Page headers (HeroHeader) fade to transparent towards their bottom. Unset follows the site's default, else off. */
   headerFade?: boolean;
   /** A tint behind page headers that fades out over the top quarter of the viewport. Unset follows the site's default, else off. */
@@ -623,6 +630,8 @@ function shellAttributesFor(shell: ShellSettings | null | undefined, engine: The
     "data-sheet-style": shell?.sheetStyle === "page" ? "page" : null,
     "data-active-tab": shell?.activeTab === "contrast" ? "contrast" : null,
     "data-table-lines": shell?.tableLines ? "" : null,
+    "data-menu-fade": shell?.menuFade ? "" : null,
+    "data-staggered-entries": shell?.staggeredTransitions ? "" : null,
   };
 }
 
@@ -639,7 +648,6 @@ function attributesFor(theme: UserTheme, shell: Record<string, string | null> = 
     "data-progress-color": theme.progressBarColor && theme.progressBarColor !== "default" ? theme.progressBarColor : null,
     "data-winui-classic": theme.fontFamily === "winui-classic" ? "" : null,
     "data-hide-borders": theme.hideBorders ? "" : null,
-    "data-staggered-entries": theme.staggeredEntries ? "" : null,
     "data-theme-engine": theme.engine ?? null,
     "data-aero-ambient": theme.engine === "aero" && theme.aero?.ambient !== false ? "" : null,
     "data-aero-glass": theme.engine === "aero" && theme.aero?.glass !== false ? "" : null,
@@ -908,6 +916,9 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       activeTab: resolveSitePreference(siteLayout, "activeTab", own.activeTab),
       tableLines: resolveSitePreference(siteLayout, "tableLines", own.tableLines),
       loadingBar: resolveSitePreference(siteLayout, "loadingBar", own.loadingBar),
+      menuFade: resolveSitePreference(siteLayout, "menuFade", own.menuFade),
+      // Before it was a preference this was a theme switch (Appearance › "Animate list entries").
+      staggeredTransitions: resolveSitePreference(siteLayout, "staggeredTransitions", own.staggeredTransitions ?? userTheme.staggeredEntries),
       headerFade: resolveSitePreference(siteLayout, "headerFade", own.headerFade),
       headerTint: resolveSitePreference(siteLayout, "headerTint", own.headerTint),
       headerTintColor: resolveSitePreference(siteLayout, "headerTintColor", own.headerTintColor),
@@ -918,8 +929,24 @@ export function UserThemeProvider({ children }: { children: ReactNode }) {
       hideSoftDeletedEntities: resolveSitePreference(siteLayout, "hideSoftDeletedEntities", userTheme.hideSoftDeletedEntities),
       hideFutureEntities: resolveSitePreference(siteLayout, "hideFutureEntities", userTheme.hideFutureEntities),
     };
-  }, [ownShell, userTheme.hideSoftDeletedEntities, userTheme.hideFutureEntities, siteLayout, effectiveAccent]);
+  }, [ownShell, userTheme.hideSoftDeletedEntities, userTheme.hideFutureEntities, userTheme.staggeredEntries, siteLayout, effectiveAccent]);
   const shell = preferences;
+
+  // Menus fading in and out, and views and lists coming and going part by part.
+  const menuFade = !!preferences.menuFade;
+  const staggered = !!preferences.staggeredTransitions;
+  useEffect(() => (menuFade ? installMenuFade() : undefined), [menuFade]);
+  useEffect(
+    () =>
+      staggered
+        ? installStaggeredTransitions((handler) =>
+            router.subscribe("onBeforeNavigate", ({ fromLocation, toLocation }) => {
+              if (fromLocation) handler({ fromPath: fromLocation.pathname, toPath: toLocation.pathname });
+            }),
+          )
+        : undefined,
+    [staggered, router],
+  );
 
   useEffect(() => {
     if (!hydrated) return;

@@ -14,6 +14,7 @@ import { useSiteShows } from "../sites/sites";
 import { useEntityLifecycle } from "./lifecycle";
 import { showToast } from "../shell/clipboard";
 import { actionCapability, useSiteOffers, type Capability } from "../sites/capabilities";
+import { useBackDismiss } from "../shell/backDismiss";
 
 /**
  * One menu item. `roles`/`aspects` say which sites offer it (sites/capabilities.ts); untagged items
@@ -186,6 +187,9 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
     },
     [close],
   );
+
+  // On phones Back (the browser's, or Android's back button) closes the menu sheet instead of leaving the page.
+  const backDismiss = useBackDismiss(open?.align === "sheet", () => close());
 
   // Don't leave a dangling closer behind if the row unmounts while its menu is open.
   useEffect(() => () => {
@@ -455,6 +459,13 @@ export function ActionMenu({ actions, name, uri, row = true, showSoftDeleted = f
       disabled={item.disabled}
       onClick={(event) => {
         event.stopPropagation();
+        if (open?.align === "sheet") {
+          // Take the sheet's history entry off first, so an item that navigates isn't undone by it.
+          const released = backDismiss.release();
+          close(true);
+          void released.then(() => item.onSelect());
+          return;
+        }
         close(true);
         item.onSelect();
       }}

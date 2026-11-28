@@ -362,14 +362,6 @@ export function AppearanceSettings() {
         />
         <span>{t("appearance.viewTransitions")}</span>
       </label>
-      <label className="bungalow-check">
-        <input
-          type="checkbox"
-          checked={!!userTheme.staggeredEntries}
-          onChange={(e) => updateUserTheme({ staggeredEntries: e.target.checked })}
-        />
-        <span>{t("appearance.staggeredEntries")}</span>
-      </label>
 
       {saveCurrentTheme || savedThemes.length > 0 ? (
       <div className="bungalow-field">
