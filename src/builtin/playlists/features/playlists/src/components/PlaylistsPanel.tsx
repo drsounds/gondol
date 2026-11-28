@@ -45,6 +45,7 @@ import { useEntityModal } from "../../../../../../navigation/useEntityModal";
 import { entityKey, findByEntityKey } from "../../../../../../entities/slugs";
 import { EmptyState } from "../../../../../../shell/EmptyState";
 import { HeroHeader } from "../../../../../../shell/HeroHeader";
+import { EntityHeader, EntityHeaderType, EntityPlayButton, EntityToolbar } from "../../../../../../entities/EntityHeader";
 import { SkeletonHeader, SkeletonRows } from "../../../../../../shell/Skeleton";
 import { useSiteShows } from "../../../../../../sites/sites";
 import { playback } from "../../../../../../playback/coordinator";
@@ -236,18 +237,14 @@ function useDeletePlaylist(onDone: () => void) {
   });
 }
 
-/** The banner at the top of a playlist (and of its sheet's preview): header image, image, title (its
- * description goes under it, EntityDescription). On
- * the playlist's own page it is a HeroHeader with the visitor's header settings (fade, tint, parallax),
- * running edge to edge with the way back on top. */
+/** The banner in a playlist sheet's preview: header image, image, title (its description goes under
+ * it, EntityDescription). The playlist's own page uses PlaylistPageHeader, the generic entity header. */
 function PlaylistHero({
   title,
   count,
   covers,
   uri,
   badge,
-  actions,
-  back,
   preview,
 }: {
   title: string;
@@ -255,8 +252,6 @@ function PlaylistHero({
   covers: { header: string | null; image: string | null };
   uri?: string;
   badge?: string;
-  actions?: ReactNode;
-  back?: { label: string; onClick: () => void };
   preview?: boolean;
 }) {
   const { t } = useI18n();
@@ -269,11 +264,6 @@ function PlaylistHero({
       uri={uri}
       className={preview ? "playlist-hero playlist-hero--preview" : "playlist-hero"}
     >
-      {back ? (
-        <button type="button" className="link-button playlist-hero__back" onClick={back.onClick}>
-          ‹ {back.label}
-        </button>
-      ) : null}
       <div className="playlist-hero__body">
         {covers.image ? (
           <span className="search-art search-art--lg search-art--cover playlist-hero__art" aria-hidden="true">
@@ -292,7 +282,6 @@ function PlaylistHero({
           <h2 className="playlist-hero__title">{title || t("form.namePlaceholder")}</h2>
           <span className="playlist-hero__meta">{t("playlists.itemCountValue", { count })}</span>
         </div>
-        {actions ? <div className="playlist-hero__actions">{actions}</div> : null}
       </div>
     </HeroHeader>
   );
@@ -302,6 +291,52 @@ const coverSrc = (covers: EntityCovers) => ({
   header: covers.header_image?.src ?? null,
   image: covers.square_cover_image?.src ?? null,
 });
+
+/** The top of a playlist's own page: the same entity header as every other entity page
+ * (EntityHeader: fade, tint and parallax from the visitor's settings), with the way back to the
+ * playlists on top, its image, type, name and number of items. */
+function PlaylistPageHeader({
+  playlist,
+  count,
+  covers,
+  readOnly,
+  onBack,
+}: {
+  playlist: { id: string; name: string };
+  count: number;
+  covers: { header: string | null; image: string | null };
+  readOnly: boolean;
+  onBack: () => void;
+}) {
+  const { t } = useI18n();
+  const uri = toEntityUri("playlist", playlist.id);
+  const title = playlist.name || t("form.namePlaceholder");
+  return (
+    <EntityHeader
+      uri={uri}
+      image={covers.header}
+      tintImage={covers.image}
+      back={
+        <button type="button" className="link-button entity-view__back" onClick={onBack}>
+          ‹ {t("playlists.title")}
+        </button>
+      }
+      art={
+        covers.image ? (
+          <span className="search-art search-art--lg search-art--cover" aria-hidden="true">
+            <img src={covers.image} alt="" loading="lazy" referrerPolicy="no-referrer" />
+          </span>
+        ) : (
+          <EntityArt type="playlist" title={title} size="lg" uri={uri} />
+        )
+      }
+    >
+      <EntityHeaderType badge={readOnly ? t("visibility.public") : undefined}>{t("entity.playlist")}</EntityHeaderType>
+      <h1 className="entity-view__title">{title}</h1>
+      <span className="entity-view__meta">{t("playlists.itemCountValue", { count })}</span>
+    </EntityHeader>
+  );
+}
 
 function PlaylistSheet({
   playlist,
@@ -964,56 +999,43 @@ function PlaylistDetail({ playlistKey, onOpenUri }: { playlistKey: string; onOpe
     <>
       <Card className="playlist-page hero-page">
         <div className="stack" ref={rootRef}>
-          <PlaylistHero
-            back={{ label: t("playlists.title"), onClick: () => go("/playlists") }}
-            title={playlist.name}
+          <PlaylistPageHeader
+            playlist={playlist}
             count={items.length}
             covers={coverSrc(covers)}
-            uri={readOnly ? undefined : toEntityUri("playlist", playlist.id)}
-            badge={readOnly ? t("visibility.public") : undefined}
+            readOnly={readOnly}
+            onBack={() => go("/playlists")}
+          />
+          <EntityToolbar
+            uri={toEntityUri("playlist", playlist.id)}
+            name={playlist.name}
+            primary={
+              <EntityPlayButton
+                label={t("playlists.playAll")}
+                disabled={items.length === 0}
+                onClick={() => void playFrom()}
+                data-tour="playlist-play"
+              />
+            }
             actions={
-              <>
-                <Button
-                  size="sm"
-                  tone="primary"
-                  disabled={items.length === 0}
-                  onClick={() => void playFrom()}
-                  title={t("playlists.playAll")}
-                  data-tour="playlist-play"
-                >
-                  <Icon name="play" /> {t("playback.play")}
-                </Button>
-                {readOnly ? null : (
-                <>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!history.canUndo}
-                    onClick={() => void travel("undo")}
-                    title={`${undoTitle} (${formatShortcut("Mod+Z")})`}
-                    aria-label={undoTitle}
-                  >
-                    {t("playlists.undo")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={!history.canRedo}
-                    onClick={() => void travel("redo")}
-                    title={`${redoTitle} (${formatShortcut("Mod+Shift+Z")})`}
-                    aria-label={redoTitle}
-                  >
-                    {t("playlists.redo")}
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => go(`/playlists/${entityKey(playlist)}/edit`)}>
-                    {t("actions.edit")}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={itemModal.openNew}>
-                    {t("playlists.addItem")}
-                  </Button>
-                </>
-                )}
-              </>
+              readOnly
+                ? []
+                : [
+                    { key: "edit", label: t("actions.edit"), onSelect: () => go(`/playlists/${entityKey(playlist)}/edit`) },
+                    { key: "add-item", label: t("playlists.addItem"), onSelect: itemModal.openNew },
+                    {
+                      key: "undo",
+                      label: `${undoTitle} (${formatShortcut("Mod+Z")})`,
+                      disabled: !history.canUndo,
+                      onSelect: () => void travel("undo"),
+                    },
+                    {
+                      key: "redo",
+                      label: `${redoTitle} (${formatShortcut("Mod+Shift+Z")})`,
+                      disabled: !history.canRedo,
+                      onSelect: () => void travel("redo"),
+                    },
+                  ]
             }
           />
           {playlist.description?.trim() ? <EntityDescription>{playlist.description.trim()}</EntityDescription> : null}

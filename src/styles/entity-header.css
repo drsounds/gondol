@@ -1,0 +1,109 @@
+/* The header and toolbar at the top of every entity page (entities/EntityHeader.tsx): the generic
+   entity view, playlists, releases, … */
+/* The hero (EntityHeader, a HeroHeader): edge to edge over the page's padding, the way back on
+   top, then the art and the texts; over the entity's header image when it has one. */
+.entity-view__hero { display: flex; flex-direction: column; gap: var(--bungalow-space-4); }
+.entity-view__hero.hero-header--bleed { padding-top: var(--hero-bleed-top, 0px); }
+.entity-view__hero-main { align-items: flex-end; display: flex; gap: var(--bungalow-space-5); margin-top: auto; }
+.entity-view__hero.hero-header--image {
+  color: #fff;
+  justify-content: space-between;
+  min-height: clamp(18rem, 32vw, 24rem);
+  padding-bottom: var(--bungalow-space-5);
+}
+.entity-view__hero.hero-header--image .hero-header__layer::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+.entity-view__hero.hero-header--image .hero-header__layer::after {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.3) 0%, transparent 30%, rgb(0 0 0 / 0.65) 100%);
+}
+.entity-view__hero.hero-header--image :is(.entity-view__type, .muted, .entity-section__back, .entity-view__website, .subject-byline, .subject-byline a) {
+  color: rgb(255 255 255 / 0.85);
+}
+/* Faded out, the texts end up on the page: back to its own colours. */
+.entity-view__hero.hero-header--image.hero-header--fade { color: inherit; }
+.entity-view__hero.hero-header--fade .hero-header__layer::after { display: none; }
+.entity-view__hero.hero-header--image.hero-header--fade :is(.entity-view__type, .muted, .entity-view__website, .subject-byline) {
+  color: color-mix(in srgb, var(--bungalow-color-ink) 78%, transparent);
+}
+.entity-view__hero.hero-header--image.hero-header--fade .entity-section__back { color: inherit; }
+.entity-view__text { display: flex; flex-direction: column; gap: var(--bungalow-space-2); min-width: 0; }
+.entity-view__type {
+  color: var(--bungalow-color-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.entity-view__title {
+  font-size: clamp(2.25rem, 7vw, 5.5rem);
+  font-weight: 800;
+  line-height: 1;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.entity-view__actions { align-items: center; display: flex; gap: var(--bungalow-space-4); }
+.entity-view__like {
+  background: none;
+  border: 0;
+  color: var(--bungalow-color-muted);
+  cursor: pointer;
+  font-size: 2.25rem;
+  line-height: 1;
+  padding: 0;
+}
+.entity-view__like:hover { color: var(--bungalow-color-ink); }
+.entity-view__like[aria-pressed="true"] { color: var(--bungalow-color-primary); }
+.entity-view__more .action-menu-trigger {
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  color: var(--bungalow-color-muted);
+  height: 2.5rem;
+  width: 2.5rem;
+}
+.entity-view__more .action-menu-trigger:hover { color: var(--bungalow-color-ink); }
+.entity-view__share {
+  align-items: center;
+  background: none;
+  border: 0;
+  color: var(--bungalow-color-muted);
+  cursor: pointer;
+  display: inline-flex;
+  height: 2.5rem;
+  justify-content: center;
+  padding: 0;
+  width: 2.5rem;
+}
+.entity-view__share svg { height: 1.75rem; width: 1.75rem; }
+.entity-view__share:hover:not(:disabled) { color: var(--bungalow-color-ink); }
+.entity-view__share:disabled { cursor: default; opacity: 0.4; }
+.entity-view__hero .search-badge { margin-left: var(--bungalow-space-2); }
+.entity-view__meta { color: var(--bungalow-color-muted); font-size: 0.875rem; }
+.entity-view__hero.hero-header--image :is(.entity-view__meta, .entity-view__back) { color: rgb(255 255 255 / 0.85); }
+.entity-view__hero.hero-header--image.hero-header--fade :is(.entity-view__meta, .entity-view__back) { color: inherit; }
+.entity-view__back { align-self: flex-start; }
+/* The round play button leading the toolbar (EntityPlayButton). */
+.entity-view__play {
+  align-items: center;
+  background: var(--bungalow-color-primary);
+  border: 0;
+  border-radius: 50%;
+  color: var(--bungalow-color-primary-contrast);
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  height: 3.5rem;
+  justify-content: center;
+  padding: 0;
+  transition: transform 120ms ease;
+  width: 3.5rem;
+}
+.entity-view__play svg { height: 1.6rem; margin-left: 0.15rem; width: 1.6rem; }
+.entity-view__play:hover:not(:disabled) { transform: scale(1.04); }
+.entity-view__play:disabled { cursor: default; opacity: 0.4; }
+.entity-view__extra { align-items: center; display: flex; flex-wrap: wrap; gap: var(--bungalow-space-2); margin-left: auto; }
+@media (max-width: 40rem) {
+  .entity-view__hero-main { align-items: flex-start; gap: var(--bungalow-space-4); }
+}
