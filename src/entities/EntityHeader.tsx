@@ -5,6 +5,8 @@ import { SavedIcon } from "../theme/savedIcon";
 import { ActionMenu, type MenuAction } from "./ActionMenu";
 import { entityExtensions } from "./extensions";
 import { ShareButton } from "./ShareSheet";
+import type { ResolvedEntityHeader } from "./entityHeaderSettings";
+import { useEntityHeaderSettings } from "./useEntityHeaderSettings";
 
 /**
  * The header at the top of an entity's own page, the same on every type (the generic entity view,
@@ -12,6 +14,12 @@ import { ShareButton } from "./ShareSheet";
  * running edge to edge over the page, with the way back on top (`back`), then the entity's art and
  * its texts (`children`: the type, the title, a byline). Put it first in a `.hero-page`, and the
  * toolbar (`<EntityToolbar/>`) right under it.
+ *
+ * Its layout follows the header settings for the entity (useEntityHeaderSettings(): the visitor's
+ * and the site's, per entity type, and the entity's own), or `settings` when the page resolved them
+ * already. In the vertical layout phones show the art large and centred with the texts and
+ * `description` under it (its own description under the toolbar, an `.entity-description`, is hidden there);
+ * the entity's editor can hide the art while there is a header image.
  */
 export function EntityHeader({
   uri,
@@ -20,6 +28,8 @@ export function EntityHeader({
   tintImage,
   back,
   className,
+  description,
+  settings,
   children,
 }: {
   /** The entity, for its own tint colour. */
@@ -31,19 +41,25 @@ export function EntityHeader({
   tintImage?: string | null;
   back?: ReactNode;
   className?: string;
+  /** The entity's description, shown under its name on phones in the vertical layout. */
+  description?: ReactNode;
+  /** The header settings in effect, when the page resolved them already. */
+  settings?: ResolvedEntityHeader;
   children: ReactNode;
 }) {
+  const resolved = useEntityHeaderSettings(uri);
+  const { layout, hideArt } = settings ?? resolved;
+  const showArt = !(hideArt && image);
+  const classes = ["entity-view__hero", `entity-view__hero--${layout}`, showArt ? null : "entity-view__hero--no-art", className].filter(Boolean).join(" ");
   return (
-    <HeroHeader
-      uri={uri}
-      className={className ? `entity-view__hero ${className}` : "entity-view__hero"}
-      image={image ?? null}
-      tintImage={tintImage ?? null}
-    >
+    <HeroHeader uri={uri} className={classes} image={image ?? null} tintImage={tintImage ?? null}>
       {back}
       <div className="entity-view__hero-main">
-        <div className="entity-view__art">{art}</div>
-        <div className="entity-view__text">{children}</div>
+        {showArt ? <div className="entity-view__art">{art}</div> : null}
+        <div className="entity-view__text">
+          {children}
+          {layout === "vertical" && description ? <div className="entity-view__hero-description">{description}</div> : null}
+        </div>
       </div>
     </HeroHeader>
   );

@@ -1,3 +1,4 @@
+import type { EntityHeaderOverride } from "../entities/entityHeaderSettings";
 import type { ComponentType } from "react";
 import { defineHook, resolutionsOf } from "../apps/contributions";
 
@@ -46,6 +47,8 @@ export interface MediaHost {
   };
   /** The tint colour the entity's editor picked for its page header (#rrggbb), or null for none. */
   useEntityTint(uri: string | null | undefined): string | null;
+  /** What the entity's editor set for its page header (layout, related subjects, hiding the art), or null. */
+  useEntityHeaderOverride(uri: string | null | undefined): EntityHeaderOverride | null;
   /** The address a stored file is served from (null while it can't be shown). */
   mediaSrc(file: MediaFileLocation): string | null;
   /** A grid of the user's images to pick one from (uploading one on the spot, where the host can). */
@@ -73,6 +76,7 @@ const DEFAULTS: MediaHost = {
   useEntityCovers: () => NO_COVERS,
   useSetEntityCovers: () => NOTHING_TO_SET,
   useEntityTint: () => null,
+  useEntityHeaderOverride: () => null,
   mediaSrc: (file) => (file.source === "link" ? file.url : null),
 };
 

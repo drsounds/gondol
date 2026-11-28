@@ -4,6 +4,8 @@ import { SiteLockHint } from "../sites/SiteLockHint";
 import { useSitePreferenceLock } from "../sites/preferences";
 import { SAVED_ICON_STYLES, SavedIcon, isSavedIconStyle } from "./savedIcon";
 import { DEFAULT_HEADER_TINT } from "../shell/HeroHeader";
+import { EntityHeaderTypesField } from "../entities/EntityHeaderTypesField";
+import { HEADER_LAYOUTS, HEADER_SUBJECTS, type HeaderLayout, type HeaderSubjects } from "../entities/entityHeaderSettings";
 import {
   ACTIVE_TAB_STYLES,
   DESKTOP_LAYOUTS,
@@ -50,6 +52,9 @@ export function ShellSettings() {
     headerTint: !!useSitePreferenceLock("headerTint"),
     headerTintColor: !!useSitePreferenceLock("headerTintColor"),
     headerParallax: !!useSitePreferenceLock("headerParallax"),
+    headerLayout: !!useSitePreferenceLock("headerLayout"),
+    headerSubjects: !!useSitePreferenceLock("headerSubjects"),
+    entityHeaders: !!useSitePreferenceLock("entityHeaders"),
     hideSoftDeletedEntities: !!useSitePreferenceLock("hideSoftDeletedEntities"),
     hideFutureEntities: !!useSitePreferenceLock("hideFutureEntities"),
   };
@@ -280,6 +285,35 @@ export function ShellSettings() {
           <SiteLockHint preference="headerTintColor" />
         </div>
       ) : null}
+      <Select
+        label={t("appearance.headerLayout")}
+        hint={t("appearance.headerLayout.hint")}
+        value={preferences.headerLayout ?? "standard"}
+        disabled={locked.headerLayout}
+        onChange={(e) => update({ headerLayout: e.target.value as HeaderLayout })}
+      >
+        {HEADER_LAYOUTS.map((option) => (
+          <option key={option} value={option}>{t(`appearance.headerLayout.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="headerLayout" />
+      <Select
+        label={t("appearance.headerSubjects")}
+        value={preferences.headerSubjects ?? "auto"}
+        disabled={locked.headerSubjects}
+        onChange={(e) => update({ headerSubjects: e.target.value as HeaderSubjects })}
+      >
+        {HEADER_SUBJECTS.map((option) => (
+          <option key={option} value={option}>{t(`appearance.headerSubjects.${option}` as MessageKey)}</option>
+        ))}
+      </Select>
+      <SiteLockHint preference="headerSubjects" />
+      <EntityHeaderTypesField
+        value={locked.entityHeaders ? preferences.entityHeaders : shell.entityHeaders}
+        disabled={locked.entityHeaders}
+        onChange={(entityHeaders) => update({ entityHeaders })}
+      />
+      <SiteLockHint preference="entityHeaders" />
       <div className="bungalow-field">
         <span className="bungalow-label" id="saved-icon-label">{t("appearance.savedIcon")}</span>
         <div className="saved-icon-choice" role="radiogroup" aria-labelledby="saved-icon-label">

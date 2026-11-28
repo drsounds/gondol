@@ -6,6 +6,7 @@ import { entityExtensions } from "../entities/extensions";
 import { namespaced } from "../shell/storage";
 import { entityEditPath, entityViewPath, parseEntityUri, toEntityUri, type EntityType } from "../entities/uri";
 import { faviconUrlFor } from "../apps/external";
+import type { EntityHeaderTypes, HeaderLayout, HeaderSubjects } from "../entities/entityHeaderSettings";
 import { featureCapability, getInternalApp, getInternalApps } from "../apps/registry";
 import type { AppFeature, InternalAppBundle } from "../apps/types";
 import type { SavedIconStyle } from "../theme/savedIcon";
@@ -79,6 +80,12 @@ export interface SiteLayout {
   headerTintColor?: string;
   /** Parallax scrolling of page header images. */
   headerParallax?: boolean;
+  /** Entity page headers: the art beside the texts, or (on phones) large and centred above them. */
+  headerLayout?: HeaderLayout;
+  /** Where a thing's related subjects go: a byline under its name, entries at the bottom, or both by screen size. */
+  headerSubjects?: HeaderSubjects;
+  /** Header layout and related subjects per entity type, over headerLayout/headerSubjects. */
+  entityHeaders?: EntityHeaderTypes;
   /** The preferences visitors can't change here. Unset: see isSitePreferenceLocked(). */
   locked?: SitePreference[];
   /** Where "/" goes: an app's path such as "/wiki", or "/" for the usual home view. */
