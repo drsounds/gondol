@@ -44,6 +44,8 @@ export function ShellSettings() {
     activeTab: !!useSitePreferenceLock("activeTab"),
     tableLines: !!useSitePreferenceLock("tableLines"),
     loadingBar: !!useSitePreferenceLock("loadingBar"),
+    menuFade: !!useSitePreferenceLock("menuFade"),
+    staggeredTransitions: !!useSitePreferenceLock("staggeredTransitions"),
     headerFade: !!useSitePreferenceLock("headerFade"),
     headerTint: !!useSitePreferenceLock("headerTint"),
     headerTintColor: !!useSitePreferenceLock("headerTintColor"),
@@ -198,6 +200,31 @@ export function ShellSettings() {
         </label>
         <p className="muted">{t("appearance.loadingBar.hint")}</p>
         <SiteLockHint preference="loadingBar" />
+      </div>
+      <div className="bungalow-field">
+        <span className="bungalow-label">{t("appearance.motion")}</span>
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.menuFade}
+            disabled={locked.menuFade}
+            onChange={(e) => update({ menuFade: e.target.checked })}
+          />
+          <span>{t("appearance.menuFade")}</span>
+        </label>
+        <span className="bungalow-help">{t("appearance.menuFade.hint")}</span>
+        <SiteLockHint preference="menuFade" />
+        <label className="bungalow-check">
+          <input
+            type="checkbox"
+            checked={!!preferences.staggeredTransitions}
+            disabled={locked.staggeredTransitions}
+            onChange={(e) => update({ staggeredTransitions: e.target.checked })}
+          />
+          <span>{t("appearance.staggeredTransitions")}</span>
+        </label>
+        <span className="bungalow-help">{t("appearance.staggeredTransitions.hint")}</span>
+        <SiteLockHint preference="staggeredTransitions" />
       </div>
       <div className="bungalow-field">
         <span className="bungalow-label">{t("appearance.headers")}</span>
